@@ -120,3 +120,31 @@ To safely allow clients (mobile app, web PWA, Telegram bot) to retry failed netw
 1. **Client Event IDs**: All mutations (logging a meal, updating scale weight) must include a unique `client_event_id`.
 2. **Upsert Semantics**: Scale weight logs for the same date overwrite the previous raw weight entry for that date rather than appending duplicate rows.
 3. **Double-Count Protection**: Resent requests dropped by network timeouts are safely ignored if the server already processed their `client_event_id`.
+
+---
+
+## 6. API Endpoint Specification (`/v1`)
+
+### 🔐 Authentication & Administration
+* `GET /v1/auth/me` — Retrieve profile settings, BMR, baseline activity, and target parameters for the authenticated user.
+* `PATCH /v1/auth/me` — Update profile settings (height, DOB, sex, target loss/gain rate, macro ratios).
+* `POST /v1/admin/keys` — Provision new user API key *(Requires `X-Master-Key`)*.
+* `GET /v1/admin/keys` — List all provisioned API keys *(Requires `X-Master-Key`)*.
+* `DELETE /v1/admin/keys/{key_id}` — Revoke API key *(Requires `X-Master-Key`)*.
+
+### 🥗 Food & Meal Logging
+* `POST /v1/food/interpret` — Raw text/voice input $\rightarrow$ Gemini NLP parsing $\rightarrow$ Macro calculation $\rightarrow$ Log meal event.
+* `POST /v1/food/meals` — Log structured meal event *(Requires `client_event_id`)*.
+* `GET /v1/food/meals?date=YYYY-MM-DD` — List meals logged on a given date.
+* `PUT /v1/food/meals/{meal_id}` — Update an existing meal.
+* `DELETE /v1/food/meals/{meal_id}` — Delete a meal.
+
+### ⚖️ Scale Weight Tracking
+* `POST /v1/weight` — Log or upsert daily scale weight *(Requires `client_event_id`)*.
+* `GET /v1/weight?start_date=...&end_date=...` — Retrieve weight history & trend values.
+* `DELETE /v1/weight/{date}` — Remove scale weight log for a given date.
+
+### 📊 Dashboard & Analytics
+* `GET /v1/dashboard/summary?date=YYYY-MM-DD` — Daily summary (Total calories, macros breakdown, current Trend Weight, live TDEE, target calorie budget).
+* `GET /v1/dashboard/trends?days=30` — Historical trend array for charts (`date`, `raw_weight`, `trend_weight`, `logged_calories`, `tdee`).
+
