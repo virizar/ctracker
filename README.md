@@ -1,6 +1,6 @@
 # Calorie & TDEE Tracker API (`ctracker_api`)
 
-A lightweight, self-hosted calorie and weight tracking API inspired by data_export. It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation engine, decoupled Gemini AI frontend tool integration, and an offline-resilient outbox architecture.
+A lightweight, self-hosted calorie and weight tracking API inspired by data_export. It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation engine, decoupled Gemini AI frontend tool integration, and an offline-resilient outbox architecture. Managed modernly using `uv`.
 
 ---
 
@@ -38,13 +38,17 @@ A lightweight, self-hosted calorie and weight tracking API inspired by data_expo
    │  ├── Idempotency Filter (processed_events)             │
    │  ├── TDEE Engine (Time-decay EMA & density gate)       │
    │  └── Food Catalog & Search (/v1/food/search)           │
-   └────────────────────────────────────────────────────────┘
+   └──────────────────────────┬─────────────────────────────┘
+                              │ Managed by `uv`
+                              ▼
+                        pyproject.toml / uv.lock
 ```
 
 ---
 
 ## 🛠️ Tech Stack
 
+* **Package Manager**: `uv` (`pyproject.toml` + `uv.lock`)
 * **Framework**: Python 3.10+ / FastAPI
 * **Database**: SQLite with SQLAlchemy / SQLModel
 * **Data Validation**: Pydantic v2
@@ -63,11 +67,10 @@ A lightweight, self-hosted calorie and weight tracking API inspired by data_expo
 
 ## 🚀 Quickstart Development Setup
 
-### 1. Clone & Environment Setup
+### 1. Environment & Dependency Sync (`uv`)
 ```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+# Fast environment creation and dependency sync
+uv sync
 ```
 
 ### 2. Configure Environment Variables
@@ -82,9 +85,14 @@ DEFAULT_USER_SEX=male
 
 ### 3. Run API Server
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 Visit API docs at `http://localhost:8000/docs`.
+
+### 4. Run Tests
+```bash
+uv run pytest
+```
 
 ---
 
