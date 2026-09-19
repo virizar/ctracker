@@ -1,13 +1,13 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.db.session import engine, Base, SessionLocal
+from app.db.session import engine, Base, SessionLocal, init_fts5_and_db
 from app.db.models import UserProfile, APIKey
 from app.config import settings
 from app.api.v1 import admin, auth, weight, food, dashboard
 
-# Create database tables
-Base.metadata.create_all(bind=engine)
+# Initialize tables, FTS5 virtual table, and triggers
+init_fts5_and_db()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,7 +41,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Calorie & TDEE Tracker API",
     version="1.0.0",
-    description="Self-hosted calorie tracking API with dynamic TDEE estimation and Gemini AI meal parsing.",
+    description="Self-hosted calorie tracking API with dynamic TDEE estimation.",
     lifespan=lifespan
 )
 

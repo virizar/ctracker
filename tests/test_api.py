@@ -124,8 +124,8 @@ def test_batch_meal_logging_and_catalog_search():
     assert items[0]["canonical_name"] == "Pancake, homemade"
     assert items[1]["canonical_name"] == "Butter, salted"
 
-    # Verify search endpoint
-    search_res = client.get("/v1/food/search?q=pancake", headers=HEADERS)
+    # Verify search endpoint with FTS5 token search
+    search_res = client.get("/v1/food/search?q=pancakes", headers=HEADERS)
     assert search_res.status_code == 200
     catalog = search_res.json()
     assert len(catalog) > 0

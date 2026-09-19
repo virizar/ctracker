@@ -191,4 +191,27 @@ All algorithm constants and defaults are centralized:
 * `DAYS_PER_MONTH = 30.4375` (Average days per month)
 * `DEFAULT_MIN_DAILY_CALORIES = 1500.0` (Safety floor default)
 
+---
+
+## 8. SQLite WAL Mode & FTS5 Search Architecture
+
+### A. WAL Mode (Write-Ahead Logging)
+To prevent `database is locked` errors during concurrent API reads and writes across Cloudflare Tunnels:
+* Connection initialization executes:
+  `PRAGMA journal_mode=WAL;`
+  `PRAGMA synchronous=NORMAL;`
+* **Benefits**: Non-blocking concurrent reads while background writes/TDEE calculations occur.
+
+---
+
+### B. SQLite FTS5 Full-Text Search Table & Auto-Sync Triggers
+Catalog search utilizes an FTS5 virtual table (`food_catalog_fts`) with **Porter stemmer tokenization** (`porter unicode61`):
+
+* **Capabilities**:
+  * **Stemming**: Querying `"pancakes"` (plural) matches `"Pancake, homemade"`.
+  * **Order-Agnostic**: Querying `"homemade pancake"` matches `"Pancake, homemade"`.
+  * **Relevance & Frequency Ranking**: Results are ranked by **BM25 score** combined with `usage_count` frequency.
+* **Auto-Sync Triggers**: SQLite `AFTER INSERT`, `AFTER UPDATE`, and `AFTER DELETE` triggers keep `food_catalog_fts` synchronized automatically.
+
+
 

@@ -186,9 +186,48 @@ def search_food_catalog(
     user: UserProfile = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    clean_q = q.strip()
+    if not clean_q:
+        return []
+
+    from sqlalchemy import text
+    from app.config import settings
+
+    if "sqlite" in settings.DATABASE_URL:
+        # Build token prefix search e.g. "pancake*"
+        terms = [t.replace('"', '') for t in clean_q.split() if t]
+        fts_query = " ".join([f"{t}*" for t in terms])
+        try:
+            raw_sql = text("""
+                SELECT c.id, c.canonical_name, c.default_unit, c.calories_per_100g, 
+                       c.protein_per_100g, c.carbs_per_100g, c.fat_per_100g, c.usage_count
+                FROM food_catalog c
+                JOIN food_catalog_fts fts ON c.rowid = fts.rowid
+                WHERE fts.username = :u AND food_catalog_fts MATCH :term
+                ORDER BY bm25(food_catalog_fts) ASC, c.usage_count DESC
+                LIMIT 20
+            """)
+            rows = db.execute(raw_sql, {"u": user.username, "term": fts_query}).fetchall()
+            if rows:
+                return [
+                    CatalogItemResponse(
+                        id=r[0],
+                        canonical_name=r[1],
+                        default_unit=r[2],
+                        calories_per_100g=r[3],
+                        protein_per_100g=r[4],
+                        carbs_per_100g=r[5],
+                        fat_per_100g=r[6],
+                        usage_count=r[7]
+                    ) for r in rows
+                ]
+        except Exception:
+            pass
+
+    # Fallback to ilike pattern match
     results = db.query(FoodCatalog).filter(
         FoodCatalog.username == user.username,
-        FoodCatalog.canonical_name.ilike(f"%{q}%")
+        FoodCatalog.canonical_name.ilike(f"%{clean_q}%")
     ).order_by(FoodCatalog.usage_count.desc()).limit(20).all()
 
     return [
