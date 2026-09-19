@@ -4,18 +4,23 @@ This document demonstrates example user chat conversations and the exact API too
 
 ---
 
-## Flow 1: Meal Logging with Confirmation
+## Flow 1: Meal Logging with Search-First Lookup & Confirmation
 
 **User**: *"Ate 5 homemade pancakes, 30g butter, and 2 tbsp strawberry jam"*
 
+**Assistant (Pre-Confirmation Tool Call 1)**:
+`GET /v1/food/search?q=pancake` $\rightarrow$ Returns `"Pancake, homemade"` (from personal catalog)
+`GET /v1/food/search?q=butter` $\rightarrow$ Returns `"Butter, salted"` (from personal catalog)
+`GET /v1/food/search?q=jam` $\rightarrow$ No catalog match (uses AI estimate)
+
 **Assistant**:
-1. Calculates itemized nutrition.
-2. Displays Markdown breakdown table.
+1. Incorporates custom catalog macros for pancakes & butter, AI estimate for jam.
+2. Displays Markdown breakdown table indicating source.
 3. Asks: *"Does this breakdown look accurate to log?"*
 
 **User**: *"Looks good"*
 
-**Assistant (Tool Call 1)**:
+**Assistant (Post-Confirmation Tool Call 2)**:
 `POST /v1/food/meals`
 ```json
 {
@@ -55,7 +60,7 @@ This document demonstrates example user chat conversations and the exact API too
 }
 ```
 
-**Assistant (Tool Call 2)**:
+**Assistant (Post-Confirmation Tool Call 3)**:
 `GET /v1/dashboard/summary?date=2026-09-19`
 
 **Assistant Response**:
