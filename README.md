@@ -1,6 +1,6 @@
 # Calorie & TDEE Tracker API (`ctracker_api`)
 
-A lightweight, self-hosted calorie and weight tracking API inspired by data_export. It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation engine, Gemini-powered natural language meal logging, and an offline-resilient outbox architecture.
+A lightweight, self-hosted calorie and weight tracking API inspired by data_export. It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation engine, decoupled Gemini AI frontend tool integration, and an offline-resilient outbox architecture.
 
 ---
 
@@ -15,7 +15,7 @@ A lightweight, self-hosted calorie and weight tracking API inspired by data_expo
 * **Offline Resilience & Idempotent API**:
   * Outbox queue pattern support for clients (PWA, mobile app, or bot gateway).
   * Unique `client_event_id` idempotency keys prevent duplicate calorie counting or weight entries during network retries across Cloudflare Tunnels.
-* **Gemini AI Integration**: Natural language interface for meal parsing and progress querying.
+* **Decoupled AI Assistant Frontend Integration**: Designed for Gemini Custom Gems & Chat Apps using OpenAPI specs with zero backend LLM API token costs.
 * **Self-Hosted Privacy**: Full ownership of your data stored in SQLite.
 
 ---
@@ -25,19 +25,19 @@ A lightweight, self-hosted calorie and weight tracking API inspired by data_expo
 ```
    ┌────────────────────────────────────────────────────────┐
    │                  Gemini App / Telegram / PWA           │
-   │   • Natural language meal logging                      │
+   │   • Natural language meal parsing & UI confirmation    │
    │   • Weight entry & progress querying                   │
    │   • Offline outbox queue with retry mechanism          │
    └──────────────────────────┬─────────────────────────────┘
-                              │ HTTPS / Cloudflare Tunnel
+                              │ HTTPS / Cloudflare Tunnel (OpenAPI)
                               ▼
    ┌────────────────────────────────────────────────────────┐
    │             `ctracker_api` (FastAPI + SQLite)          │
    │                                                        │
-   │  ├── API Routes (/v1/weight, /v1/food, /v1/tdee)      │
+   │  ├── Pure REST Routes (/v1/weight, /v1/food, /v1/auth) │
    │  ├── Idempotency Filter (processed_events)             │
    │  ├── TDEE Engine (Time-decay EMA & density gate)       │
-   │  └── Food DB Lookup (Open Food Facts / USDA Cache)    │
+   │  └── Food Catalog & Search (/v1/food/search)           │
    └────────────────────────────────────────────────────────┘
 ```
 
@@ -48,7 +48,7 @@ A lightweight, self-hosted calorie and weight tracking API inspired by data_expo
 * **Framework**: Python 3.10+ / FastAPI
 * **Database**: SQLite with SQLAlchemy / SQLModel
 * **Data Validation**: Pydantic v2
-* **TDEE & Trend Calculations**: Custom NumPy / SciPy dynamic EMA engine
+* **TDEE & Trend Calculations**: Custom dynamic EMA engine
 
 ---
 
@@ -74,10 +74,10 @@ pip install -r requirements.txt
 Copy `.env.example` to `.env`:
 ```env
 DATABASE_URL=sqlite:///./ctracker.db
-GEMINI_API_KEY=your_gemini_api_key_here
-USER_DOB=1987-12-07
-USER_HEIGHT_CM=185
-USER_SEX=male
+MASTER_API_KEY=dev_master_key_12345
+DEFAULT_USER_DOB=1987-12-07
+DEFAULT_USER_HEIGHT_CM=185
+DEFAULT_USER_SEX=male
 ```
 
 ### 3. Run API Server

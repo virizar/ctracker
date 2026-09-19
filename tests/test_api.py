@@ -131,11 +131,3 @@ def test_batch_meal_logging_and_catalog_search():
     assert len(catalog) > 0
     assert catalog[0]["canonical_name"] == "Pancake, homemade"
     assert catalog[0]["usage_count"] >= 1
-
-def test_food_interpretation():
-    payload = {"text": "Ate 2 eggs and a slice of toast", "client_event_id": "test_food_456"}
-    res = client.post("/v1/food/interpret", json=payload, headers=HEADERS)
-    assert res.status_code == 200
-    data = res.json()
-    assert "logged_meals" in data
-    assert len(data["logged_meals"]) > 0

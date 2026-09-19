@@ -7,15 +7,9 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.db.models import UserProfile, MealLog, FoodCatalog, ProcessedEvent
 from app.services.auth import get_current_user
-from app.services.gemini import parse_meal_text_with_gemini
 from app.services.tdee import recalculate_user_tdee
 
 router = APIRouter(prefix="/v1/food", tags=["Food & Meals"])
-
-class InterpretTextRequest(BaseModel):
-    text: str = Field(description="Natural language description of meal")
-    date: Optional[str] = Field(default=None, description="Date in YYYY-MM-DD format (defaults to today)")
-    client_event_id: Optional[str] = Field(default=None, description="Idempotency key for offline retries")
 
 class MealCreateRequest(BaseModel):
     date: str = Field(description="Date in YYYY-MM-DD format")
@@ -52,10 +46,6 @@ class MealResponse(BaseModel):
     fat: float
     is_fasted: bool
 
-class InterpretResponse(BaseModel):
-    summary: str
-    logged_meals: List[MealResponse]
-
 class CatalogItemResponse(BaseModel):
     id: str
     canonical_name: str
@@ -87,7 +77,6 @@ def get_or_create_food_catalog(
         catalog.usage_count += 1
         return catalog
 
-    # Calculate per-100g values if serving_weight_g is provided
     c_100 = (calories / serving_weight_g * 100.0) if serving_weight_g and serving_weight_g > 0 else None
     p_100 = (protein / serving_weight_g * 100.0) if serving_weight_g and serving_weight_g > 0 else None
     cb_100 = (carbs / serving_weight_g * 100.0) if serving_weight_g and serving_weight_g > 0 else None
@@ -109,92 +98,12 @@ def get_or_create_food_catalog(
     return catalog
 
 
-@router.post("/interpret", response_model=InterpretResponse)
-async def interpret_and_log_meal(
-    req: InterpretTextRequest,
-    user: UserProfile = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    target_date = req.date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-    # Idempotency Check
-    if req.client_event_id:
-        existing_event = db.query(ProcessedEvent).filter(ProcessedEvent.client_event_id == req.client_event_id).first()
-        if existing_event:
-            meals = db.query(MealLog).filter(MealLog.username == user.username, MealLog.client_event_id == req.client_event_id).all()
-            return InterpretResponse(
-                summary="Retrieved previously processed meal interpretation",
-                logged_meals=[
-                    MealResponse(
-                        id=m.id, date=m.date, time=m.time, food_name=m.food_name,
-                        canonical_name=m.canonical_name, food_catalog_id=m.food_catalog_id,
-                        serving_size=m.serving_size, serving_qty=m.serving_qty,
-                        serving_weight_g=m.serving_weight_g, calories=m.calories,
-                        protein=m.protein, carbs=m.carbs, fat=m.fat, is_fasted=m.is_fasted
-                    ) for m in meals
-                ]
-            )
-
-    parsed = await parse_meal_text_with_gemini(req.text)
-    logged_objs = []
-
-    for item in parsed.foods:
-        c_name = item.food_name
-        catalog_obj = get_or_create_food_catalog(
-            db, user.username, c_name, item.serving_size, item.serving_weight_g,
-            item.calories, item.protein, item.carbs, item.fat
-        )
-
-        meal = MealLog(
-            id=str(uuid.uuid4()),
-            username=user.username,
-            date=target_date,
-            time=datetime.now(timezone.utc).strftime("%I:%M %p"),
-            food_name=item.food_name,
-            canonical_name=c_name,
-            food_catalog_id=catalog_obj.id,
-            serving_size=item.serving_size,
-            serving_qty=item.serving_qty,
-            serving_weight_g=item.serving_weight_g,
-            calories=item.calories,
-            protein=item.protein,
-            carbs=item.carbs,
-            fat=item.fat,
-            client_event_id=req.client_event_id
-        )
-        db.add(meal)
-        logged_objs.append(meal)
-
-    if req.client_event_id:
-        db.add(ProcessedEvent(client_event_id=req.client_event_id, endpoint="/v1/food/interpret"))
-
-    db.commit()
-    for m in logged_objs:
-        db.refresh(m)
-
-    recalculate_user_tdee(db, user.username)
-
-    return InterpretResponse(
-        summary=parsed.summary,
-        logged_meals=[
-            MealResponse(
-                id=m.id, date=m.date, time=m.time, food_name=m.food_name,
-                canonical_name=m.canonical_name, food_catalog_id=m.food_catalog_id,
-                serving_size=m.serving_size, serving_qty=m.serving_qty,
-                serving_weight_g=m.serving_weight_g, calories=m.calories,
-                protein=m.protein, carbs=m.carbs, fat=m.fat, is_fasted=m.is_fasted
-            ) for m in logged_objs
-        ]
-    )
-
-
 @router.post("/meals", response_model=List[MealResponse], status_code=status.HTTP_201_CREATED)
 def create_meals_batch(
     payload: Union[MealCreateRequest, List[MealCreateRequest], BatchMealCreateRequest],
     user: UserProfile = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Normalize input into list of MealCreateRequest and global client_event_id
     items_to_create: List[MealCreateRequest] = []
     global_event_id: Optional[str] = None
 
@@ -208,7 +117,6 @@ def create_meals_batch(
         items_to_create = [payload]
         global_event_id = payload.client_event_id
 
-    # Idempotency check
     if global_event_id:
         existing = db.query(ProcessedEvent).filter(ProcessedEvent.client_event_id == global_event_id).first()
         if existing:
