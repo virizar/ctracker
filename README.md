@@ -55,6 +55,9 @@ A lightweight, self-hosted calorie and weight tracking API inspired by data_expo
 ## 📑 Documentation & Research
 
 * **[KNOWLEDGE.md](./KNOWLEDGE.md)**: Comprehensive technical breakdown of the reverse-engineered TDEE algorithm, mathematical equations, benchmark results against 985 days of data_export export data, and edge-case rules.
+* **[agent/SYSTEM_PROMPT.md](./agent/SYSTEM_PROMPT.md)**: System instructions for configuring your Gemini Custom Gem / ChatGPT Custom GPT.
+* **[agent/OPENAPI_GUIDE.md](./agent/OPENAPI_GUIDE.md)**: Cloudflare Tunnel & OpenAPI tool connection guide.
+* **[agent/COMMAND_FLOWS.md](./agent/COMMAND_FLOWS.md)**: Conversational command flows for meal logging, weight entries, and status updates.
 
 ---
 

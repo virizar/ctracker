@@ -49,6 +49,23 @@ class ScaleWeight(Base):
     __table_args__ = (UniqueConstraint('username', 'date', name='uix_user_weight_date'),)
 
 
+class FoodCatalog(Base):
+    __tablename__ = "food_catalog"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = Column(String, ForeignKey("user_profiles.username"), nullable=False, index=True)
+    canonical_name = Column(String, nullable=False, index=True)
+    default_unit = Column(String, nullable=True, default="serving")
+    calories_per_100g = Column(Float, nullable=True)
+    protein_per_100g = Column(Float, nullable=True)
+    carbs_per_100g = Column(Float, nullable=True)
+    fat_per_100g = Column(Float, nullable=True)
+    usage_count = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint('username', 'canonical_name', name='uix_user_catalog_name'),)
+
+
 class MealLog(Base):
     __tablename__ = "meal_logs"
 
@@ -56,7 +73,9 @@ class MealLog(Base):
     username = Column(String, ForeignKey("user_profiles.username"), nullable=False, index=True)
     date = Column(String, nullable=False, index=True)  # YYYY-MM-DD
     time = Column(String, nullable=True)  # HH:MM AM/PM
-    food_name = Column(String, nullable=False)
+    food_name = Column(String, nullable=False)  # Display / Original text
+    canonical_name = Column(String, nullable=True, index=True)  # Standardized catalog name
+    food_catalog_id = Column(String, ForeignKey("food_catalog.id"), nullable=True)
     serving_size = Column(String, nullable=True)
     serving_qty = Column(Float, default=1.0)
     serving_weight_g = Column(Float, nullable=True)

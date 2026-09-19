@@ -133,10 +133,10 @@ To safely allow clients (mobile app, web PWA, Telegram bot) to retry failed netw
 * `DELETE /v1/admin/keys/{key_id}` — Revoke API key *(Requires `X-Master-Key`)*.
 
 ### 🥗 Food & Meal Logging
-* `POST /v1/food/interpret` — Raw text/voice input $\rightarrow$ Gemini NLP parsing $\rightarrow$ Macro calculation $\rightarrow$ Log meal event.
-* `POST /v1/food/meals` — Log structured meal event *(Requires `client_event_id`)*.
+* `POST /v1/food/meals` — Log single OR batch meal items array *(Supports `canonical_name` auto-linking & `client_event_id`)*.
+* `GET /v1/food/search?q=query` — Search standardized food catalog by usage frequency.
+* `POST /v1/food/interpret` — Raw text/voice input $\rightarrow$ Gemini NLP parsing $\rightarrow$ Macro calculation $\rightarrow$ Log meal events.
 * `GET /v1/food/meals?date=YYYY-MM-DD` — List meals logged on a given date.
-* `PUT /v1/food/meals/{meal_id}` — Update an existing meal.
 * `DELETE /v1/food/meals/{meal_id}` — Delete a meal.
 
 ### ⚖️ Scale Weight Tracking

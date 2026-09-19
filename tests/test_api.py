@@ -90,6 +90,48 @@ def test_idempotent_weight_log():
 
     assert w1 == w2 == 85.5
 
+def test_batch_meal_logging_and_catalog_search():
+    payload = {
+        "client_event_id": "test_batch_food_789",
+        "meals": [
+            {
+                "date": "2026-09-19",
+                "food_name": "5 4-inch homemade pancakes",
+                "canonical_name": "Pancake, homemade",
+                "serving_size": "5 pancakes",
+                "calories": 400.0,
+                "protein": 10.0,
+                "carbs": 65.0,
+                "fat": 8.0
+            },
+            {
+                "date": "2026-09-19",
+                "food_name": "30g butter",
+                "canonical_name": "Butter, salted",
+                "serving_size": "30g",
+                "calories": 215.0,
+                "protein": 0.2,
+                "carbs": 0.0,
+                "fat": 24.0
+            }
+        ]
+    }
+
+    res = client.post("/v1/food/meals", json=payload, headers=HEADERS)
+    assert res.status_code == 201
+    items = res.json()
+    assert len(items) == 2
+    assert items[0]["canonical_name"] == "Pancake, homemade"
+    assert items[1]["canonical_name"] == "Butter, salted"
+
+    # Verify search endpoint
+    search_res = client.get("/v1/food/search?q=pancake", headers=HEADERS)
+    assert search_res.status_code == 200
+    catalog = search_res.json()
+    assert len(catalog) > 0
+    assert catalog[0]["canonical_name"] == "Pancake, homemade"
+    assert catalog[0]["usage_count"] >= 1
+
 def test_food_interpretation():
     payload = {"text": "Ate 2 eggs and a slice of toast", "client_event_id": "test_food_456"}
     res = client.post("/v1/food/interpret", json=payload, headers=HEADERS)
