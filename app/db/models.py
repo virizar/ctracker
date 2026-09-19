@@ -13,7 +13,10 @@ class UserProfile(Base):
     height_cm = Column(Float, nullable=False, default=185.0)
     sex = Column(String, nullable=False, default="male")
     activity_multiplier = Column(Float, nullable=False, default=1.61)
-    target_rate_kg_per_week = Column(Float, nullable=False, default=-0.5)  # Negative for loss, positive for gain
+    target_rate_kg_per_week = Column(Float, nullable=False, default=-0.5)  # Legacy compatibility
+    target_weight_kg = Column(Float, nullable=True)  # Goal weight in kg
+    target_monthly_rate_kg = Column(Float, nullable=False, default=-2.0)  # Goal rate in kg/month
+    min_daily_calories = Column(Float, nullable=False, default=1500.0)  # Safety floor kcal/day
     protein_ratio = Column(Float, nullable=False, default=0.30)
     carbs_ratio = Column(Float, nullable=False, default=0.40)
     fat_ratio = Column(Float, nullable=False, default=0.30)
@@ -88,6 +91,7 @@ class DailySummary(Base):
     trend_weight = Column(Float, nullable=True)
     tdee = Column(Float, nullable=True)
     target_calories = Column(Float, nullable=True)
+    is_rate_capped_by_safety_floor = Column(Boolean, default=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     __table_args__ = (UniqueConstraint('username', 'date', name='uix_user_summary_date'),)

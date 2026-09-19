@@ -1,13 +1,8 @@
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
+from app.config import settings
 from app.db.models import UserProfile, ScaleWeight, MealLog, DailySummary
-
-TAU_W = 14.0  # Weight trend time constant (days)
-TAU_E = 28.0  # Expenditure trend time constant (days)
-WINDOW_DAYS = 14
-MIN_FOOD_LOGGED_DAYS = 5
-FAT_KCAL_PER_KG = 7700.0
 
 def mifflin_st_jeor(weight_kg: float, height_cm: float, age_years: float, sex: str = "male") -> float:
     s = 5.0 if sex.lower() == "male" else -161.0
@@ -49,7 +44,7 @@ def recalculate_user_tdee(db: Session, username: str):
 
     # Create full contiguous date range from earliest to latest (or today)
     start_dt = datetime.strptime(all_dates[0], "%Y-%m-%d")
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     end_dt = max(datetime.strptime(all_dates[-1], "%Y-%m-%d"), datetime.strptime(today_str, "%Y-%m-%d"))
 
     dates_contiguous = []
@@ -76,24 +71,24 @@ def recalculate_user_tdee(db: Session, username: str):
         # Update Trend Weight if raw weight logged
         if dt_str in weight_map:
             delta_days = (dt - last_weight_dt).days
-            alpha_w = 1.0 - math.exp(-delta_days / TAU_W) if delta_days > 0 else 0.1
+            alpha_w = 1.0 - math.exp(-delta_days / settings.TAU_W) if delta_days > 0 else 0.1
             curr_tw = alpha_w * weight_map[dt_str] + (1.0 - alpha_w) * curr_tw
             last_weight_dt = dt
         
         trend_weights[dt_str] = curr_tw
 
         # Update TDEE over rolling window
-        if i >= WINDOW_DAYS:
-            window_dates = dates_contiguous[i - WINDOW_DAYS : i]
+        if i >= settings.WINDOW_DAYS:
+            window_dates = dates_contiguous[i - settings.WINDOW_DAYS : i]
             valid_intakes = [food_days[d]["calories"] for d in window_dates if d in food_days and food_days[d]["has_log"]]
             
-            if len(valid_intakes) >= MIN_FOOD_LOGGED_DAYS:
+            if len(valid_intakes) >= settings.MIN_FOOD_LOGGED_DAYS:
                 avg_intake = sum(valid_intakes) / len(valid_intakes)
-                w_change = trend_weights[dt_str] - trend_weights[dates_contiguous[i - WINDOW_DAYS]]
-                energy_delta = (w_change * FAT_KCAL_PER_KG) / WINDOW_DAYS
+                w_change = trend_weights[dt_str] - trend_weights[dates_contiguous[i - settings.WINDOW_DAYS]]
+                energy_delta = (w_change * settings.FAT_KCAL_PER_KG) / settings.WINDOW_DAYS
                 raw_tdee = avg_intake - energy_delta
                 
-                alpha_e = 1.0 - math.exp(-1.0 / TAU_E)
+                alpha_e = 1.0 - math.exp(-1.0 / settings.TAU_E)
                 curr_tdee = alpha_e * raw_tdee + (1.0 - alpha_e) * curr_tdee
         
         calculated_tdees[dt_str] = curr_tdee
@@ -103,8 +98,8 @@ def recalculate_user_tdee(db: Session, username: str):
         if w_obj.date in trend_weights:
             w_obj.trend_weight = round(trend_weights[w_obj.date], 2)
 
-    # Daily target calories based on target weight rate (-0.5 kg/week -> -550 kcal/day)
-    daily_cal_adjustment = (profile.target_rate_kg_per_week * FAT_KCAL_PER_KG) / 7.0
+    # Daily target calories adjustment based on monthly rate (e.g. -2.0 kg/month -> -506 kcal/day)
+    daily_cal_adjustment = (profile.target_monthly_rate_kg * settings.FAT_KCAL_PER_KG) / settings.DAYS_PER_MONTH
 
     # Upsert DailySummary for all contiguous dates
     for dt_str in dates_contiguous:
@@ -125,6 +120,11 @@ def recalculate_user_tdee(db: Session, username: str):
         summary.raw_weight = weight_map.get(dt_str)
         summary.trend_weight = round(trend_weights[dt_str], 2)
         summary.tdee = round(calculated_tdees[dt_str], 1)
-        summary.target_calories = round(max(1200.0, calculated_tdees[dt_str] + daily_cal_adjustment), 1)
+        
+        raw_target = calculated_tdees[dt_str] + daily_cal_adjustment
+        min_floor = profile.min_daily_calories
+        
+        summary.target_calories = round(max(min_floor, raw_target), 1)
+        summary.is_rate_capped_by_safety_floor = raw_target < min_floor
 
     db.commit()

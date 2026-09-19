@@ -18,24 +18,56 @@ def test_get_user_profile():
     assert data["username"] == "victor"
     assert data["height_cm"] == 185.0
     assert "estimated_bmr" in data
+    assert "target_monthly_rate_kg" in data
+    assert "min_daily_calories" in data
 
-def test_patch_user_profile():
+def test_patch_user_profile_goals():
     response = client.patch(
         "/v1/auth/me",
-        json={"target_rate_kg_per_week": -0.75},
+        json={
+            "target_weight_kg": 85.0,
+            "target_monthly_rate_kg": -2.5,
+            "min_daily_calories": 1600.0
+        },
         headers=HEADERS
     )
     assert response.status_code == 200
     data = response.json()
-    assert data["target_rate_kg_per_week"] == -0.75
+    assert data["target_weight_kg"] == 85.0
+    assert data["target_monthly_rate_kg"] == -2.5
+    assert data["min_daily_calories"] == 1600.0
 
-def test_dashboard_summary():
+def test_safety_floor_enforcement():
+    # Set an extreme negative monthly rate (-10 kg/month) to force safety floor cap
+    res = client.patch(
+        "/v1/auth/me",
+        json={"target_monthly_rate_kg": -10.0, "min_daily_calories": 1600.0},
+        headers=HEADERS
+    )
+    assert res.status_code == 200
+
+    summary_res = client.get("/v1/dashboard/summary?date=2026-09-17", headers=HEADERS)
+    assert summary_res.status_code == 200
+    summary = summary_res.json()
+    assert summary["target_calories"] == 1600.0
+    assert summary["is_rate_capped_by_safety_floor"] is True
+
+    # Revert to realistic -2.0 kg/month
+    client.patch(
+        "/v1/auth/me",
+        json={"target_monthly_rate_kg": -2.0, "target_weight_kg": 85.0, "min_daily_calories": 1500.0},
+        headers=HEADERS
+    )
+
+def test_dashboard_summary_and_projections():
     response = client.get("/v1/dashboard/summary?date=2026-09-17", headers=HEADERS)
     assert response.status_code == 200
     data = response.json()
     assert data["date"] == "2026-09-17"
-    assert "trend_weight" in data
-    assert "tdee" in data
+    assert data["target_weight_kg"] == 85.0
+    assert data["target_monthly_rate_kg"] == -2.0
+    assert "projected_date_target_rate" in data
+    assert "projected_date_actual_rate" in data
 
 def test_dashboard_trends():
     response = client.get("/v1/dashboard/trends?days=14", headers=HEADERS)

@@ -145,6 +145,50 @@ To safely allow clients (mobile app, web PWA, Telegram bot) to retry failed netw
 * `DELETE /v1/weight/{date}` — Remove scale weight log for a given date.
 
 ### 📊 Dashboard & Analytics
-* `GET /v1/dashboard/summary?date=YYYY-MM-DD` — Daily summary (Total calories, macros breakdown, current Trend Weight, live TDEE, target calorie budget).
+* `GET /v1/dashboard/summary?date=YYYY-MM-DD` — Daily summary (Total calories, macros breakdown, current Trend Weight, live TDEE, target calorie budget, dual goal projections, safety floor capping status).
 * `GET /v1/dashboard/trends?days=30` — Historical trend array for charts (`date`, `raw_weight`, `trend_weight`, `logged_calories`, `tdee`).
+
+---
+
+## 7. Goal Projections, Safety Floor & Configuration Architecture
+
+### A. Target Weight & Calorie Budget Calculation
+The daily target calorie budget is computed from the monthly goal rate (`target_monthly_rate_kg`):
+
+$$\text{Daily Deficit} = \frac{\text{target\_monthly\_rate\_kg} \times 7,700\text{ kcal/kg}}{30.4375\text{ days/month}}$$
+
+$$\text{Raw Calorie Target} = \text{TDEE}_t + \text{Daily Deficit}$$
+
+$$\text{Target Calories}_t = \max(\text{Raw Calorie Target}, \text{min\_daily\_calories})$$
+
+* **Safety Floor (`min_daily_calories`)**: Default floor of `1500.0 kcal/day`.
+* **Safety Flag (`is_rate_capped_by_safety_floor`)**: Evaluates to `True` whenever $\text{Raw Calorie Target} < \text{min\_daily\_calories}$.
+
+---
+
+### B. Dual Goal Projections (Target Rate vs Actual 30d Observed Pace)
+
+1. **Target Rate Projection**:
+   $$\text{Remaining Weight} = |\text{Current Trend Weight} - \text{Target Weight}|$$
+   $$\text{Days to Goal (Target)} = \frac{\text{Remaining Weight}}{|\text{target\_monthly\_rate\_kg}| / 30.4375}$$
+   $$\text{Projected Date (Target)} = \text{Current Date} + \text{Days to Goal (Target)}$$
+
+2. **Actual Observed Trend Pace (30-Day Window)**:
+   $$\text{Actual Monthly Loss Rate (30d)} = \left( \frac{\text{Trend Weight}_{t-30} - \text{Trend Weight}_t}{30} \right) \times 30.4375$$
+   $$\text{Days to Goal (Actual)} = \frac{\text{Remaining Weight}}{\text{Actual Daily Loss Rate}}$$
+   $$\text{Projected Date (Actual)} = \text{Current Date} + \text{Days to Goal (Actual)}$$
+
+---
+
+### C. Centralized Engine Constants & Configuration (`app/config.py`)
+
+All algorithm constants and defaults are centralized:
+* `TAU_W = 14.0` (Scale weight continuous smoothing time constant)
+* `TAU_E = 28.0` (Expenditure continuous smoothing time constant)
+* `WINDOW_DAYS = 14` (Rolling calculation window)
+* `MIN_FOOD_LOGGED_DAYS = 5` (Data density gate)
+* `FAT_KCAL_PER_KG = 7700.0` (Energy equivalent of 1 kg body mass change)
+* `DAYS_PER_MONTH = 30.4375` (Average days per month)
+* `DEFAULT_MIN_DAILY_CALORIES = 1500.0` (Safety floor default)
+
 
