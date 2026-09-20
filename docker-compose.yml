@@ -1,0 +1,27 @@
+services:
+  ctracker-api:
+    build: .
+    container_name: ctracker-api
+    restart: unless-stopped
+    ports:
+      - "${CTRACKER_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=sqlite:////app/data/ctracker.db
+      - MASTER_API_KEY=${MASTER_API_KEY:-dev_master_key_12345}
+      - DEFAULT_USER_DOB=${DEFAULT_USER_DOB:-1987-12-07}
+      - DEFAULT_USER_HEIGHT_CM=${DEFAULT_USER_HEIGHT_CM:-185}
+      - DEFAULT_USER_SEX=${DEFAULT_USER_SEX:-male}
+    volumes:
+      - ./data:/app/data
+      - ./data_export:/app/data_export
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/')\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ctracker-network
+
+networks:
+  ctracker-network:
+    driver: bridge
