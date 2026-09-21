@@ -61,6 +61,34 @@ A lightweight, self-hosted calorie and weight tracking API. It features an adher
 4. **Idempotent Batch API Execution**: Upon your confirmation, the assistant executes `POST /v1/food/meals` or `POST /v1/weight` with a unique `client_event_id`.
 5. **Dynamic Self-Updating Prompts (`GET /v1/agent/config`)**: The assistant automatically fetches its active system instructions and rules from your server, ensuring it stays updated whenever you deploy code changes.
 
+### 🔑 Provisioning an API Key for Your Assistant
+
+Before connecting your AI assistant (Gemini Gem, ChatGPT GPT, etc.), generate an API key using your server's `MASTER_API_KEY`:
+
+```bash
+curl -X POST "http://localhost:8000/v1/admin/keys" \
+  -H "X-Master-Key: dev_master_key_12345" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "default_user", "key_name": "Gemini Mobile Gem"}'
+```
+
+The response will return your generated API key (e.g. `ctk_live_...`). Set this in your AI provider's Action Authentication settings (Key Header: `X-API-Key`).
+
+### ⚡ 3-Line Universal Bootstrap Prompt
+
+Copy and paste these 3 lines into your Custom Gem / Custom GPT System Instructions:
+
+```markdown
+You are the Calorie & Nutrition Assistant for ctracker_api.
+Upon initialization or first user request, call GET /v1/agent/config to fetch your active system instructions, version, and protocol guidelines.
+Strictly adhere to the system instructions and protocol guidelines returned by GET /v1/agent/config.
+```
+
+For detailed multi-provider setup instructions and conversational reference flows, see:
+* 📖 **[agent/OPENAPI_GUIDE.md](./agent/OPENAPI_GUIDE.md)**: Multi-provider setup guide (Gemini Custom Gems, ChatGPT GPTs, Local LLMs).
+* 📜 **[agent/SYSTEM_PROMPT.md](./agent/SYSTEM_PROMPT.md)**: System instructions reference and dynamic bootstrap endpoint.
+* 💬 **[agent/COMMAND_FLOWS.md](./agent/COMMAND_FLOWS.md)**: Example conversational command flows.
+
 ---
 
 ## 🛠️ Tech Stack
