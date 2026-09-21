@@ -38,7 +38,11 @@ ignore = [
     "E501",  # line length (handled by ruff format)
     "B008",  # FastAPI Depends/Query/File function calls in parameter defaults
 ]
-
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning:starlette.*",
+    "ignore::Warning:fastapi.testclient",
+]
 
 
 [build-system]
