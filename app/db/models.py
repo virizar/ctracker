@@ -1,8 +1,19 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, ForeignKey, UniqueConstraint
-from sqlalchemy.orm import relationship
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
+
 from app.db.session import Base
+
 
 class UserProfile(Base):
     __tablename__ = "user_profiles"
@@ -46,7 +57,7 @@ class ScaleWeight(Base):
     client_event_id = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    __table_args__ = (UniqueConstraint('username', 'date', name='uix_user_weight_date'),)
+    __table_args__ = (UniqueConstraint("username", "date", name="uix_user_weight_date"),)
 
 
 class FoodCatalog(Base):
@@ -63,7 +74,7 @@ class FoodCatalog(Base):
     usage_count = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    __table_args__ = (UniqueConstraint('username', 'canonical_name', name='uix_user_catalog_name'),)
+    __table_args__ = (UniqueConstraint("username", "canonical_name", name="uix_user_catalog_name"),)
 
 
 class MealLog(Base):
@@ -113,4 +124,4 @@ class DailySummary(Base):
     is_rate_capped_by_safety_floor = Column(Boolean, default=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    __table_args__ = (UniqueConstraint('username', 'date', name='uix_user_summary_date'),)
+    __table_args__ = (UniqueConstraint("username", "date", name="uix_user_summary_date"),)

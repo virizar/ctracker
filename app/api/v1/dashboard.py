@@ -1,14 +1,16 @@
+from datetime import UTC, datetime, timedelta
+
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from typing import List, Optional
-from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
+
 from app.config import settings
+from app.db.models import DailySummary, UserProfile
 from app.db.session import get_db
-from app.db.models import UserProfile, DailySummary
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/v1/dashboard", tags=["Dashboard & Trends"])
+
 
 class DailySummaryResponse(BaseModel):
     date: str
@@ -16,42 +18,43 @@ class DailySummaryResponse(BaseModel):
     total_protein: float
     total_carbs: float
     total_fat: float
-    raw_weight: Optional[float]
-    trend_weight: Optional[float]
-    tdee: Optional[float]
-    target_calories: Optional[float]
+    raw_weight: float | None
+    trend_weight: float | None
+    tdee: float | None
+    target_calories: float | None
     protein_target_g: float
     carbs_target_g: float
     fat_target_g: float
-    target_weight_kg: Optional[float]
+    target_weight_kg: float | None
     target_monthly_rate_kg: float
     min_daily_calories: float
     is_rate_capped_by_safety_floor: bool
-    projected_date_target_rate: Optional[str]
-    projected_date_actual_rate: Optional[str]
-    actual_monthly_rate_kg: Optional[float]
+    projected_date_target_rate: str | None
+    projected_date_actual_rate: str | None
+    actual_monthly_rate_kg: float | None
+
 
 class TrendPoint(BaseModel):
     date: str
-    raw_weight: Optional[float]
-    trend_weight: Optional[float]
+    raw_weight: float | None
+    trend_weight: float | None
     total_calories: float
-    tdee: Optional[float]
-    target_calories: Optional[float]
+    tdee: float | None
+    target_calories: float | None
+
 
 @router.get("/summary", response_model=DailySummaryResponse)
 def get_daily_summary(
-    date: Optional[str] = Query(default=None, description="Date in YYYY-MM-DD format (defaults to today)"),
+    date: str | None = Query(default=None, description="Date in YYYY-MM-DD format (defaults to today)"),
     user: UserProfile = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    target_date = date or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    target_date = date or datetime.now(UTC).strftime("%Y-%m-%d")
     target_dt = datetime.strptime(target_date, "%Y-%m-%d")
 
-    summary = db.query(DailySummary).filter(
-        DailySummary.username == user.username,
-        DailySummary.date == target_date
-    ).first()
+    summary = (
+        db.query(DailySummary).filter(DailySummary.username == user.username, DailySummary.date == target_date).first()
+    )
 
     total_cals = summary.total_calories if summary else 0.0
     total_p = summary.total_protein if summary else 0.0
@@ -85,10 +88,11 @@ def get_daily_summary(
 
         # 2. Actual 30d Trend Rate Projection
         past_date_30d = (target_dt - timedelta(days=30)).strftime("%Y-%m-%d")
-        past_summary = db.query(DailySummary).filter(
-            DailySummary.username == user.username,
-            DailySummary.date == past_date_30d
-        ).first()
+        past_summary = (
+            db.query(DailySummary)
+            .filter(DailySummary.username == user.username, DailySummary.date == past_date_30d)
+            .first()
+        )
 
         if past_summary and past_summary.trend_weight:
             actual_loss_30d = past_summary.trend_weight - trend_w
@@ -118,23 +122,26 @@ def get_daily_summary(
         is_rate_capped_by_safety_floor=is_capped,
         projected_date_target_rate=proj_target_date_str,
         projected_date_actual_rate=proj_actual_date_str,
-        actual_monthly_rate_kg=actual_monthly_rate
+        actual_monthly_rate_kg=actual_monthly_rate,
     )
 
-@router.get("/trends", response_model=List[TrendPoint])
+
+@router.get("/trends", response_model=list[TrendPoint])
 def get_dashboard_trends(
     days: int = Query(default=30, ge=7, le=1000, description="Number of historical days to fetch"),
     user: UserProfile = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
-    end_dt = datetime.now(timezone.utc)
+    end_dt = datetime.now(UTC)
     start_dt = end_dt - timedelta(days=days)
     start_str = start_dt.strftime("%Y-%m-%d")
 
-    records = db.query(DailySummary).filter(
-        DailySummary.username == user.username,
-        DailySummary.date >= start_str
-    ).order_by(DailySummary.date.asc()).all()
+    records = (
+        db.query(DailySummary)
+        .filter(DailySummary.username == user.username, DailySummary.date >= start_str)
+        .order_by(DailySummary.date.asc())
+        .all()
+    )
 
     return [
         TrendPoint(
@@ -143,7 +150,7 @@ def get_dashboard_trends(
             trend_weight=r.trend_weight,
             total_calories=r.total_calories,
             tdee=r.tdee,
-            target_calories=r.target_calories
+            target_calories=r.target_calories,
         )
         for r in records
     ]

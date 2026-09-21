@@ -215,6 +215,3 @@ Catalog search utilizes an FTS5 virtual table (`food_catalog_fts`) with **Porter
   * **Order-Agnostic**: Querying `"homemade pancake"` matches `"Pancake, homemade"`.
   * **Relevance & Frequency Ranking**: Results are ranked by **BM25 score** combined with `usage_count` frequency.
 * **Auto-Sync Triggers**: SQLite `AFTER INSERT`, `AFTER UPDATE`, and `AFTER DELETE` triggers keep `food_catalog_fts` synchronized automatically.
-
-
-

@@ -1,11 +1,11 @@
 # Stage 1: Build virtual environment with uv
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim AS builder
 WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
 # Stage 2: Final minimal runtime image
-FROM python:3.12-slim
+FROM python:3.13-slim
 WORKDIR /app
 
 # Copy virtual environment and code

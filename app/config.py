@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -17,5 +18,6 @@ class Settings(BaseSettings):
     FAT_KCAL_PER_KG: float = 7700.0  # Energy content of fat tissue (kcal/kg)
     DAYS_PER_MONTH: float = 30.4375  # Average days in a month
     DEFAULT_MIN_DAILY_CALORIES: float = 1500.0  # Safety floor default
+
 
 settings = Settings()

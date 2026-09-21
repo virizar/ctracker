@@ -1,12 +1,16 @@
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy.orm import Session
+
 from app.config import settings
-from app.db.models import UserProfile, ScaleWeight, MealLog, DailySummary
+from app.db.models import DailySummary, MealLog, ScaleWeight, UserProfile
+
 
 def mifflin_st_jeor(weight_kg: float, height_cm: float, age_years: float, sex: str = "male") -> float:
     s = 5.0 if sex.lower() == "male" else -161.0
     return 10.0 * weight_kg + 6.25 * height_cm - 5.0 * age_years + s
+
 
 def calculate_age_years(dob_str: str, current_date_str: str) -> float:
     try:
@@ -15,6 +19,7 @@ def calculate_age_years(dob_str: str, current_date_str: str) -> float:
         return max(18.0, (curr - dob).days / 365.25)
     except Exception:
         return 38.0
+
 
 def recalculate_user_tdee(db: Session, username: str):
     profile = db.query(UserProfile).filter(UserProfile.username == username).first()
@@ -26,7 +31,7 @@ def recalculate_user_tdee(db: Session, username: str):
     weight_map = {w.date: w.raw_weight for w in weights_db}
 
     meals_db = db.query(MealLog).filter(MealLog.username == username).all()
-    
+
     # Aggregate daily food macros
     food_days = {}
     for m in meals_db:
@@ -44,7 +49,7 @@ def recalculate_user_tdee(db: Session, username: str):
 
     # Create full contiguous date range from earliest to latest (or today)
     start_dt = datetime.strptime(all_dates[0], "%Y-%m-%d")
-    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    today_str = datetime.now(UTC).strftime("%Y-%m-%d")
     end_dt = max(datetime.strptime(all_dates[-1], "%Y-%m-%d"), datetime.strptime(today_str, "%Y-%m-%d"))
 
     dates_contiguous = []
@@ -74,23 +79,25 @@ def recalculate_user_tdee(db: Session, username: str):
             alpha_w = 1.0 - math.exp(-delta_days / settings.TAU_W) if delta_days > 0 else 0.1
             curr_tw = alpha_w * weight_map[dt_str] + (1.0 - alpha_w) * curr_tw
             last_weight_dt = dt
-        
+
         trend_weights[dt_str] = curr_tw
 
         # Update TDEE over rolling window
         if i >= settings.WINDOW_DAYS:
             window_dates = dates_contiguous[i - settings.WINDOW_DAYS : i]
-            valid_intakes = [food_days[d]["calories"] for d in window_dates if d in food_days and food_days[d]["has_log"]]
-            
+            valid_intakes = [
+                food_days[d]["calories"] for d in window_dates if d in food_days and food_days[d]["has_log"]
+            ]
+
             if len(valid_intakes) >= settings.MIN_FOOD_LOGGED_DAYS:
                 avg_intake = sum(valid_intakes) / len(valid_intakes)
                 w_change = trend_weights[dt_str] - trend_weights[dates_contiguous[i - settings.WINDOW_DAYS]]
                 energy_delta = (w_change * settings.FAT_KCAL_PER_KG) / settings.WINDOW_DAYS
                 raw_tdee = avg_intake - energy_delta
-                
+
                 alpha_e = 1.0 - math.exp(-1.0 / settings.TAU_E)
                 curr_tdee = alpha_e * raw_tdee + (1.0 - alpha_e) * curr_tdee
-        
+
         calculated_tdees[dt_str] = curr_tdee
 
     # Save trend weight back to scale_weights
@@ -103,10 +110,7 @@ def recalculate_user_tdee(db: Session, username: str):
 
     # Upsert DailySummary for all contiguous dates
     for dt_str in dates_contiguous:
-        summary = db.query(DailySummary).filter(
-            DailySummary.username == username,
-            DailySummary.date == dt_str
-        ).first()
+        summary = db.query(DailySummary).filter(DailySummary.username == username, DailySummary.date == dt_str).first()
 
         if not summary:
             summary = DailySummary(username=username, date=dt_str)
@@ -120,10 +124,10 @@ def recalculate_user_tdee(db: Session, username: str):
         summary.raw_weight = weight_map.get(dt_str)
         summary.trend_weight = round(trend_weights[dt_str], 2)
         summary.tdee = round(calculated_tdees[dt_str], 1)
-        
+
         raw_target = calculated_tdees[dt_str] + daily_cal_adjustment
         min_floor = profile.min_daily_calories
-        
+
         summary.target_calories = round(max(min_floor, raw_target), 1)
         summary.is_rate_capped_by_safety_floor = raw_target < min_floor
 
