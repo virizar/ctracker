@@ -44,14 +44,31 @@ A lightweight, self-hosted calorie and weight tracking API. It features an adher
                          Dockerfile / docker-compose.yml
 ```
 
+## 🤖 How the AI Assistant Integration Works
+
+`ctracker_api` is designed to be **decoupled from expensive backend LLM API fees**. Instead of paying per-token costs on the server, you connect your choice of AI assistant frontend (on your phone or desktop) to your self-hosted API:
+
+* **Natural Language Chat Frontends**:
+  * **Google Gemini Custom Gems** (Gemini mobile app)
+  * **OpenAI ChatGPT Custom GPTs**
+  * **Self-hosted LLM Frontends** (Open WebUI, Ollama, LibreChat)
+  * **Messaging Bots** (Telegram, WhatsApp, Discord)
+
+### Conversational Workflow:
+1. **Natural Input**: You tell the chat assistant what you ate or weighed (e.g. *"Ate 3 scrambled eggs, sourdough toast, and coffee with cream"* or *"Weighed 84.2 kg"*).
+2. **Search-First Catalog Lookup**: The assistant queries `GET /v1/food/search` to check your personal food library first, prioritizing your saved portion sizes and macro ratios.
+3. **Markdown Confirmation Table**: The assistant presents a clean nutrition table and asks for your confirmation before logging.
+4. **Idempotent Batch API Execution**: Upon your confirmation, the assistant executes `POST /v1/food/meals` or `POST /v1/weight` with a unique `client_event_id`.
+5. **Dynamic Self-Updating Prompts (`GET /v1/agent/config`)**: The assistant automatically fetches its active system instructions and rules from your server, ensuring it stays updated whenever you deploy code changes.
+
 ---
 
 ## 🛠️ Tech Stack
 
 * **Package Manager**: `uv` (`pyproject.toml` + `uv.lock`)
 * **Containerization**: Docker / Docker Compose (Multi-stage build)
-* **Framework**: Python 3.12 / FastAPI
-* **Database**: SQLite with SQLAlchemy / SQLModel (WAL Mode & FTS5 Search)
+* **Framework**: Python 3.13 / FastAPI
+* **Database**: SQLite with SQLAlchemy (WAL Mode & FTS5 Search)
 * **Data Validation**: Pydantic v2
 * **TDEE & Trend Calculations**: Custom dynamic EMA engine
 
@@ -60,8 +77,8 @@ A lightweight, self-hosted calorie and weight tracking API. It features an adher
 ## 📑 Documentation & Research
 
 * **[KNOWLEDGE.md](./KNOWLEDGE.md)**: Comprehensive technical breakdown of the TDEE algorithm, mathematical equations (Wishnofsky 1958, Mifflin-St Jeor 1990, Hall 2008, Holt 1957), benchmark results against ~1,000 days of historical tracking data, and edge-case rules.
-* **[agent/SYSTEM_PROMPT.md](./agent/SYSTEM_PROMPT.md)**: System instructions for configuring your Gemini Custom Gem / ChatGPT Custom GPT.
-* **[agent/OPENAPI_GUIDE.md](./agent/OPENAPI_GUIDE.md)**: Cloudflare Tunnel & OpenAPI tool connection guide.
+* **[agent/SYSTEM_PROMPT.md](./agent/SYSTEM_PROMPT.md)**: System instructions and 3-line universal bootstrap prompt.
+* **[agent/OPENAPI_GUIDE.md](./agent/OPENAPI_GUIDE.md)**: Cloudflare Tunnel, OpenAPI, Gemini Custom Gems, & ChatGPT setup guide.
 * **[agent/COMMAND_FLOWS.md](./agent/COMMAND_FLOWS.md)**: Conversational command flows for meal logging, weight entries, and status updates.
 
 ---
