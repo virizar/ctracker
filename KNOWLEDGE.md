@@ -148,6 +148,9 @@ To safely allow clients (mobile app, web PWA, Telegram bot) to retry failed netw
 * `GET /v1/dashboard/summary?date=YYYY-MM-DD` — Daily summary (Total calories, macros breakdown, current Trend Weight, live TDEE, target calorie budget, dual goal projections, safety floor capping status).
 * `GET /v1/dashboard/trends?days=30` — Historical trend array for charts (`date`, `raw_weight`, `trend_weight`, `logged_calories`, `tdee`).
 
+### 📦 Data Migration & Import
+* `POST /v1/import/file` — Single-purpose bulk migration endpoint. Accepts `.json` or `.json.gz` file payload containing `weights` and `meals` arrays, auto-populates food catalog, and triggers a single-pass TDEE recalculation pass.
+
 ---
 
 ## 7. Goal Projections, Safety Floor & Configuration Architecture

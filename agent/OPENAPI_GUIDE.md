@@ -20,12 +20,12 @@ Map your custom domain (e.g. `https://api.yourdomain.com`) in the Cloudflare Das
 
 ## 2. Locating Your OpenAPI Spec
 
-FastAPI automatically generates an OpenAPI 3.0 schema at:
+The OpenAPI schema is protected with authentication (requires `X-API-Key` or `Authorization: Bearer <key>`) at:
 `https://api.yourdomain.com/openapi.json`
 
-You can also export the static schema locally:
+You can export the static schema locally using your API key:
 ```bash
-curl http://localhost:8000/openapi.json -o agent/openapi.json
+curl -H "X-API-Key: ctk_live_..." http://localhost:8000/openapi.json -o agent/openapi.json
 ```
 
 ---
@@ -51,3 +51,4 @@ curl http://localhost:8000/openapi.json -o agent/openapi.json
 | Log Scale Weight | `POST` | `/v1/weight` | Log daily scale weight |
 | Get Dashboard | `GET` | `/v1/dashboard/summary` | Retrieve daily progress, TDEE, & projections |
 | Update Profile Goals | `PATCH` | `/v1/auth/me` | Update target weight, rate, or safety floor |
+| Bulk Import File | `POST` | `/v1/import/file` | One-time migration of `.json` or `.json.gz` historical weights and meals |

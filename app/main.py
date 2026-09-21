@@ -4,7 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.db.session import engine, Base, SessionLocal, init_fts5_and_db
 from app.db.models import UserProfile, APIKey
 from app.config import settings
-from app.api.v1 import admin, auth, weight, food, dashboard
+from fastapi import Depends
+from fastapi.openapi.utils import get_openapi
+from fastapi.openapi.docs import get_swagger_ui_html
+from app.services.auth import get_current_user
+from app.api.v1 import admin, auth, weight, food, dashboard, import_data
 
 # Initialize tables, FTS5 virtual table, and triggers
 init_fts5_and_db()
@@ -42,7 +46,10 @@ app = FastAPI(
     title="Calorie & TDEE Tracker API",
     version="1.0.0",
     description="Self-hosted calorie tracking API with dynamic TDEE estimation.",
-    lifespan=lifespan
+    lifespan=lifespan,
+    openapi_url=None,
+    docs_url=None,
+    redoc_url=None
 )
 
 app.add_middleware(
@@ -58,6 +65,15 @@ app.include_router(auth.router)
 app.include_router(weight.router)
 app.include_router(food.router)
 app.include_router(dashboard.router)
+app.include_router(import_data.router)
+
+@app.get("/openapi.json", include_in_schema=False)
+def get_protected_openapi(user: UserProfile = Depends(get_current_user)):
+    return get_openapi(title=app.title, version=app.version, routes=app.routes)
+
+@app.get("/docs", include_in_schema=False)
+def get_protected_docs(user: UserProfile = Depends(get_current_user)):
+    return get_swagger_ui_html(openapi_url="/openapi.json", title=app.title)
 
 @app.get("/")
 def health_check():

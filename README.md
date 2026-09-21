@@ -34,7 +34,7 @@ A lightweight, self-hosted calorie and weight tracking API. It features an adher
    ┌────────────────────────────────────────────────────────┐
    │             `ctracker_api` (FastAPI + SQLite)          │
    │                                                        │
-   │  ├── Pure REST Routes (/v1/weight, /v1/food, /v1/auth) │
+   │  ├── Pure REST Routes (/v1/weight, /v1/food, /v1/auth, /v1/import) │
    │  ├── Idempotency Filter (processed_events)             │
    │  ├── TDEE Engine (Time-decay EMA & density gate)       │
    │  └── Food Catalog & Search (/v1/food/search)           │

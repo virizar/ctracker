@@ -131,3 +131,72 @@ def test_batch_meal_logging_and_catalog_search():
     assert len(catalog) > 0
     assert catalog[0]["canonical_name"] == "Pancake, homemade"
     assert catalog[0]["usage_count"] >= 1
+
+
+def test_protected_openapi_and_docs():
+    # Unauthenticated requests should return 401
+    res_openapi_unauth = client.get("/openapi.json")
+    assert res_openapi_unauth.status_code == 401
+
+    res_docs_unauth = client.get("/docs")
+    assert res_docs_unauth.status_code == 401
+
+    # Authenticated requests should return 200
+    res_openapi_auth = client.get("/openapi.json", headers=HEADERS)
+    assert res_openapi_auth.status_code == 200
+    assert "paths" in res_openapi_auth.json()
+
+    res_docs_auth = client.get("/docs", headers=HEADERS)
+    assert res_docs_auth.status_code == 200
+    assert "text/html" in res_docs_auth.headers.get("content-type", "")
+
+
+def test_bulk_file_import_json_and_gzip():
+    import json
+    import gzip
+
+    import_data_obj = {
+        "weights": [
+            {"date": "2026-08-01", "raw_weight": 88.5},
+            {"date": "2026-08-02", "raw_weight": 88.2}
+        ],
+        "meals": [
+            {
+                "date": "2026-08-01",
+                "food_name": "Oatmeal with berries",
+                "canonical_name": "Oatmeal",
+                "serving_size": "1 bowl",
+                "calories": 350.0,
+                "protein": 12.0,
+                "carbs": 60.0,
+                "fat": 5.0
+            }
+        ]
+    }
+    json_bytes = json.dumps(import_data_obj).encode("utf-8")
+
+    # Test uncompressed .json import
+    res_json = client.post(
+        "/v1/import/file",
+        files={"file": ("migration_data.json", json_bytes, "application/json")},
+        headers=HEADERS
+    )
+    assert res_json.status_code == 200
+    data_json = res_json.json()
+    assert data_json["status"] == "success"
+    assert data_json["weights_imported"] == 2
+    assert data_json["meals_imported"] == 1
+
+    # Test compressed .json.gz import
+    gz_bytes = gzip.compress(json_bytes)
+    res_gz = client.post(
+        "/v1/import/file",
+        files={"file": ("migration_data.json.gz", gz_bytes, "application/gzip")},
+        headers=HEADERS
+    )
+    assert res_gz.status_code == 200
+    data_gz = res_gz.json()
+    assert data_gz["status"] == "success"
+    assert data_gz["weights_imported"] == 2
+    assert data_gz["meals_imported"] == 1
+
