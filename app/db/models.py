@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -31,8 +31,8 @@ class UserProfile(Base):
     protein_ratio = Column(Float, nullable=False, default=0.30)
     carbs_ratio = Column(Float, nullable=False, default=0.40)
     fat_ratio = Column(Float, nullable=False, default=0.30)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
 
 class APIKey(Base):
@@ -43,7 +43,7 @@ class APIKey(Base):
     username = Column(String, ForeignKey("user_profiles.username"), nullable=False)
     name = Column(String, nullable=False, default="Default Key")
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
 
 class ScaleWeight(Base):
@@ -55,7 +55,7 @@ class ScaleWeight(Base):
     raw_weight = Column(Float, nullable=False)
     trend_weight = Column(Float, nullable=True)
     client_event_id = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (UniqueConstraint("username", "date", name="uix_user_weight_date"),)
 
@@ -72,7 +72,7 @@ class FoodCatalog(Base):
     carbs_per_100g = Column(Float, nullable=True)
     fat_per_100g = Column(Float, nullable=True)
     usage_count = Column(Integer, default=1)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
     __table_args__ = (UniqueConstraint("username", "canonical_name", name="uix_user_catalog_name"),)
 
@@ -96,7 +96,7 @@ class MealLog(Base):
     protein = Column(Float, nullable=False, default=0.0)
     is_fasted = Column(Boolean, default=False)
     client_event_id = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
 
 class ProcessedEvent(Base):
@@ -104,7 +104,7 @@ class ProcessedEvent(Base):
 
     client_event_id = Column(String, primary_key=True)
     endpoint = Column(String, nullable=False)
-    processed_at = Column(DateTime, default=datetime.utcnow)
+    processed_at = Column(DateTime, default=lambda: datetime.now(UTC))
 
 
 class DailySummary(Base):
@@ -122,6 +122,6 @@ class DailySummary(Base):
     tdee = Column(Float, nullable=True)
     target_calories = Column(Float, nullable=True)
     is_rate_capped_by_safety_floor = Column(Boolean, default=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
 
     __table_args__ = (UniqueConstraint("username", "date", name="uix_user_summary_date"),)
