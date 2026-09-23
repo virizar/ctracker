@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI):
 
         key_obj = db.query(APIKey).filter(APIKey.username == "default_user").first()
         if not key_obj:
-            key_obj = APIKey(key="ctk_live_default_dev_key", username="default_user", name="Default Development Key")
+            key_obj = APIKey(key=settings.CTRACKER_API_KEY, username="default_user", name="Initial Shared Key")
             db.add(key_obj)
             db.commit()
     finally:

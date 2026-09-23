@@ -8,6 +8,7 @@ services:
     environment:
       - DATABASE_URL=sqlite:////app/data/ctracker.db
       - MASTER_API_KEY=${MASTER_API_KEY:-dev_master_key_12345}
+      - CTRACKER_API_KEY=${CTRACKER_API_KEY:-ctk_live_default_dev_key}
       - DEFAULT_USER_DOB=${DEFAULT_USER_DOB:-1987-12-07}
       - DEFAULT_USER_HEIGHT_CM=${DEFAULT_USER_HEIGHT_CM:-185}
       - DEFAULT_USER_SEX=${DEFAULT_USER_SEX:-male}
@@ -33,7 +34,7 @@ services:
         condition: service_healthy
     environment:
       - CTRACKER_API_URL=http://ctracker-api:8000
-      - CTRACKER_API_KEY=${CTRACKER_API_KEY:-}
+      - CTRACKER_API_KEY=${CTRACKER_API_KEY:-ctk_live_default_dev_key}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - ALLOWED_TELEGRAM_USER_IDS=${ALLOWED_TELEGRAM_USER_IDS:-}

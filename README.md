@@ -61,15 +61,12 @@ A lightweight, self-hosted calorie and weight tracking application. It features 
 
 1. **Create Telegram Bot**: Chat with `@BotFather` on Telegram, run `/newbot`, and copy your `TELEGRAM_BOT_TOKEN`.
 2. **Get Free Gemini API Key**: Grab a free API key at [Google AI Studio](https://aistudio.google.com/) (`GEMINI_API_KEY`).
-3. **Provision API Key**:
+3. **Generate Shared API Key**:
    ```bash
-   curl -X POST "http://localhost:8000/v1/admin/keys" \
-     -H "X-Master-Key: dev_master_key_12345" \
-     -H "Content-Type: application/json" \
-     -d '{"username": "default_user", "key_name": "Telegram Bot"}'
+   echo "ctk_live_$(openssl rand -hex 16)"
    ```
 4. **Configure & Launch Stack**:
-   Add your keys to `.env` and start the stack:
+   Set `TELEGRAM_BOT_TOKEN`, `GEMINI_API_KEY`, and `CTRACKER_API_KEY` in `.env`, then start the stack:
    ```bash
    docker compose up -d --build
    ```

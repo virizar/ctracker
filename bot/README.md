@@ -30,13 +30,10 @@
 1. Open Telegram and search for `@userinfobot`.
 2. Send any message. It will reply with your numeric `Id` (e.g. `12345678`).
 
-#### 4. Provision a `ctracker` Key for the Bot
-Generate an API key from your local server:
+#### 4. Generate a Shared API Key
+Generate a secure API key for your installation:
 ```bash
-curl -X POST "http://localhost:8000/v1/admin/keys" \
-  -H "X-Master-Key: dev_master_key_12345" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "default_user", "key_name": "Telegram Bot"}'
+echo "ctk_live_$(openssl rand -hex 16)"
 ```
 
 #### 5. Configure `.env` and Deploy
@@ -44,7 +41,7 @@ Add your keys to `.env`:
 ```env
 TELEGRAM_BOT_TOKEN=7890123456:AA...
 GEMINI_API_KEY=AIzaSy...
-CTRACKER_API_KEY=ctk_live_...
+CTRACKER_API_KEY=ctk_live_4f8a9b2c3d1e5f6a7b8c9d0e1f2a3b4c
 ALLOWED_TELEGRAM_USER_IDS=12345678
 ```
 
@@ -52,5 +49,6 @@ Start the stack:
 ```bash
 docker compose up -d --build
 ```
+*(On first startup, `ctracker-api` automatically seeds the database with `CTRACKER_API_KEY`, enabling `ctracker-bot` to connect out-of-the-box with zero extra configuration!)*
 
 Your Telegram bot is now live! Open Telegram, search for your bot username, click `/start`, and enjoy zero-cost meal tracking on your phone!
