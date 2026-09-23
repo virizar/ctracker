@@ -1,6 +1,6 @@
 # Calorie & TDEE Tracker (`ctracker`)
 
-A lightweight, self-hosted calorie and weight tracking application. It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation engine based on scientific metabolic literature, a built-in zero-cost Telegram AI Bot powered by Gemini 2.5 Flash, and an offline-resilient outbox architecture. Managed modernly using `uv` and containerized with `Docker`.
+A lightweight, self-hosted calorie and weight tracking application. It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation engine based on scientific metabolic literature, a built-in zero-cost Telegram AI Bot powered by Gemini 3.6 Flash, and an offline-resilient outbox architecture. Managed modernly using `uv` and containerized with `Docker`.
 
 ---
 
@@ -13,7 +13,7 @@ A lightweight, self-hosted calorie and weight tracking application. It features 
   * **Density Rules**: Freezes expenditure updates if fewer than 5 food logging days exist in a rolling 14-day window.
   * **Fasted vs Unlogged Days**: Explicitly handles zero-calorie fasting days while ignoring unlogged days.
 * **Built-in Zero-Cost Telegram AI Bot (`bot/`)**:
-  * Powered by Google's **Gemini 2.5 Flash Free Tier** ($0/month, 1,500 requests/day).
+  * Powered by Google's **Gemini 3.6 Flash Free Tier** ($0/month, 1,500 requests/day).
   * **📸 Food Photo Vision**: Take a picture of your plate in Telegram to identify items, search catalog, and calculate macros.
   * **🎙️ Voice & Text Input**: State food intake or daily scale weight via voice notes or text.
   * **📊 Instant Progress Reports**: `/status` queries daily calorie budget, protein targets, and updated trend weight.
@@ -35,7 +35,7 @@ A lightweight, self-hosted calorie and weight tracking application. It features 
                               │ Telegram API / Webhooks
                               ▼
    ┌────────────────────────────────────────────────────────┐
-   │          `ctracker-bot` (Telegram + Gemini 2.5)        │
+   │          `ctracker-bot` (Telegram + Gemini 3.6)        │
    │   • Co-located container running in Docker Compose     │
    │   • Gemini multimodal vision & native function calling │
    └──────────────────────────┬─────────────────────────────┘

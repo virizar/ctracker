@@ -37,6 +37,7 @@ services:
       - CTRACKER_API_KEY=${CTRACKER_API_KEY:-ctk_live_default_dev_key}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-3.6-flash}
       - ALLOWED_TELEGRAM_USER_IDS=${ALLOWED_TELEGRAM_USER_IDS:-}
     networks:
       - ctracker-network

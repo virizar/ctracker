@@ -1,6 +1,6 @@
 # 🤖 Built-In Telegram Bot Integration (`bot/`)
 
-`ctracker` includes a built-in Telegram Bot powered by Google's **Gemini 2.5 Flash** (Free Tier). It runs co-located alongside your API container in `docker-compose.yml` with **zero hosting costs**.
+`ctracker` includes a built-in Telegram Bot powered by Google's **Gemini 3.6 Flash** (Free Tier). It runs co-located alongside your API container in `docker-compose.yml` with **zero hosting costs**.
 
 ---
 

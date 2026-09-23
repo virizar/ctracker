@@ -25,6 +25,7 @@ logger = logging.getLogger("ctracker_bot")
 # Configuration from Environment
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
 CTRACKER_API_URL = os.getenv("CTRACKER_API_URL", "http://localhost:8000").rstrip("/")
 CTRACKER_API_KEY = os.getenv("CTRACKER_API_KEY", "")
 ALLOWED_USER_IDS = [
@@ -215,7 +216,7 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         tools = [search_food, log_meals, log_weight, get_dashboard]
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=prompt,
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_INSTRUCTION,
@@ -232,7 +233,7 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     logger.info(f"Executing tool call {fn_name} for document import")
                     tool_res = TOOL_MAPPING[fn_name](**fn_args)
                     follow_up = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model=GEMINI_MODEL,
                         contents=f"Tool {fn_name} returned: {tool_res}. Present final import summary to user.",
                         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
                     )
@@ -293,7 +294,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         )
 
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model=GEMINI_MODEL,
             contents=contents,
             config=config,
         )
@@ -308,7 +309,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     tool_res = TOOL_MAPPING[fn_name](**fn_args)
                     # Send follow-up prompt with tool response
                     follow_up = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model=GEMINI_MODEL,
                         contents=f"Tool {fn_name} returned: {tool_res}. Present final response to user.",
                         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
                     )
