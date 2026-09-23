@@ -22,6 +22,24 @@ services:
     networks:
       - ctracker-network
 
+  ctracker-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: ctracker-bot
+    restart: unless-stopped
+    depends_on:
+      ctracker-api:
+        condition: service_healthy
+    environment:
+      - CTRACKER_API_URL=http://ctracker-api:8000
+      - CTRACKER_API_KEY=${CTRACKER_API_KEY:-}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - ALLOWED_TELEGRAM_USER_IDS=${ALLOWED_TELEGRAM_USER_IDS:-}
+    networks:
+      - ctracker-network
+
 networks:
   ctracker-network:
     driver: bridge

@@ -46,46 +46,40 @@ A lightweight, self-hosted calorie and weight tracking API. It features an adher
 
 ## 🤖 How the AI Assistant Integration Works
 
-`ctracker_api` is designed to be **decoupled from expensive backend LLM API fees**. Instead of paying per-token costs on the server, you connect your choice of AI assistant frontend (on your phone or desktop) to your self-hosted API:
+`ctracker_api` features a **built-in Telegram Bot (`bot/`)** co-located in `docker-compose.yml` that connects directly to Google's **Gemini 2.5 Flash Free Tier** ($0/month, 1,500 requests/day).
 
-* **Natural Language Chat Frontends**:
-  * **Google Gemini Custom Gems** (Gemini mobile app)
-  * **OpenAI ChatGPT Custom GPTs**
-  * **Self-hosted LLM Frontends** (Open WebUI, Ollama, LibreChat)
-  * **Messaging Bots** (Telegram, WhatsApp, Discord)
+* **📱 Flagship Interface: Built-In Telegram Bot**:
+  * **Text Logging**: *"Ate 3 scrambled eggs, sourdough toast, and coffee with cream"*
+  * **📸 Food Photo Vision**: Snap a photo of your plate in Telegram $\rightarrow$ Gemini identifies items, searches your database catalog, calculates macros, and logs the meal.
+  * **🎙️ Voice Notes**: Hold the mic button in Telegram and state your weight or meal.
+  * **📊 Progress Summaries**: Type `/status` or *"How am I doing today?"*
 
-### Conversational Workflow:
-1. **Natural Input**: You tell the chat assistant what you ate or weighed (e.g. *"Ate 3 scrambled eggs, sourdough toast, and coffee with cream"* or *"Weighed 84.2 kg"*).
-2. **Search-First Catalog Lookup**: The assistant queries `GET /v1/food/search` to check your personal food library first, prioritizing your saved portion sizes and macro ratios.
-3. **Markdown Confirmation Table**: The assistant presents a clean nutrition table and asks for your confirmation before logging.
-4. **Idempotent Batch API Execution**: Upon your confirmation, the assistant executes `POST /v1/food/meals` or `POST /v1/weight` with a unique `client_event_id`.
-5. **Dynamic Self-Updating Prompts (`GET /v1/agent/config`)**: The assistant automatically fetches its active system instructions and rules from your server, ensuring it stays updated whenever you deploy code changes.
+* **⚡ Alternative OpenAPI Assistant Options**:
+  * **OpenAI ChatGPT Custom GPTs** (ChatGPT Plus Action Builder)
+  * **Self-hosted Frontends** (Open WebUI, LibreChat, Ollama plugins)
 
-### 🔑 Provisioning an API Key for Your Assistant
+---
 
-Before connecting your AI assistant (Gemini Gem, ChatGPT GPT, etc.), generate an API key using your server's `MASTER_API_KEY`:
+### 🚀 Quickstart: Enabling the Built-In Telegram Bot
 
-```bash
-curl -X POST "http://localhost:8000/v1/admin/keys" \
-  -H "X-Master-Key: dev_master_key_12345" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "default_user", "key_name": "Gemini Mobile Gem"}'
-```
+1. **Create Bot Token**: Chat with `@BotFather` on Telegram and run `/newbot` to get your `TELEGRAM_BOT_TOKEN`.
+2. **Get Free Gemini Key**: Grab a free API key at [Google AI Studio](https://aistudio.google.com/) (`GEMINI_API_KEY`).
+3. **Provision API Key**:
+   ```bash
+   curl -X POST "http://localhost:8000/v1/admin/keys" \
+     -H "X-Master-Key: dev_master_key_12345" \
+     -H "Content-Type: application/json" \
+     -d '{"username": "default_user", "key_name": "Telegram Bot"}'
+   ```
+4. **Configure & Launch**:
+   Add your keys to `.env` and start the stack:
+   ```bash
+   docker compose up -d --build
+   ```
 
-The response will return your generated API key (e.g. `ctk_live_...`). Set this in your AI provider's Action Authentication settings (Key Header: `X-API-Key`).
-
-### ⚡ 3-Line Universal Bootstrap Prompt
-
-Copy and paste these 3 lines into your Custom Gem / Custom GPT System Instructions:
-
-```markdown
-You are the Calorie & Nutrition Assistant for ctracker_api.
-Upon initialization or first user request, call GET /v1/agent/config to fetch your active system instructions, version, and protocol guidelines.
-Strictly adhere to the system instructions and protocol guidelines returned by GET /v1/agent/config.
-```
-
-For detailed multi-provider setup instructions and conversational reference flows, see:
-* 📖 **[agent/OPENAPI_GUIDE.md](./agent/OPENAPI_GUIDE.md)**: Multi-provider setup guide (Gemini Custom Gems, ChatGPT GPTs, Local LLMs).
+For detailed guides and reference documentation:
+* 🤖 **[bot/README.md](./bot/README.md)**: Full Telegram Bot setup, security whitelist, and photo logging guide.
+* 📖 **[agent/OPENAPI_GUIDE.md](./agent/OPENAPI_GUIDE.md)**: ChatGPT Custom GPTs & Local LLM setup guide.
 * 📜 **[agent/SYSTEM_PROMPT.md](./agent/SYSTEM_PROMPT.md)**: System instructions reference and dynamic bootstrap endpoint.
 * 💬 **[agent/COMMAND_FLOWS.md](./agent/COMMAND_FLOWS.md)**: Example conversational command flows.
 
