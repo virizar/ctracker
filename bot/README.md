@@ -1,6 +1,6 @@
 # 🤖 Built-In Telegram Bot Integration (`bot/`)
 
-`ctracker_api` includes a built-in Telegram Bot powered by Google's **Gemini 2.5 Flash** (Free Tier). It runs co-located alongside your API container in `docker-compose.yml` with **zero hosting costs**.
+`ctracker` includes a built-in Telegram Bot powered by Google's **Gemini 2.5 Flash** (Free Tier). It runs co-located alongside your API container in `docker-compose.yml` with **zero hosting costs**.
 
 ---
 
@@ -30,7 +30,7 @@
 1. Open Telegram and search for `@userinfobot`.
 2. Send any message. It will reply with your numeric `Id` (e.g. `12345678`).
 
-#### 4. Provision a `ctracker_api` Key for the Bot
+#### 4. Provision a `ctracker` Key for the Bot
 Generate an API key from your local server:
 ```bash
 curl -X POST "http://localhost:8000/v1/admin/keys" \

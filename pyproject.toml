@@ -1,5 +1,5 @@
 [project]
-name = "ctracker-api"
+name = "ctracker"
 version = "1.0.0"
 description = "Self-hosted calorie tracking API with dynamic TDEE estimation."
 readme = "README.md"

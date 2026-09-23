@@ -1,6 +1,6 @@
-# Calorie & TDEE Tracker API (`ctracker_api`)
+# Calorie & TDEE Tracker (`ctracker`)
 
-A lightweight, self-hosted calorie and weight tracking API. It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation engine based on scientific metabolic literature, a built-in zero-cost Telegram AI Bot powered by Gemini 2.5 Flash, and an offline-resilient outbox architecture. Managed modernly using `uv` and containerized with `Docker`.
+A lightweight, self-hosted calorie and weight tracking application. It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation engine based on scientific metabolic literature, a built-in zero-cost Telegram AI Bot powered by Gemini 2.5 Flash, and an offline-resilient outbox architecture. Managed modernly using `uv` and containerized with `Docker`.
 
 ---
 
@@ -55,7 +55,7 @@ A lightweight, self-hosted calorie and weight tracking API. It features an adher
 
 ## 🤖 Built-In AI Telegram Bot Setup
 
-`ctracker_api` includes a **co-located Telegram Bot (`bot/`)** in `docker-compose.yml`.
+`ctracker` includes a **co-located Telegram Bot (`bot/`)** in `docker-compose.yml`.
 
 ### 🚀 Quickstart
 

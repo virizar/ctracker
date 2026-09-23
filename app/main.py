@@ -79,4 +79,4 @@ def get_protected_docs(user: UserProfile = Depends(get_current_user)):
 
 @app.get("/")
 def health_check():
-    return {"status": "healthy", "service": "ctracker_api", "version": "1.0.0", "docs": "/docs"}
+    return {"status": "healthy", "service": "ctracker", "version": "1.0.0", "docs": "/docs"}

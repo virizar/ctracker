@@ -31,7 +31,7 @@ ALLOWED_USER_IDS = [
     int(uid.strip()) for uid in os.getenv("ALLOWED_TELEGRAM_USER_IDS", "").split(",") if uid.strip().isdigit()
 ]
 
-# HTTP Client for ctracker_api
+# HTTP Client for ctracker
 http_client = httpx.Client(
     base_url=CTRACKER_API_URL,
     headers={"X-API-Key": CTRACKER_API_KEY} if CTRACKER_API_KEY else {},
@@ -40,8 +40,8 @@ http_client = httpx.Client(
 
 # System Instructions for Gemini
 SYSTEM_INSTRUCTION = """
-You are Calorie & Nutrition Assistant for ctracker_api.
-Your job is to help the user track calories, scale weight, and view progress using their self-hosted ctracker_api backend tools.
+You are Calorie & Nutrition Assistant for ctracker.
+Your job is to help the user track calories, scale weight, and view progress using their self-hosted ctracker backend tools.
 
 Tool Rules:
 1. When the user mentions food intake (text or image), interpret food items, search personal database first via `search_food`, and calculate macros.
@@ -66,7 +66,7 @@ def search_food(query: str) -> dict:
 
 
 def log_meals(meals: list[dict], client_event_id: str | None = None) -> dict:
-    """Log a batch of meal items to ctracker_api."""
+    """Log a batch of meal items to ctracker."""
     if not client_event_id:
         client_event_id = f"evt_meal_{uuid.uuid4().hex[:10]}"
     try:
@@ -129,7 +129,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     welcome_text = (
         "👋 *Welcome to Calorie & Nutrition Assistant!*\n\n"
-        "I am connected to your self-hosted `ctracker_api` backend.\n\n"
+        "I am connected to your self-hosted `ctracker` backend.\n\n"
         "You can:\n"
         "• 🍎 *Describe food*: Send text or food photos (e.g., *'Ate 3 pancakes with butter'*)\n"
         "• ⚖️ *Log weight*: Tell me your weight (e.g., *'Weighed 84.2 kg today'*)\n"

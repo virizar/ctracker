@@ -1,1 +1,1 @@
-# Telegram Bot package for ctracker_api
+# Telegram Bot package for ctracker

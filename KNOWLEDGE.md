@@ -1,6 +1,6 @@
 # TDEE Engine & System Knowledge Base (`KNOWLEDGE.md`)
 
-This document serves as the open knowledge repository for `ctracker_api`. It details the reverse-engineering methodology, mathematical equations, algorithm parameters, and edge-case behaviors derived from benchmarking against **985 days (2024 to 2026)** of real-world data_export export data.
+This document serves as the open knowledge repository for `ctracker`. It details the reverse-engineering methodology, mathematical equations, algorithm parameters, and edge-case behaviors derived from benchmarking against **985 days (2024 to 2026)** of real-world data_export export data.
 
 ---
 
