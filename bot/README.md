@@ -9,6 +9,7 @@
 * 📸 **Food Photo Vision**: Take a picture of your plate in Telegram $\rightarrow$ Gemini identifies the food items, searches your database catalog, calculates macros, and logs the meal!
 * 🎙️ **Voice Notes**: Send a voice note in Telegram detailing your meal or weight.
 * ⚖️ **Scale Weight Logging**: Type *"Weighed 84.2 kg today"*.
+* 📁 **Smart Data File Import**: Send `.json`, `.json.gz`, or CSV dumps from third-party apps (MyFitnessPal, LoseIt, Apple Health). Gemini parses column structures, asks for clarification if needed, and imports records into `ctracker`.
 * 📊 **Dashboard Updates**: Type `/status` or *"How am I doing today?"* to get your remaining calorie budget, protein target, and updated trend weight.
 * 🔒 **User Security Whitelist**: Restrict bot access to your Telegram User ID using `ALLOWED_TELEGRAM_USER_IDS`.
 

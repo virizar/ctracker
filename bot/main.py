@@ -35,13 +35,13 @@ ALLOWED_USER_IDS = [
 http_client = httpx.Client(
     base_url=CTRACKER_API_URL,
     headers={"X-API-Key": CTRACKER_API_KEY} if CTRACKER_API_KEY else {},
-    timeout=15.0,
+    timeout=30.0,
 )
 
 # System Instructions for Gemini
 SYSTEM_INSTRUCTION = """
 You are Calorie & Nutrition Assistant for ctracker.
-Your job is to help the user track calories, scale weight, and view progress using their self-hosted ctracker backend tools.
+Your job is to help the user track calories, scale weight, import historical data dumps, and view progress using their self-hosted ctracker backend tools.
 
 Tool Rules:
 1. When the user mentions food intake (text or image), interpret food items, search personal database first via `search_food`, and calculate macros.
@@ -49,7 +49,11 @@ Tool Rules:
 3. Call `log_meals` to save confirmed meals.
 4. When user mentions weight (e.g. "weighed 84.2 kg"), call `log_weight`.
 5. When user asks for status/progress, call `get_dashboard`.
-6. Always remain encouraging, precise, and adherence-neutral.
+6. When user uploads a data dump file (CSV, JSON, TXT) from third-party apps (MyFitnessPal, LoseIt, Apple Health, etc.):
+   - Analyze column headers, data formats, dates, and units.
+   - If data format is ambiguous or missing units (e.g. lbs vs kg, date format), ask the user for clarification before logging.
+   - Once clear, transform and batch log using `log_meals` and `log_weight` or `import_data_file`.
+7. Always remain encouraging, precise, and adherence-neutral.
 """
 
 
@@ -133,6 +137,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "You can:\n"
         "• 🍎 *Describe food*: Send text or food photos (e.g., *'Ate 3 pancakes with butter'*)\n"
         "• ⚖️ *Log weight*: Tell me your weight (e.g., *'Weighed 84.2 kg today'*)\n"
+        "• 📁 *Import data*: Send a `.json`, `.json.gz`, or CSV export file from another app\n"
         "• 📊 *Check progress*: Send `/status` or ask *'How am I doing today?'*"
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
@@ -156,6 +161,93 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         f"🔥 *Estimated TDEE*: {data.get('tdee_estimate', 'N/A')} kcal/day"
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.effective_user or not is_user_allowed(update.effective_user.id):
+        return
+
+    if not update.message or not update.message.document:
+        return
+
+    doc = update.message.document
+    filename = doc.file_name or "uploaded_file.txt"
+    await update.message.chat.send_action(action="typing")
+
+    try:
+        doc_file = await doc.get_file()
+        file_bytes = bytes(await doc_file.download_as_bytearray())
+
+        # Path A: Official ctracker json / json.gz bulk import endpoint
+        if filename.endswith(".json") or filename.endswith(".json.gz"):
+            mime = "application/gzip" if filename.endswith(".gz") else "application/json"
+            res = http_client.post(
+                "/v1/import/file",
+                files={"file": (filename, file_bytes, mime)},
+            )
+            if res.status_code == 200:
+                resp_json = res.json()
+                msg = (
+                    f"✅ *Bulk Import Successful!*\n\n"
+                    f"• 🏋️ Scale Weight Entries: *{resp_json.get('weights_imported', 0)}*\n"
+                    f"• 🍎 Meal Log Entries: *{resp_json.get('meals_imported', 0)}*"
+                )
+                await update.message.reply_text(msg, parse_mode="Markdown")
+                return
+
+        # Path B: AI Multimodal / Raw Text Analysis for 3rd Party Dumps (CSV, JSON, TXT)
+        text_content = ""
+        try:
+            text_content = file_bytes.decode("utf-8", errors="ignore")
+        except Exception:
+            text_content = "[Binary file data attached]"
+
+        # Send raw dump content to Gemini to parse, ask questions if needed, or invoke logging tools
+        prompt = (
+            f"The user uploaded a data dump file named '{filename}'.\n"
+            f"File content snippet:\n```\n{text_content[:30000]}\n```\n\n"
+            f"Analyze this file. Identify dates, meal items, calories, macros, and scale weight entries.\n"
+            f"If the data structure or units (e.g. lbs vs kg) are ambiguous, ask the user for clarification.\n"
+            f"If clear, call `log_weight` and `log_meals` to import the records into ctracker."
+        )
+
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        tools = [search_food, log_meals, log_weight, get_dashboard]
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_INSTRUCTION,
+                tools=tools,
+                temperature=0.2,
+            ),
+        )
+
+        if response.function_calls:
+            for call in response.function_calls:
+                fn_name = call.name
+                fn_args = dict(call.args)
+                if fn_name in TOOL_MAPPING:
+                    logger.info(f"Executing tool call {fn_name} for document import")
+                    tool_res = TOOL_MAPPING[fn_name](**fn_args)
+                    follow_up = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=f"Tool {fn_name} returned: {tool_res}. Present final import summary to user.",
+                        config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
+                    )
+                    if follow_up.text:
+                        await update.message.reply_text(follow_up.text, parse_mode="Markdown")
+                        return
+
+        if response.text:
+            await update.message.reply_text(response.text, parse_mode="Markdown")
+        else:
+            await update.message.reply_text("✅ File processed successfully.")
+
+    except Exception as e:
+        logger.error(f"Error handling document import: {e}")
+        await update.message.reply_text(f"❌ Failed to process file import: {e}")
 
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -243,11 +335,22 @@ def main() -> None:
         logger.error("GEMINI_API_KEY environment variable is missing. Bot exiting.")
         sys.exit(1)
 
+    # Fetch OpenAPI spec schema on startup to verify ctracker API connection
+    try:
+        openapi_res = http_client.get("/openapi.json")
+        if openapi_res.status_code == 200:
+            logger.info("Successfully connected to ctracker API and retrieved OpenAPI spec!")
+        else:
+            logger.warning(f"Could not fetch OpenAPI spec (status {openapi_res.status_code})")
+    except Exception as e:
+        logger.warning(f"Could not connect to ctracker API on startup: {e}")
+
     logger.info("Starting Calorie & Nutrition Assistant Telegram Bot...")
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CommandHandler("status", status_handler))
+    app.add_handler(MessageHandler(filters.Document.ALL, document_handler))
     app.add_handler(MessageHandler(filters.TEXT | filters.PHOTO, message_handler))
 
     app.run_polling()
