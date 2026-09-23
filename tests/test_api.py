@@ -194,19 +194,3 @@ def test_bulk_file_import_json_and_gzip():
     assert data_gz["status"] == "success"
     assert data_gz["weights_imported"] == 2
     assert data_gz["meals_imported"] == 1
-
-
-def test_agent_config_endpoint():
-    # Unauthenticated request should return 401
-    unauth_res = client.get("/v1/agent/config")
-    assert unauth_res.status_code == 401
-
-    # Authenticated request should return 200 and system instructions
-    auth_res = client.get("/v1/agent/config", headers=HEADERS)
-    assert auth_res.status_code == 200
-    data = auth_res.json()
-    assert data["version"] == "1.0.0"
-    assert data["service"] == "ctracker_api"
-    assert "system_instructions" in data
-    assert "protocols" in data
-    assert data["protocols"]["search_first"] is True

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.openapi.utils import get_openapi
 
-from app.api.v1 import admin, agent, auth, dashboard, food, import_data, weight
+from app.api.v1 import admin, auth, dashboard, food, import_data, weight
 from app.config import settings
 from app.db.models import APIKey, UserProfile
 from app.db.session import SessionLocal, init_fts5_and_db
@@ -65,7 +65,6 @@ app.include_router(weight.router)
 app.include_router(food.router)
 app.include_router(dashboard.router)
 app.include_router(import_data.router)
-app.include_router(agent.router)
 
 
 @app.get("/openapi.json", include_in_schema=False)
