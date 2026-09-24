@@ -1,6 +1,7 @@
 import io
 import logging
 import os
+import re
 import sys
 import uuid
 
@@ -9,6 +10,7 @@ import openpyxl
 from google import genai
 from google.genai import types
 from telegram import Update
+from telegram.error import BadRequest
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -130,6 +132,46 @@ def is_user_allowed(user_id: int) -> bool:
     return user_id in ALLOWED_USER_IDS
 
 
+def cure_telegram_markdown(text: str) -> str:
+    """Cure and sanitize Markdown text for Telegram V1 parser.
+
+    1. Replaces line-starting bullet points ('* item' or '- item') with unicode '• item'.
+    2. Escapes underscores inside identifiers (e.g. client_event_id -> client\_event\_id).
+    3. Balances odd counts of unclosed formatting delimiters (*, `, _).
+    """
+    if not text:
+        return text
+
+    # Step 1: Replace line-starting bullet points with unicode bullets
+    cured = re.sub(r"(?m)^[ \t]*[*\-][ \t]+", "• ", text)
+
+    # Step 2: Escape standalone underscores inside words (e.g. client_event_id -> client\_event\_id)
+    cured = re.sub(r"(?<=\w)_(?=\w)", r"\_", cured)
+
+    # Step 3: Balance unclosed inline code backticks if odd count
+    if cured.count("`") % 2 != 0:
+        cured += "`"
+
+    # Step 4: Balance unclosed bold asterisks if odd count
+    if cured.count("*") % 2 != 0:
+        cured += "*"
+
+    return cured
+
+
+async def send_safe_reply(update: Update, text: str) -> None:
+    """Send reply to Telegram attempting cured Markdown first, falling back to raw text if Telegram rejects it."""
+    if not update.message or not text:
+        return
+
+    cured_text = cure_telegram_markdown(text)
+    try:
+        await update.message.reply_text(cured_text, parse_mode="Markdown")
+    except BadRequest as e:
+        logger.warning(f"Telegram Markdown parse error ('{e}'). Falling back to raw text reply.")
+        await update.message.reply_text(text)
+
+
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.effective_user or not is_user_allowed(update.effective_user.id):
         return
@@ -140,10 +182,10 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "You can:\n"
         "• 🍎 *Describe food*: Send text or food photos (e.g., *'Ate 3 pancakes with butter'*)\n"
         "• ⚖️ *Log weight*: Tell me your weight (e.g., *'Weighed 84.2 kg today'*)\n"
-        "• 📁 *Import data*: Send a `.json`, `.json.gz`, or CSV export file from another app\n"
+        "• 📁 *Import data*: Send a `.json`, `.json.gz`, `.xlsx`, or CSV export file from another app\n"
         "• 📊 *Check progress*: Send `/status` or ask *'How am I doing today?'*"
     )
-    await update.message.reply_text(welcome_text, parse_mode="Markdown")
+    await send_safe_reply(update, welcome_text)
 
 
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -163,7 +205,7 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         f"⚖️ *Trend Weight*: {data.get('trend_weight_kg', 'N/A')} kg\n"
         f"🔥 *Estimated TDEE*: {data.get('tdee_estimate', 'N/A')} kcal/day"
     )
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    await send_safe_reply(update, msg)
 
 
 def parse_excel_to_text(file_bytes: bytes) -> str:
@@ -213,7 +255,7 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     f"• 🏋️ Scale Weight Entries: *{resp_json.get('weights_imported', 0)}*\n"
                     f"• 🍎 Meal Log Entries: *{resp_json.get('meals_imported', 0)}*"
                 )
-                await update.message.reply_text(msg, parse_mode="Markdown")
+                await send_safe_reply(update, msg)
                 return
 
         # Path B: AI Multimodal / Raw Text Analysis for 3rd Party Dumps (CSV, Excel, JSON, TXT)
@@ -262,11 +304,11 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
                     )
                     if follow_up.text:
-                        await update.message.reply_text(follow_up.text, parse_mode="Markdown")
+                        await send_safe_reply(update, follow_up.text)
                         return
 
         if response.text:
-            await update.message.reply_text(response.text, parse_mode="Markdown")
+            await send_safe_reply(update, response.text)
         else:
             await update.message.reply_text("✅ File processed successfully.")
 
@@ -338,11 +380,11 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                         config=types.GenerateContentConfig(system_instruction=SYSTEM_INSTRUCTION),
                     )
                     if follow_up.text:
-                        await update.message.reply_text(follow_up.text, parse_mode="Markdown")
+                        await send_safe_reply(update, follow_up.text)
                         return
 
         if response.text:
-            await update.message.reply_text(response.text, parse_mode="Markdown")
+            await send_safe_reply(update, response.text)
         else:
             await update.message.reply_text("✅ Operation processed successfully.")
 
