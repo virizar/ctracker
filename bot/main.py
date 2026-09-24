@@ -1,9 +1,11 @@
+import io
 import logging
 import os
 import sys
 import uuid
 
 import httpx
+import openpyxl
 from google import genai
 from google.genai import types
 from telegram import Update
@@ -164,6 +166,24 @@ async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 
+def parse_excel_to_text(file_bytes: bytes) -> str:
+    """Parse Excel (.xlsx, .xlsm) workbook bytes into clean tabular text for Gemini LLM analysis."""
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+        out_lines = []
+        for sheet_name in wb.sheetnames:
+            sheet = wb[sheet_name]
+            out_lines.append(f"--- Sheet: {sheet_name} ---")
+            for row in sheet.iter_rows(values_only=True):
+                if any(cell is not None for cell in row):
+                    row_str = ", ".join(str(cell) if cell is not None else "" for cell in row)
+                    out_lines.append(row_str)
+        return "\n".join(out_lines)
+    except Exception as e:
+        logger.error(f"Error parsing Excel file: {e}")
+        return f"[Error parsing Excel file: {e}]"
+
+
 async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.effective_user or not is_user_allowed(update.effective_user.id):
         return
@@ -196,12 +216,16 @@ async def document_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 await update.message.reply_text(msg, parse_mode="Markdown")
                 return
 
-        # Path B: AI Multimodal / Raw Text Analysis for 3rd Party Dumps (CSV, JSON, TXT)
+        # Path B: AI Multimodal / Raw Text Analysis for 3rd Party Dumps (CSV, Excel, JSON, TXT)
         text_content = ""
-        try:
-            text_content = file_bytes.decode("utf-8", errors="ignore")
-        except Exception:
-            text_content = "[Binary file data attached]"
+        filename_lower = filename.lower()
+        if filename_lower.endswith((".xlsx", ".xls", ".xlsm")):
+            text_content = parse_excel_to_text(file_bytes)
+        else:
+            try:
+                text_content = file_bytes.decode("utf-8", errors="ignore")
+            except Exception:
+                text_content = "[Binary file data attached]"
 
         # Send raw dump content to Gemini to parse, ask questions if needed, or invoke logging tools
         prompt = (
