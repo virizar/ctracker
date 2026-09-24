@@ -81,10 +81,23 @@ async def import_file(
                 db.add(ScaleWeight(username=user.username, date=w_item.date, raw_weight=w_item.raw_weight))
             weights_imported += 1
 
-        # Bulk insert meal logs & catalog entries
+        # Bulk insert meal logs & catalog entries (Idempotent: skip existing identical meal logs on date)
         meals_imported = 0
         for m_item in payload.meals:
             c_name = m_item.canonical_name or m_item.food_name
+            existing_meal = (
+                db.query(MealLog)
+                .filter(
+                    MealLog.username == user.username,
+                    MealLog.date == m_item.date,
+                    MealLog.food_name == m_item.food_name,
+                    MealLog.calories == m_item.calories,
+                )
+                .first()
+            )
+            if existing_meal:
+                continue
+
             catalog_obj = get_or_create_food_catalog(
                 db,
                 user.username,

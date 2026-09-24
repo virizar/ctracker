@@ -1,3 +1,4 @@
+import html
 import io
 import logging
 import os
@@ -132,43 +133,44 @@ def is_user_allowed(user_id: int) -> bool:
     return user_id in ALLOWED_USER_IDS
 
 
-def cure_telegram_markdown(text: str) -> str:
-    """Cure and sanitize Markdown text for Telegram V1 parser.
-
-    1. Replaces line-starting bullet points ('* item' or '- item') with unicode '• item'.
-    2. Escapes underscores inside identifiers (e.g. client_event_id -> client\_event\_id).
-    3. Balances odd counts of unclosed formatting delimiters (*, `, _).
-    """
+def markdown_to_telegram_html(text: str) -> str:
+    """Convert standard LLM Markdown into clean Telegram-compatible HTML."""
     if not text:
         return text
 
-    # Step 1: Replace line-starting bullet points with unicode bullets
-    cured = re.sub(r"(?m)^[ \t]*[*\-][ \t]+", "• ", text)
+    # Step 1: Escape raw HTML entities first (&, <, >) so user text doesn't break XML
+    cured = html.escape(text)
 
-    # Step 2: Escape standalone underscores inside words (e.g. client_event_id -> client\_event\_id)
-    cured = re.sub(r"(?<=\w)_(?=\w)", r"\_", cured)
+    # Step 2: Code blocks ```code``` -> <pre>code</pre>
+    cured = re.sub(r"```(?:\w+)?\n?(.*?)```", r"<pre>\1</pre>", cured, flags=re.DOTALL)
 
-    # Step 3: Balance unclosed inline code backticks if odd count
-    if cured.count("`") % 2 != 0:
-        cured += "`"
+    # Step 3: Inline code `code` -> <code>code</code>
+    cured = re.sub(r"`([^`]+)`", r"<code>\1</code>", cured)
 
-    # Step 4: Balance unclosed bold asterisks if odd count
-    if cured.count("*") % 2 != 0:
-        cured += "*"
+    # Step 4: Bold **text** or __text__ -> <b>text</b>
+    cured = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", cured)
+    cured = re.sub(r"__([^_]+)__", r"<b>\1</b>", cured)
+
+    # Step 5: Italic *text* or _text_ -> <i>text</i>
+    cured = re.sub(r"(?<!\w)\*([^*]+)\*(?!\w)", r"<i>\1</i>", cured)
+    cured = re.sub(r"(?<!\w)_([^_]+)_(?!\w)", r"<i>\1</i>", cured)
+
+    # Step 6: Bullet lists starting with * or - -> •
+    cured = re.sub(r"(?m)^[ \t]*[*\-][ \t]+", "• ", cured)
 
     return cured
 
 
 async def send_safe_reply(update: Update, text: str) -> None:
-    """Send reply to Telegram attempting cured Markdown first, falling back to raw text if Telegram rejects it."""
+    """Send reply to Telegram using robust HTML formatting, falling back to plain text if Telegram rejects it."""
     if not update.message or not text:
         return
 
-    cured_text = cure_telegram_markdown(text)
+    html_text = markdown_to_telegram_html(text)
     try:
-        await update.message.reply_text(cured_text, parse_mode="Markdown")
+        await update.message.reply_text(html_text, parse_mode="HTML")
     except BadRequest as e:
-        logger.warning(f"Telegram Markdown parse error ('{e}'). Falling back to raw text reply.")
+        logger.warning(f"Telegram HTML parse error ('{e}'). Falling back to plain text reply.")
         await update.message.reply_text(text)
 
 

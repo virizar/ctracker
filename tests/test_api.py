@@ -156,13 +156,18 @@ def test_protected_openapi_and_docs():
 def test_bulk_file_import_json_and_gzip():
     import gzip
     import json
+    import uuid
+
+    unique_suffix = uuid.uuid4().hex[:6]
+    test_date_1 = "2099-01-01"
+    test_date_2 = "2099-01-02"
 
     import_data_obj = {
-        "weights": [{"date": "2026-08-01", "raw_weight": 88.5}, {"date": "2026-08-02", "raw_weight": 88.2}],
+        "weights": [{"date": test_date_1, "raw_weight": 88.5}, {"date": test_date_2, "raw_weight": 88.2}],
         "meals": [
             {
-                "date": "2026-08-01",
-                "food_name": "Oatmeal with berries",
+                "date": test_date_1,
+                "food_name": f"Test Oatmeal {unique_suffix}",
                 "canonical_name": "Oatmeal",
                 "serving_size": "1 bowl",
                 "calories": 350.0,
@@ -184,13 +189,29 @@ def test_bulk_file_import_json_and_gzip():
     assert data_json["weights_imported"] == 2
     assert data_json["meals_imported"] == 1
 
-    # Test compressed .json.gz import
-    gz_bytes = gzip.compress(json_bytes)
+    # Test compressed .json.gz import with a second unique meal
+    test_date_3 = "2099-01-03"
+    import_data_obj_gz = {
+        "weights": [{"date": test_date_3, "raw_weight": 88.0}],
+        "meals": [
+            {
+                "date": test_date_3,
+                "food_name": f"Test Eggs {unique_suffix}",
+                "canonical_name": "Eggs",
+                "serving_size": "2 eggs",
+                "calories": 140.0,
+                "protein": 12.0,
+                "carbs": 1.0,
+                "fat": 10.0,
+            }
+        ],
+    }
+    gz_bytes = gzip.compress(json.dumps(import_data_obj_gz).encode("utf-8"))
     res_gz = client.post(
         "/v1/import/file", files={"file": ("migration_data.json.gz", gz_bytes, "application/gzip")}, headers=HEADERS
     )
     assert res_gz.status_code == 200
     data_gz = res_gz.json()
     assert data_gz["status"] == "success"
-    assert data_gz["weights_imported"] == 2
+    assert data_gz["weights_imported"] == 1
     assert data_gz["meals_imported"] == 1
