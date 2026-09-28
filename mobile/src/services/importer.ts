@@ -206,7 +206,13 @@ async function readUriAsText(uri: string): Promise<string> {
 async function readUriAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
   try {
     const res = await fetch(uri);
+    if (typeof res.arrayBuffer === 'function') {
+      return await res.arrayBuffer();
+    }
     const blob = await res.blob();
+    if (typeof blob.arrayBuffer === 'function') {
+      return await blob.arrayBuffer();
+    }
     return await new Promise<ArrayBuffer>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as ArrayBuffer);
