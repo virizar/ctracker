@@ -59,6 +59,11 @@ def test_safety_floor_enforcement():
 
 
 def test_dashboard_summary_and_projections():
+    client.patch(
+        "/v1/auth/me",
+        json={"target_monthly_rate_kg": -2.0, "target_weight_kg": 85.0},
+        headers=HEADERS,
+    )
     response = client.get("/v1/dashboard/summary?date=2026-09-17", headers=HEADERS)
     assert response.status_code == 200
     data = response.json()
