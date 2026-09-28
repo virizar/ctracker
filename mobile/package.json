@@ -5,12 +5,16 @@
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
     "expo": "~57.0.25",
+    "expo-document-picker": "~57.0.2",
+    "expo-file-system": "~57.0.7",
     "expo-secure-store": "^57.0.4",
     "expo-sqlite": "^57.0.3",
     "expo-status-bar": "~57.0.1",
+    "papaparse": "^5.7.0",
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-safe-area-context": "~5.7.0"
+    "react-native-safe-area-context": "~5.7.0",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "expo start",
@@ -20,7 +24,8 @@
   },
   "private": true,
   "devDependencies": {
-    "@types/react": "^19.3.0",
-    "typescript": "^7.0.2"
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "~19.2.4",
+    "typescript": "~6.0.3"
   }
 }

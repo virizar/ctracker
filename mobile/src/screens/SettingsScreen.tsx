@@ -7,6 +7,8 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -17,6 +19,7 @@ import {
 } from '../services/keychain';
 import { getUserProfile, updateUserProfile } from '../db/queries';
 import { recalculateUserTdee } from '../services/tdee';
+import { pickAndInspectFile, ImportPreview } from '../services/importer';
 import { UserProfile } from '../types';
 
 export function SettingsScreen() {
@@ -28,6 +31,11 @@ export function SettingsScreen() {
   const [targetWeight, setTargetWeight] = useState('85.0');
   const [targetRate, setTargetRate] = useState('-2.0');
   const [minCalories, setMinCalories] = useState('1500');
+
+  // Import State
+  const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -79,6 +87,37 @@ export function SettingsScreen() {
     Alert.alert('Profile Updated', 'Target weight and safety floor saved. TDEE targets recalculated.');
   };
 
+  const handlePickFile = async () => {
+    try {
+      setIsAnalyzingFile(true);
+      const preview = await pickAndInspectFile();
+      if (preview) {
+        setImportPreview(preview);
+      }
+    } catch (err: any) {
+      Alert.alert('Import Analysis Failed', err?.message || 'Could not parse the selected file.');
+    } finally {
+      setIsAnalyzingFile(false);
+    }
+  };
+
+  const handleExecuteImport = async () => {
+    if (!importPreview) return;
+    try {
+      setIsImporting(true);
+      const result = await importPreview.executeImport();
+      setImportPreview(null);
+      Alert.alert(
+        'Import Successful! 🎉',
+        `Imported ${result.mealsImported} new meals and ${result.weightsImported} weigh-ins. TDEE curves and historical trends have been updated.`
+      );
+    } catch (err: any) {
+      Alert.alert('Import Failed', err?.message || 'An error occurred while saving the imported data.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleRecalculateAll = async () => {
     await recalculateUserTdee('victor');
     Alert.alert('Recalculated', 'Full TDEE and exponential weight trends updated.');
@@ -86,6 +125,32 @@ export function SettingsScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Smart Import Card */}
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Ionicons name="cloud-upload" size={20} color="#7c3aed" />
+          <Text style={styles.cardTitle}>Smart Data Import</Text>
+        </View>
+        <Text style={styles.infoText}>
+          Import historical data from FitnessLog (.xlsx), MyFitnessPal, Cronometer (.csv), or JSON. If the format is unknown, Gemini AI will automatically detect the columns and units.
+        </Text>
+
+        <TouchableOpacity
+          style={[styles.saveBtn, { backgroundColor: '#7c3aed' }, isAnalyzingFile && { opacity: 0.7 }]}
+          onPress={handlePickFile}
+          disabled={isAnalyzingFile}
+        >
+          {isAnalyzingFile ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="document-text-outline" size={18} color="#fff" />
+              <Text style={[styles.saveBtnText, { marginLeft: 8 }]}>Select File to Import</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
+
       {/* Gemini AI Card */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
@@ -171,6 +236,70 @@ export function SettingsScreen() {
           <Text style={styles.saveBtnText}>Recalculate TDEE Engine</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Import Preview Modal */}
+      {importPreview && (
+        <Modal visible transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Import Preview</Text>
+
+              <View style={styles.previewInfoRow}>
+                <Text style={styles.previewLabel}>File:</Text>
+                <Text style={styles.previewValue}>{importPreview.fileName}</Text>
+              </View>
+
+              <View style={styles.previewInfoRow}>
+                <Text style={styles.previewLabel}>Detected Format:</Text>
+                <Text style={[styles.previewValue, { color: '#7c3aed', fontWeight: '700' }]}>
+                  {importPreview.sourceFormat}
+                </Text>
+              </View>
+
+              <View style={styles.previewInfoRow}>
+                <Text style={styles.previewLabel}>Meals Found:</Text>
+                <Text style={styles.previewValue}>{importPreview.mealsCount}</Text>
+              </View>
+
+              <View style={styles.previewInfoRow}>
+                <Text style={styles.previewLabel}>Weigh-Ins Found:</Text>
+                <Text style={styles.previewValue}>{importPreview.weightsCount}</Text>
+              </View>
+
+              {importPreview.startDate && (
+                <View style={styles.previewInfoRow}>
+                  <Text style={styles.previewLabel}>Date Range:</Text>
+                  <Text style={styles.previewValue}>
+                    {importPreview.startDate} to {importPreview.endDate}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: '#e2e8f0' }]}
+                  onPress={() => setImportPreview(null)}
+                  disabled={isImporting}
+                >
+                  <Text style={{ color: '#334155', fontWeight: '600' }}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: '#16a34a' }]}
+                  onPress={handleExecuteImport}
+                  disabled={isImporting}
+                >
+                  {isImporting ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>Confirm Import</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
@@ -236,5 +365,56 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 22,
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  previewInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  previewLabel: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  previewValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0f172a',
+    maxWidth: 180,
+    textAlign: 'right',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  modalBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 4,
   },
 });
