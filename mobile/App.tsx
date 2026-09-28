@@ -35,6 +35,9 @@ function MainApp() {
             onOpenQuickLog={() => setIsQuickLogVisible(true)}
           />
         )}
+        {currentTab === 'trends' && (
+          <WeightTrendsScreen key={`trends-${refreshKey}`} />
+        )}
         {currentTab === 'settings' && (
           <SettingsScreen onDatabaseWiped={() => setRefreshKey((k) => k + 1)} />
         )}
