@@ -507,16 +507,15 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
           }
         }
 
-        // 2. Fetch existing meals once into memory to eliminate 11,000+ N+1 SELECT table scans
-        const existingRows = await db.getAllAsync<{ date: string; food_name: string; calories: number }>(
-          `SELECT date, food_name, calories FROM meal_logs WHERE username = ?`,
-          ['victor']
-        );
-        const existingSet = new Set(
-          existingRows.map((r) => `${r.date}|${r.food_name}|${r.calories}`)
-        );
+        // 2. Cleanly replace any previous import for this exact date range so repeat foods (e.g. eating 2 eggs or 2 slices of bread) are NOT falsely discarded
+        if (mealsToInsert.length > 0 && startDate && endDate) {
+          await db.runAsync(
+            `DELETE FROM meal_logs WHERE username = ? AND date >= ? AND date <= ?`,
+            ['victor', startDate, endDate]
+          );
+        }
 
-        // 3. Batch insert unique meals
+        // 3. Batch insert ALL meals from the export
         const uniqueCatalogMap = new Map<string, any>();
         if (mealsToInsert.length > 0) {
           const mealStmt = await db.prepareAsync(
@@ -527,26 +526,22 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
           );
           try {
             for (const m of mealsToInsert) {
-              const key = `${m.date}|${m.food_name}|${m.calories}`;
-              if (!existingSet.has(key)) {
-                existingSet.add(key);
-                await mealStmt.executeAsync([
-                  'victor',
-                  m.date,
-                  m.food_name,
-                  m.canonical_name || m.food_name,
-                  m.serving_size || null,
-                  m.calories,
-                  m.protein || 0,
-                  m.carbs || 0,
-                  m.fat || 0,
-                ]);
-                mealsImported++;
+              await mealStmt.executeAsync([
+                'victor',
+                m.date,
+                m.food_name,
+                m.canonical_name || m.food_name,
+                m.serving_size || null,
+                m.calories,
+                m.protein || 0,
+                m.carbs || 0,
+                m.fat || 0,
+              ]);
+              mealsImported++;
 
-                const canonical = m.canonical_name || m.food_name;
-                if (!uniqueCatalogMap.has(canonical)) {
-                  uniqueCatalogMap.set(canonical, m);
-                }
+              const canonical = m.canonical_name || m.food_name;
+              if (!uniqueCatalogMap.has(canonical)) {
+                uniqueCatalogMap.set(canonical, m);
               }
             }
           } finally {
