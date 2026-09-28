@@ -132,6 +132,32 @@ Return ONLY a valid JSON object matching the ColumnMapping schema.`;
   return JSON.parse(jsonText);
 }
 
+async function readUriAsText(uri: string): Promise<string> {
+  try {
+    const res = await fetch(uri);
+    return await res.text();
+  } catch {
+    const file = new File(uri);
+    return await file.text();
+  }
+}
+
+async function readUriAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
+  try {
+    const res = await fetch(uri);
+    const blob = await res.blob();
+    return await new Promise<ArrayBuffer>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as ArrayBuffer);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(blob);
+    });
+  } catch {
+    const file = new File(uri);
+    return await file.arrayBuffer();
+  }
+}
+
 export async function pickAndInspectFile(): Promise<ImportPreview | null> {
   const pickerResult = await DocumentPicker.getDocumentAsync({
     type: [
@@ -168,8 +194,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
 
   // 1. JSON Import (CTRACKER format or backup)
   if (fileExt === 'json') {
-    const file = new File(asset.uri);
-    const fileStr = await file.text();
+    const fileStr = await readUriAsText(asset.uri);
     const parsed = JSON.parse(fileStr);
 
     if (Array.isArray(parsed.weights)) {
@@ -201,8 +226,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
 
   // 2. Excel Import (.xlsx, .xls)
   else if (fileExt === 'xlsx' || fileExt === 'xls') {
-    const file = new File(asset.uri);
-    const arrayBuffer = await file.arrayBuffer();
+    const arrayBuffer = await readUriAsArrayBuffer(asset.uri);
     const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
 
     // Check for FitnessLog Multi-Sheet Pattern
@@ -270,8 +294,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
 
   // 3. CSV Import
   else {
-    const file = new File(asset.uri);
-    const csvStr = await file.text();
+    const csvStr = await readUriAsText(asset.uri);
     const parsedCsv = Papa.parse<Record<string, any>>(csvStr, {
       header: true,
       skipEmptyLines: true,
