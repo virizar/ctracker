@@ -11,6 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseFoodInput } from '../services/gemini';
 import { logMeal, searchFoodCatalog } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
@@ -29,6 +30,7 @@ export function QuickLogModal({
   onSuccess,
   targetDate = formatDate(new Date()),
 }: QuickLogModalProps) {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'ai' | 'search'>('ai');
 
   // AI Tab State
@@ -123,7 +125,15 @@ export function QuickLogModal({
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
-      <View style={styles.container}>
+      <View
+        style={[
+          styles.container,
+          {
+            paddingTop: insets.top > 0 ? insets.top : 12,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 12,
+          },
+        ]}
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Log Food for {targetDate}</Text>
