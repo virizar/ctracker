@@ -27,9 +27,13 @@ function MainApp() {
       <StatusBar style="dark" />
 
       {/* Screen Body */}
-      <View style={styles.screenContainer} key={refreshKey}>
+      <View style={styles.screenContainer}>
         {currentTab === 'dashboard' && (
-          <DashboardScreen onOpenQuickLog={() => setIsQuickLogVisible(true)} />
+          <DashboardScreen
+            key={`dashboard-${refreshKey}`}
+            refreshTrigger={refreshKey}
+            onOpenQuickLog={() => setIsQuickLogVisible(true)}
+          />
         )}
         {currentTab === 'trends' && <WeightTrendsScreen />}
         {currentTab === 'settings' && <SettingsScreen />}

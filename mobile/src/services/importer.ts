@@ -80,6 +80,61 @@ function normalizeDate(rawDate: any, formatHint?: string): string | null {
   return null;
 }
 
+export function findRowDate(row: Record<string, any>): any {
+  for (const k of Object.keys(row)) {
+    const cleaned = k.replace(/^[ï»¿\uFEFF\"']+|[\"']+$/g, '').trim().toLowerCase();
+    if (cleaned.includes('date')) {
+      return row[k];
+    }
+  }
+  return null;
+}
+
+export function buildServingSize(row: Record<string, any>, preferredUnitCol?: string): string {
+  const qty =
+    row['Serving Qty'] ??
+    row['Serving Quantity'] ??
+    row['Quantity'] ??
+    row['quantity'] ??
+    row['qty'];
+  const unit =
+    (preferredUnitCol ? row[preferredUnitCol] : undefined) ??
+    row['Serving Size'] ??
+    row['Serving'] ??
+    row['Unit'] ??
+    row['unit'];
+  const weightG =
+    row['Serving Weight (g)'] ??
+    row['Weight (g)'] ??
+    row['weight_g'] ??
+    row['weight'];
+
+  const parts: string[] = [];
+  const unitStr = unit !== undefined && unit !== null ? String(unit).trim() : '';
+  const isUnitGram = ['g', 'gram', 'grams', 'gr'].includes(unitStr.toLowerCase());
+
+  if (qty !== undefined && qty !== null && String(qty).trim() !== '' && unitStr) {
+    parts.push(`${qty} ${unitStr}`);
+  } else if (unitStr) {
+    parts.push(unitStr);
+  } else if (qty !== undefined && qty !== null && String(qty).trim() !== '') {
+    parts.push(String(qty));
+  }
+
+  if (!isUnitGram && weightG !== undefined && weightG !== null && !isNaN(parseFloat(weightG))) {
+    const rounded = Math.round(parseFloat(weightG) * 10) / 10;
+    if (rounded > 0) {
+      if (parts.length > 0) {
+        parts.push(`(${rounded}g)`);
+      } else {
+        parts.push(`${rounded}g`);
+      }
+    }
+  }
+
+  return parts.length > 0 ? parts.join(' ') : '1 serving';
+}
+
 export async function askGeminiForColumnMapping(
   headers: string[],
   sampleRows: Record<string, any>[]
@@ -133,13 +188,19 @@ Return ONLY a valid JSON object matching the ColumnMapping schema.`;
 }
 
 async function readUriAsText(uri: string): Promise<string> {
+  let text = '';
   try {
     const res = await fetch(uri);
-    return await res.text();
+    text = await res.text();
   } catch {
     const file = new File(uri);
-    return await file.text();
+    text = await file.text();
   }
+  // Strip UTF-8 BOM if present
+  if (text.charCodeAt(0) === 0xFEFF) {
+    text = text.slice(1);
+  }
+  return text;
 }
 
 async function readUriAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
@@ -261,7 +322,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
       if (foodSheetName) {
         const rows: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[foodSheetName]);
         for (const row of rows) {
-          const rawDate = row['Date'] || row['date'];
+          const rawDate = row['Date'] || row['date'] || findRowDate(row);
           const normDate = normalizeDate(rawDate);
           const name = row['Food Name'] || row['Name'] || row['food_name'];
           const cals = row['Calories (kcal)'] || row['Calories'] || row['Energy (kcal)'];
@@ -270,7 +331,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
               date: normDate,
               food_name: String(name),
               canonical_name: String(name),
-              serving_size: row['Serving'] || row['Serving Size'] || '1 serving',
+              serving_size: buildServingSize(row),
               calories: parseFloat(cals) || 0,
               protein: parseFloat(row['Protein (g)'] || row['Protein'] || 0),
               carbs: parseFloat(row['Carbs (g)'] || row['Carbs'] || 0),
@@ -298,17 +359,47 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
     const parsedCsv = Papa.parse<Record<string, any>>(csvStr, {
       header: true,
       skipEmptyLines: true,
+      transformHeader: (h) => h.replace(/^[ï»¿\uFEFF\"']+|[\"']+$/g, '').trim(),
     });
 
     const rows = parsedCsv.data;
     if (rows.length > 0) {
       const headers = Object.keys(rows[0]);
 
+      // Check for FitnessLog CSV signature
+      const isFitnessLogCsv =
+        headers.some((h) => h.toLowerCase() === 'food name') &&
+        headers.some(
+          (h) =>
+            h.toLowerCase().includes('serving qty') ||
+            h.toLowerCase().includes('calories (kcal)')
+        );
+
+      if (isFitnessLogCsv) {
+        sourceFormat = 'FitnessLog CSV';
+        for (const row of rows) {
+          const normDate = normalizeDate(row['Date'] || findRowDate(row));
+          const name = row['Food Name'] || row['food_name'];
+          const cals = parseFloat(row['Calories (kcal)'] ?? row['Calories'] ?? 0);
+          if (normDate && name && !isNaN(cals)) {
+            mealsToInsert.push({
+              date: normDate,
+              food_name: String(name),
+              canonical_name: String(name),
+              serving_size: buildServingSize(row),
+              calories: Math.round(cals),
+              protein: parseFloat(row['Protein (g)'] || row['Protein'] || 0),
+              carbs: parseFloat(row['Carbs (g)'] || row['Carbs'] || 0),
+              fat: parseFloat(row['Fat (g)'] || row['Fat'] || 0),
+            });
+          }
+        }
+      }
       // Check for MyFitnessPal CSV signature
-      if (headers.includes('Meal') && headers.includes('Calories')) {
+      else if (headers.includes('Meal') && headers.includes('Calories')) {
         sourceFormat = 'MyFitnessPal CSV';
         for (const row of rows) {
-          const normDate = normalizeDate(row['Date']);
+          const normDate = normalizeDate(row['Date'] || findRowDate(row));
           const name = row['Meal'] || row['Food Name'] || 'Food';
           const cals = parseFloat(row['Calories']);
           if (normDate && !isNaN(cals)) {
@@ -316,6 +407,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
               date: normDate,
               food_name: String(name),
               canonical_name: String(name),
+              serving_size: buildServingSize(row),
               calories: cals,
               protein: parseFloat(row['Protein (g)'] || 0),
               carbs: parseFloat(row['Carbohydrates (g)'] || 0),
@@ -325,17 +417,21 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
         }
       }
       // Check for Cronometer CSV signature
-      else if (headers.includes('Energy (kcal)') && headers.includes('Date')) {
+      else if (
+        headers.some((h) => h.toLowerCase().includes('energy (kcal)')) &&
+        headers.some((h) => h.toLowerCase().includes('date'))
+      ) {
         sourceFormat = 'Cronometer CSV';
         for (const row of rows) {
-          const normDate = normalizeDate(row['Date']);
-          const cals = parseFloat(row['Energy (kcal)']);
+          const normDate = normalizeDate(row['Date'] || findRowDate(row));
+          const cals = parseFloat(row['Energy (kcal)'] || 0);
           const name = row['Food Name'] || 'Meal';
           if (normDate && !isNaN(cals)) {
             mealsToInsert.push({
               date: normDate,
               food_name: String(name),
               canonical_name: String(name),
+              serving_size: buildServingSize(row),
               calories: cals,
               protein: parseFloat(row['Protein (g)'] || 0),
               carbs: parseFloat(row['Carbs (g)'] || 0),
@@ -345,12 +441,18 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
         }
       }
       // Check for Scale Weights CSV
-      else if (headers.length <= 4 && (headers.includes('Weight') || headers.includes('weight'))) {
+      else if (
+        headers.some((h) => h.toLowerCase().includes('weight')) &&
+        (headers.length <= 5 || headers.some((h) => h.toLowerCase().includes('fat percent')))
+      ) {
         sourceFormat = 'Scale Weight CSV';
-        const wCol = headers.find((h) => h.toLowerCase().includes('weight')) || 'Weight';
+        const wCol =
+          headers.find((h) => h.toLowerCase() === 'weight (kg)' || h.toLowerCase() === 'weight') ||
+          headers.find((h) => h.toLowerCase().includes('weight')) ||
+          'Weight';
         const dCol = headers.find((h) => h.toLowerCase().includes('date')) || 'Date';
         for (const row of rows) {
-          const normDate = normalizeDate(row[dCol]);
+          const normDate = normalizeDate(row[dCol] || findRowDate(row));
           const wVal = parseFloat(row[wCol]);
           if (normDate && !isNaN(wVal)) {
             weightsToInsert.push({ date: normDate, weight: wVal });
@@ -387,23 +489,25 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
       let weightsImported = 0;
       let mealsImported = 0;
 
-      // 1. Insert Weights Idempotently
-      for (const w of weightsToInsert) {
-        await logScaleWeight('victor', w.date, w.weight);
-        weightsImported++;
-      }
-
-      // 2. Insert Meals Idempotently (skip if same date, food_name, calories exists)
-      for (const m of mealsToInsert) {
-        const existing = await db.getFirstAsync(
-          `SELECT id FROM meal_logs WHERE username = ? AND date = ? AND food_name = ? AND calories = ?`,
-          ['victor', m.date, m.food_name, m.calories]
-        );
-        if (!existing) {
-          await logMeal('victor', m);
-          mealsImported++;
+      await db.withTransactionAsync(async () => {
+        // 1. Insert Weights Idempotently
+        for (const w of weightsToInsert) {
+          await logScaleWeight('victor', w.date, w.weight);
+          weightsImported++;
         }
-      }
+
+        // 2. Insert Meals Idempotently (skip if same date, food_name, calories exists)
+        for (const m of mealsToInsert) {
+          const existing = await db.getFirstAsync(
+            `SELECT id FROM meal_logs WHERE username = ? AND date = ? AND food_name = ? AND calories = ?`,
+            ['victor', m.date, m.food_name, m.calories]
+          );
+          if (!existing) {
+            await logMeal('victor', m);
+            mealsImported++;
+          }
+        }
+      });
 
       // 3. Recalculate TDEE across the whole dataset
       await recalculateUserTdee('victor');
@@ -420,7 +524,7 @@ function processRowsWithMapping(
   mealsOut: Array<any>
 ) {
   for (const row of rows) {
-    const normDate = normalizeDate(row[mapping.dateColumn], mapping.dateFormat);
+    const normDate = normalizeDate(row[mapping.dateColumn] || findRowDate(row), mapping.dateFormat);
     if (!normDate) continue;
 
     // Weight processing
@@ -442,7 +546,7 @@ function processRowsWithMapping(
           calVal = calVal / 4.184;
         }
         const foodName = mapping.foodNameColumn ? String(row[mapping.foodNameColumn] || 'Meal') : 'Meal';
-        const serving = mapping.servingSizeColumn ? String(row[mapping.servingSizeColumn] || '') : '1 serving';
+        const serving = buildServingSize(row, mapping.servingSizeColumn);
 
         mealsOut.push({
           date: normDate,

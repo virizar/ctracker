@@ -24,9 +24,10 @@ import { UserProfile, DailySummary, MealLog } from '../types';
 
 interface DashboardScreenProps {
   onOpenQuickLog: () => void;
+  refreshTrigger?: number;
 }
 
-export function DashboardScreen({ onOpenQuickLog }: DashboardScreenProps) {
+export function DashboardScreen({ onOpenQuickLog, refreshTrigger }: DashboardScreenProps) {
   const [currentDate, setCurrentDate] = useState<string>(formatDate(new Date()));
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [summary, setSummary] = useState<DailySummary | null>(null);
@@ -57,7 +58,7 @@ export function DashboardScreen({ onOpenQuickLog }: DashboardScreenProps) {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, refreshTrigger]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -121,6 +122,11 @@ export function DashboardScreen({ onOpenQuickLog }: DashboardScreenProps) {
   const carbsConsumed = meals.length > 0 ? mealCarbs : (summary?.total_carbs ?? 0);
   const fatConsumed = meals.length > 0 ? mealFat : (summary?.total_fat ?? 0);
 
+  const deficitKcal = profile
+    ? Math.round((profile.target_monthly_rate_kg * 7700.0) / 30.4375)
+    : 0;
+  const maintenanceTdee = summary?.tdee ? Math.round(summary.tdee) : null;
+
   const targetCals = summary?.target_calories ?? (profile?.min_daily_calories ? profile.min_daily_calories + 300 : 2000);
   const remainingCals = Math.round(targetCals - consumedCals);
 
@@ -164,16 +170,49 @@ export function DashboardScreen({ onOpenQuickLog }: DashboardScreenProps) {
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.calorieLabel}>Target</Text>
+              <Text style={styles.calorieLabel}>Daily Target</Text>
               <Text style={styles.calorieValue}>{Math.round(targetCals)}</Text>
               <Text style={styles.calorieUnit}>kcal</Text>
+            </View>
+          </View>
+
+          {/* Goal & Deficit Explanation Breakdown */}
+          <View style={styles.targetBreakdownRow}>
+            <View style={styles.targetBreakdownItem}>
+              <Text style={styles.targetBreakdownLabel}>Maintenance TDEE</Text>
+              <Text style={styles.targetBreakdownVal}>
+                {maintenanceTdee ? `${maintenanceTdee} kcal` : '--'}
+              </Text>
+            </View>
+            <View style={styles.targetBreakdownDivider} />
+            <View style={styles.targetBreakdownItem}>
+              <Text style={styles.targetBreakdownLabel}>Goal Deficit</Text>
+              <Text
+                style={[
+                  styles.targetBreakdownVal,
+                  { color: deficitKcal < 0 ? '#10b981' : deficitKcal > 0 ? '#ef4444' : '#0f172a' },
+                ]}
+              >
+                {deficitKcal !== 0
+                  ? `${deficitKcal > 0 ? '+' : ''}${deficitKcal} kcal`
+                  : 'Maintenance'}
+              </Text>
+            </View>
+            <View style={styles.targetBreakdownDivider} />
+            <View style={styles.targetBreakdownItem}>
+              <Text style={styles.targetBreakdownLabel}>Target Budget</Text>
+              <Text style={[styles.targetBreakdownVal, { color: '#2563eb', fontWeight: '700' }]}>
+                {Math.round(targetCals)} kcal
+              </Text>
             </View>
           </View>
 
           {summary?.is_rate_capped_by_safety_floor ? (
             <View style={styles.safetyFloorBadge}>
               <Ionicons name="shield-checkmark" size={14} color="#b45309" />
-              <Text style={styles.safetyFloorText}>Safety Floor Active ({profile?.min_daily_calories} kcal)</Text>
+              <Text style={styles.safetyFloorText}>
+                Safety Floor Active ({profile?.min_daily_calories} kcal min). Target intake adjusted for health.
+              </Text>
             </View>
           ) : null}
         </View>
@@ -206,11 +245,11 @@ export function DashboardScreen({ onOpenQuickLog }: DashboardScreenProps) {
         {/* TDEE & Weight Snapshot Card */}
         <View style={styles.metricsRow}>
           <View style={[styles.card, { flex: 1, marginRight: 8 }]}>
-            <Text style={styles.cardHeader}>TDEE Expenditure</Text>
+            <Text style={styles.cardHeader}>Maintenance TDEE</Text>
             <Text style={styles.metricVal}>
               {summary?.tdee ? `${Math.round(summary.tdee)}` : '--'}
             </Text>
-            <Text style={styles.metricSub}>kcal/day (smoothed)</Text>
+            <Text style={styles.metricSub}>kcal/day (burn rate)</Text>
           </View>
 
           <TouchableOpacity
@@ -407,6 +446,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#3b82f6',
     fontWeight: '600',
+  },
+  targetBreakdownRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  targetBreakdownItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  targetBreakdownDivider: {
+    width: 1,
+    height: 26,
+    backgroundColor: '#cbd5e1',
+  },
+  targetBreakdownLabel: {
+    fontSize: 10,
+    color: '#64748b',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 3,
+  },
+  targetBreakdownVal: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
   },
   safetyFloorBadge: {
     flexDirection: 'row',

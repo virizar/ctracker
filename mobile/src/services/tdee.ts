@@ -144,61 +144,63 @@ export async function recalculateUserTdee(username = 'victor'): Promise<void> {
   const dailyDeficit =
     (profile.target_monthly_rate_kg * CONSTANTS.FAT_KCAL_PER_KG) / CONSTANTS.DAYS_PER_MONTH;
 
-  for (let i = 0; i < datesContiguous.length; i++) {
-    const d = datesContiguous[i];
-    const trendW = trendWeights.get(d) ?? initialW;
+  await db.withTransactionAsync(async () => {
+    for (let i = 0; i < datesContiguous.length; i++) {
+      const d = datesContiguous[i];
+      const trendW = trendWeights.get(d) ?? initialW;
 
-    // Check rolling 14-day window for TDEE update
-    if (i >= CONSTANTS.WINDOW_DAYS) {
-      const windowDates = datesContiguous.slice(i - CONSTANTS.WINDOW_DAYS, i);
-      const validIntakes = windowDates
-        .map((dt) => foodDays.get(dt))
-        .filter((entry): entry is { calories: number; protein: number; carbs: number; fat: number; hasLog: boolean } =>
-          Boolean(entry && entry.hasLog && entry.calories > 0)
-        );
+      // Check rolling 14-day window for TDEE update
+      if (i >= CONSTANTS.WINDOW_DAYS) {
+        const windowDates = datesContiguous.slice(i - CONSTANTS.WINDOW_DAYS, i);
+        const validIntakes = windowDates
+          .map((dt) => foodDays.get(dt))
+          .filter((entry): entry is { calories: number; protein: number; carbs: number; fat: number; hasLog: boolean } =>
+            Boolean(entry && entry.hasLog && entry.calories > 0)
+          );
 
-      if (validIntakes.length >= CONSTANTS.MIN_FOOD_LOGGED_DAYS) {
-        const totalCals = validIntakes.reduce((acc, curr) => acc + curr.calories, 0);
-        const avgIntake = totalCals / validIntakes.length;
+        if (validIntakes.length >= CONSTANTS.MIN_FOOD_LOGGED_DAYS) {
+          const totalCals = validIntakes.reduce((acc, curr) => acc + curr.calories, 0);
+          const avgIntake = totalCals / validIntakes.length;
 
-        const startWindowDate = datesContiguous[i - CONSTANTS.WINDOW_DAYS];
-        const wStart = trendWeights.get(startWindowDate) ?? trendW;
-        const wChange = trendW - wStart;
-        const energyDelta = (wChange * CONSTANTS.FAT_KCAL_PER_KG) / CONSTANTS.WINDOW_DAYS;
-        let rawTdee = avgIntake - energyDelta;
+          const startWindowDate = datesContiguous[i - CONSTANTS.WINDOW_DAYS];
+          const wStart = trendWeights.get(startWindowDate) ?? trendW;
+          const wChange = trendW - wStart;
+          const energyDelta = (wChange * CONSTANTS.FAT_KCAL_PER_KG) / CONSTANTS.WINDOW_DAYS;
+          let rawTdee = avgIntake - energyDelta;
 
-        // Realistic bounds
-        rawTdee = Math.max(1000.0, Math.min(5000.0, rawTdee));
-        currTdee = alphaE * rawTdee + (1.0 - alphaE) * currTdee;
+          // Realistic bounds
+          rawTdee = Math.max(1000.0, Math.min(5000.0, rawTdee));
+          currTdee = alphaE * rawTdee + (1.0 - alphaE) * currTdee;
+        }
+        // If validIntakes < 5, currTdee retains its previous converged value!
       }
-      // If validIntakes < 5, currTdee retains its previous converged value!
+
+      // Daily Calorie Target
+      const rawTarget = currTdee + dailyDeficit;
+      const minFloor = profile.min_daily_calories || CONSTANTS.DEFAULT_MIN_DAILY_CALORIES;
+      let targetCalories = Math.round(rawTarget);
+      let isCapped = false;
+
+      if (targetCalories < minFloor) {
+        targetCalories = minFloor;
+        isCapped = true;
+      }
+
+      const dayFood = foodDays.get(d);
+
+      await upsertDailySummary({
+        username,
+        date: d,
+        total_calories: dayFood ? Math.round(dayFood.calories * 10) / 10 : 0.0,
+        total_protein: dayFood ? Math.round(dayFood.protein * 10) / 10 : 0.0,
+        total_carbs: dayFood ? Math.round(dayFood.carbs * 10) / 10 : 0.0,
+        total_fat: dayFood ? Math.round(dayFood.fat * 10) / 10 : 0.0,
+        raw_weight: weightMap.get(d) ?? null,
+        trend_weight: Math.round(trendW * 100) / 100,
+        tdee: Math.round(currTdee * 10) / 10,
+        target_calories: targetCalories,
+        is_rate_capped_by_safety_floor: isCapped,
+      });
     }
-
-    // Daily Calorie Target
-    const rawTarget = currTdee + dailyDeficit;
-    const minFloor = profile.min_daily_calories || CONSTANTS.DEFAULT_MIN_DAILY_CALORIES;
-    let targetCalories = Math.round(rawTarget);
-    let isCapped = false;
-
-    if (targetCalories < minFloor) {
-      targetCalories = minFloor;
-      isCapped = true;
-    }
-
-    const dayFood = foodDays.get(d);
-
-    await upsertDailySummary({
-      username,
-      date: d,
-      total_calories: dayFood ? Math.round(dayFood.calories * 10) / 10 : 0.0,
-      total_protein: dayFood ? Math.round(dayFood.protein * 10) / 10 : 0.0,
-      total_carbs: dayFood ? Math.round(dayFood.carbs * 10) / 10 : 0.0,
-      total_fat: dayFood ? Math.round(dayFood.fat * 10) / 10 : 0.0,
-      raw_weight: weightMap.get(d) ?? null,
-      trend_weight: Math.round(trendW * 100) / 100,
-      tdee: Math.round(currTdee * 10) / 10,
-      target_calories: targetCalories,
-      is_rate_capped_by_safety_floor: isCapped,
-    });
-  }
+  });
 }
