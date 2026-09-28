@@ -35,8 +35,9 @@ function MainApp() {
             onOpenQuickLog={() => setIsQuickLogVisible(true)}
           />
         )}
-        {currentTab === 'trends' && <WeightTrendsScreen />}
-        {currentTab === 'settings' && <SettingsScreen />}
+        {currentTab === 'settings' && (
+          <SettingsScreen onDatabaseWiped={() => setRefreshKey((k) => k + 1)} />
+        )}
       </View>
 
       {/* Bottom Navigation Bar with System Bar Insets */}

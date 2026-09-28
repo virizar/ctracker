@@ -18,11 +18,16 @@ import {
   setGeminiModel,
 } from '../services/keychain';
 import { getUserProfile, updateUserProfile } from '../db/queries';
+import { wipeAllUserData } from '../db/database';
 import { recalculateUserTdee } from '../services/tdee';
 import { pickAndInspectFile, ImportPreview } from '../services/importer';
 import { UserProfile } from '../types';
 
-export function SettingsScreen() {
+interface SettingsScreenProps {
+  onDatabaseWiped?: () => void;
+}
+
+export function SettingsScreen({ onDatabaseWiped }: SettingsScreenProps) {
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gemini-2.5-flash');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -121,6 +126,30 @@ export function SettingsScreen() {
   const handleRecalculateAll = async () => {
     await recalculateUserTdee('victor');
     Alert.alert('Recalculated', 'Full TDEE and exponential weight trends updated.');
+  };
+
+  const handleWipeDatabase = () => {
+    Alert.alert(
+      'Wipe All Data?',
+      'Are you sure you want to permanently erase all meals, scale weights, daily summaries, and food catalog items? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Yes, Wipe Everything',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await wipeAllUserData();
+              await loadSettings();
+              onDatabaseWiped?.();
+              Alert.alert('Database Wiped', 'All meals, weigh-ins, and trends have been reset to clean defaults.');
+            } catch (err: any) {
+              Alert.alert('Wipe Failed', err?.message || 'Could not reset database.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -234,6 +263,26 @@ export function SettingsScreen() {
           onPress={handleRecalculateAll}
         >
           <Text style={styles.saveBtnText}>Recalculate TDEE Engine</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Danger Zone: Wipe Database */}
+      <View style={[styles.card, { borderColor: '#fecaca', backgroundColor: '#fff5f5' }]}>
+        <View style={styles.cardHeaderRow}>
+          <Ionicons name="trash-bin" size={20} color="#dc2626" />
+          <Text style={[styles.cardTitle, { color: '#dc2626' }]}>Danger Zone</Text>
+        </View>
+        <Text style={[styles.infoText, { color: '#7f1d1d' }]}>
+          Permanently delete all logged meals, scale weights, daily summaries, and food catalog. Use this if you want a clean slate or to re-import your data from scratch.
+        </Text>
+        <TouchableOpacity
+          style={[styles.saveBtn, { backgroundColor: '#dc2626' }]}
+          onPress={handleWipeDatabase}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Ionicons name="trash-outline" size={18} color="#fff" />
+            <Text style={[styles.saveBtnText, { marginLeft: 8 }]}>Wipe Database & Reset All Data</Text>
+          </View>
         </TouchableOpacity>
       </View>
 

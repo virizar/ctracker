@@ -155,3 +155,36 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
     );
   }
 }
+
+export async function wipeAllUserData(): Promise<void> {
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync('DELETE FROM meal_logs');
+    await db.runAsync('DELETE FROM scale_weights');
+    await db.runAsync('DELETE FROM daily_summaries');
+    await db.runAsync('DELETE FROM food_catalog');
+    await db.runAsync('DELETE FROM food_catalog_fts');
+    // Reset user profile to defaults
+    await db.runAsync('DELETE FROM user_profiles');
+    await db.runAsync(
+      `INSERT INTO user_profiles (
+        username, dob, height_cm, sex, activity_multiplier,
+        target_weight_kg, target_monthly_rate_kg, min_daily_calories,
+        protein_ratio, carbs_ratio, fat_ratio
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        'victor',
+        '1987-12-07',
+        185.0,
+        'male',
+        1.2,
+        85.0,
+        -2.0,
+        1500.0,
+        0.30,
+        0.40,
+        0.30,
+      ]
+    );
+  });
+}
