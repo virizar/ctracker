@@ -14,11 +14,12 @@ import { Ionicons } from '@expo/vector-icons';
 import {
   getUserProfile,
   getDailySummary,
+  getLatestDailySummary,
   getMealsByDate,
   deleteMeal,
   logScaleWeight,
 } from '../db/queries';
-import { recalculateUserTdee, formatDate } from '../services/tdee';
+import { recalculateUserTdee, formatDate, parseDate } from '../services/tdee';
 import { UserProfile, DailySummary, MealLog } from '../types';
 
 interface DashboardScreenProps {
@@ -41,7 +42,10 @@ export function DashboardScreen({ onOpenQuickLog }: DashboardScreenProps) {
       const user = await getUserProfile('victor');
       setProfile(user);
 
-      const daySummary = await getDailySummary('victor', currentDate);
+      let daySummary = await getDailySummary('victor', currentDate);
+      if (!daySummary) {
+        daySummary = await getLatestDailySummary('victor', currentDate);
+      }
       setSummary(daySummary);
 
       const dayMeals = await getMealsByDate('victor', currentDate);
@@ -63,13 +67,13 @@ export function DashboardScreen({ onOpenQuickLog }: DashboardScreenProps) {
   };
 
   const handlePrevDay = () => {
-    const d = new Date(currentDate);
+    const d = parseDate(currentDate);
     d.setDate(d.getDate() - 1);
     setCurrentDate(formatDate(d));
   };
 
   const handleNextDay = () => {
-    const d = new Date(currentDate);
+    const d = parseDate(currentDate);
     d.setDate(d.getDate() + 1);
     setCurrentDate(formatDate(d));
   };
@@ -106,18 +110,23 @@ export function DashboardScreen({ onOpenQuickLog }: DashboardScreenProps) {
     await loadData();
   };
 
-  // Calculations
-  const targetCals = summary?.target_calories ?? 2000;
-  const consumedCals = summary?.total_calories ?? 0;
+  // Real-time calculations directly from logged meals for instant UI response
+  const mealCals = meals.reduce((acc, m) => acc + (m.calories || 0), 0);
+  const mealProtein = meals.reduce((acc, m) => acc + (m.protein || 0), 0);
+  const mealCarbs = meals.reduce((acc, m) => acc + (m.carbs || 0), 0);
+  const mealFat = meals.reduce((acc, m) => acc + (m.fat || 0), 0);
+
+  const consumedCals = meals.length > 0 ? mealCals : (summary?.total_calories ?? 0);
+  const proteinConsumed = meals.length > 0 ? mealProtein : (summary?.total_protein ?? 0);
+  const carbsConsumed = meals.length > 0 ? mealCarbs : (summary?.total_carbs ?? 0);
+  const fatConsumed = meals.length > 0 ? mealFat : (summary?.total_fat ?? 0);
+
+  const targetCals = summary?.target_calories ?? (profile?.min_daily_calories ? profile.min_daily_calories + 300 : 2000);
   const remainingCals = Math.round(targetCals - consumedCals);
 
   const proteinTargetG = profile ? Math.round((targetCals * profile.protein_ratio) / 4) : 150;
   const carbsTargetG = profile ? Math.round((targetCals * profile.carbs_ratio) / 4) : 200;
   const fatTargetG = profile ? Math.round((targetCals * profile.fat_ratio) / 9) : 65;
-
-  const proteinConsumed = summary?.total_protein ?? 0;
-  const carbsConsumed = summary?.total_carbs ?? 0;
-  const fatConsumed = summary?.total_fat ?? 0;
 
   return (
     <View style={styles.container}>

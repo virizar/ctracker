@@ -133,6 +133,23 @@ export async function getDailySummary(
   );
 }
 
+export async function getLatestDailySummary(
+  username = 'victor',
+  upToDate?: string
+): Promise<DailySummary | null> {
+  const db = await getDatabase();
+  if (upToDate) {
+    return await db.getFirstAsync<DailySummary>(
+      'SELECT * FROM daily_summaries WHERE username = ? AND date <= ? AND target_calories IS NOT NULL ORDER BY date DESC LIMIT 1',
+      [username, upToDate]
+    );
+  }
+  return await db.getFirstAsync<DailySummary>(
+    'SELECT * FROM daily_summaries WHERE username = ? AND target_calories IS NOT NULL ORDER BY date DESC LIMIT 1',
+    [username]
+  );
+}
+
 export async function getDailySummariesRange(
   username = 'victor',
   days = 30

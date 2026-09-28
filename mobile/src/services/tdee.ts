@@ -40,12 +40,15 @@ export function calculateAgeYears(dobStr: string, currentDateStr: string): numbe
 }
 
 export function formatDate(d: Date): string {
-  return d.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export function parseDate(dStr: string): Date {
   const [y, m, d] = dStr.split('-').map(Number);
-  return new Date(y, m - 1, d);
+  return new Date(y, m - 1, d, 12, 0, 0);
 }
 
 export async function recalculateUserTdee(username = 'victor'): Promise<void> {
@@ -117,83 +120,62 @@ export async function recalculateUserTdee(username = 'victor'): Promise<void> {
     curr.setDate(curr.getDate() + 1);
   }
 
-  // 1. Exponential Moving Average on Weights
-  const alphaW = 1.0 - Math.exp(-1.0 / CONSTANTS.TAU_W);
-  const trendWeights = new Map<string, number>();
-  let currentTrendWeight: number | null = null;
+  // 1. Initial Baseline TDEE & Trend Weight
+  const initialW = weightsDb.length > 0 ? weightsDb[0].raw_weight : 80.0;
+  const initialAgeYr = calculateAgeYears(profile.dob, datesContiguous[0]);
+  const bmrInit = mifflinStJeor(initialW, profile.height_cm, initialAgeYr, profile.sex);
+  let currTdee = bmrInit * profile.activity_multiplier;
+  let currTw = initialW;
 
+  const alphaW = 1.0 - Math.exp(-1.0 / CONSTANTS.TAU_W);
+  const alphaE = 1.0 - Math.exp(-1.0 / CONSTANTS.TAU_E);
+  const trendWeights = new Map<string, number>();
+
+  // Pass 1: Compute Trend Weights with EMA
   for (const d of datesContiguous) {
     const rawW = weightMap.get(d);
     if (rawW !== undefined) {
-      if (currentTrendWeight === null) {
-        currentTrendWeight = rawW;
-      } else {
-        currentTrendWeight = currentTrendWeight + alphaW * (rawW - currentTrendWeight);
-      }
+      currTw = currTw + alphaW * (rawW - currTw);
     }
-    if (currentTrendWeight !== null) {
-      trendWeights.set(d, currentTrendWeight);
-    }
+    trendWeights.set(d, currTw);
   }
 
-  // 2. Rolling Window TDEE Calculation & Smoothing
-  const alphaE = 1.0 - Math.exp(-1.0 / CONSTANTS.TAU_E);
-  let smoothedTdee: number | null = null;
+  // Pass 2: Compute Rolling TDEE and Daily Summaries
+  const dailyDeficit =
+    (profile.target_monthly_rate_kg * CONSTANTS.FAT_KCAL_PER_KG) / CONSTANTS.DAYS_PER_MONTH;
 
   for (let i = 0; i < datesContiguous.length; i++) {
     const d = datesContiguous[i];
-    const trendW = trendWeights.get(d) ?? 80.0;
-    const ageYr = calculateAgeYears(profile.dob, d);
-    const baselineBmr = mifflinStJeor(trendW, profile.height_cm, ageYr, profile.sex);
-    const fallbackTdee = baselineBmr * profile.activity_multiplier;
+    const trendW = trendWeights.get(d) ?? initialW;
 
-    let computedTdee = fallbackTdee;
-
-    // Check if we have 14 days of history
-    if (i >= CONSTANTS.WINDOW_DAYS - 1) {
-      const windowDates = datesContiguous.slice(i - CONSTANTS.WINDOW_DAYS + 1, i + 1);
-      const foodLogsInWindow = windowDates
+    // Check rolling 14-day window for TDEE update
+    if (i >= CONSTANTS.WINDOW_DAYS) {
+      const windowDates = datesContiguous.slice(i - CONSTANTS.WINDOW_DAYS, i);
+      const validIntakes = windowDates
         .map((dt) => foodDays.get(dt))
-        .filter((entry): entry is { calories: number; protein: number; carbs: number; fat: number; hasLog: boolean } => Boolean(entry && entry.hasLog));
+        .filter((entry): entry is { calories: number; protein: number; carbs: number; fat: number; hasLog: boolean } =>
+          Boolean(entry && entry.hasLog && entry.calories > 0)
+        );
 
-      if (foodLogsInWindow.length >= CONSTANTS.MIN_FOOD_LOGGED_DAYS) {
-        const totalCalories = foodLogsInWindow.reduce((acc, curr) => acc + curr.calories, 0);
-        const avgDailyIntake = totalCalories / foodLogsInWindow.length;
+      if (validIntakes.length >= CONSTANTS.MIN_FOOD_LOGGED_DAYS) {
+        const totalCals = validIntakes.reduce((acc, curr) => acc + curr.calories, 0);
+        const avgIntake = totalCals / validIntakes.length;
 
-        const startWindowDate = datesContiguous[i - CONSTANTS.WINDOW_DAYS + 1];
-        const wStart = trendWeights.get(startWindowDate);
-        const wEnd = trendWeights.get(d);
+        const startWindowDate = datesContiguous[i - CONSTANTS.WINDOW_DAYS];
+        const wStart = trendWeights.get(startWindowDate) ?? trendW;
+        const wChange = trendW - wStart;
+        const energyDelta = (wChange * CONSTANTS.FAT_KCAL_PER_KG) / CONSTANTS.WINDOW_DAYS;
+        let rawTdee = avgIntake - energyDelta;
 
-        if (wStart !== undefined && wEnd !== undefined) {
-          const deltaWeightKg = wEnd - wStart;
-          const daysElapsed = CONSTANTS.WINDOW_DAYS - 1;
-          const dailyWeightDelta = deltaWeightKg / daysElapsed;
-          computedTdee = avgDailyIntake - dailyWeightDelta * CONSTANTS.FAT_KCAL_PER_KG;
-
-          // Clamp computed TDEE to physiologically realistic bounds
-          computedTdee = Math.max(1000.0, Math.min(5000.0, computedTdee));
-        }
+        // Realistic bounds
+        rawTdee = Math.max(1000.0, Math.min(5000.0, rawTdee));
+        currTdee = alphaE * rawTdee + (1.0 - alphaE) * currTdee;
       }
+      // If validIntakes < 5, currTdee retains its previous converged value!
     }
 
-    if (smoothedTdee === null) {
-      smoothedTdee = computedTdee;
-    } else {
-      smoothedTdee = smoothedTdee + alphaE * (computedTdee - smoothedTdee);
-    }
-
-    // 3. Calorie Target & Safety Floor
-    const dailyDeficit =
-      (Math.abs(profile.target_monthly_rate_kg) * CONSTANTS.FAT_KCAL_PER_KG) /
-      CONSTANTS.DAYS_PER_MONTH;
-
-    let rawTarget = smoothedTdee;
-    if (profile.target_monthly_rate_kg < 0) {
-      rawTarget = smoothedTdee - dailyDeficit;
-    } else if (profile.target_monthly_rate_kg > 0) {
-      rawTarget = smoothedTdee + dailyDeficit;
-    }
-
+    // Daily Calorie Target
+    const rawTarget = currTdee + dailyDeficit;
     const minFloor = profile.min_daily_calories || CONSTANTS.DEFAULT_MIN_DAILY_CALORIES;
     let targetCalories = Math.round(rawTarget);
     let isCapped = false;
@@ -213,8 +195,8 @@ export async function recalculateUserTdee(username = 'victor'): Promise<void> {
       total_carbs: dayFood ? Math.round(dayFood.carbs * 10) / 10 : 0.0,
       total_fat: dayFood ? Math.round(dayFood.fat * 10) / 10 : 0.0,
       raw_weight: weightMap.get(d) ?? null,
-      trend_weight: trendWeights.get(d) ? Math.round(trendWeights.get(d)! * 100) / 100 : null,
-      tdee: Math.round(smoothedTdee * 10) / 10,
+      trend_weight: Math.round(trendW * 100) / 100,
+      tdee: Math.round(currTdee * 10) / 10,
       target_calories: targetCalories,
       is_rate_capped_by_safety_floor: isCapped,
     });
