@@ -163,9 +163,11 @@ export function DashboardScreen({ onOpenQuickLog, refreshTrigger }: DashboardScr
               <Text style={styles.calorieValue}>{Math.round(consumedCals)}</Text>
               <Text style={styles.calorieUnit}>kcal</Text>
             </View>
-            <View style={styles.remainingCircle}>
-              <Text style={styles.remainingVal}>{remainingCals}</Text>
-              <Text style={styles.remainingLabel}>
+            <View style={[styles.remainingCircle, remainingCals < 0 && styles.overTargetCircle]}>
+              <Text style={[styles.remainingVal, remainingCals < 0 && styles.overTargetVal]}>
+                {Math.abs(remainingCals)}
+              </Text>
+              <Text style={[styles.remainingLabel, remainingCals < 0 && styles.overTargetLabel]}>
                 {remainingCals >= 0 ? 'Remaining' : 'Over Target'}
               </Text>
             </View>
@@ -446,6 +448,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#3b82f6',
     fontWeight: '600',
+  },
+  overTargetCircle: {
+    backgroundColor: '#fff7ed',
+    borderColor: '#f97316',
+  },
+  overTargetVal: {
+    color: '#ea580c',
+  },
+  overTargetLabel: {
+    color: '#ea580c',
   },
   targetBreakdownRow: {
     flexDirection: 'row',
