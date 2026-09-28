@@ -99,6 +99,10 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
       UNIQUE(username, canonical_name)
     );
 
+    CREATE INDEX IF NOT EXISTS idx_meal_logs_user_date ON meal_logs(username, date);
+    CREATE INDEX IF NOT EXISTS idx_scale_weights_user_date ON scale_weights(username, date);
+    CREATE INDEX IF NOT EXISTS idx_daily_summaries_user_date ON daily_summaries(username, date);
+
     -- Full-text search table for Food Catalog
     CREATE VIRTUAL TABLE IF NOT EXISTS food_catalog_fts USING fts5(
       canonical_name,
