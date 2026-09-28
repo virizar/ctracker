@@ -1,5 +1,5 @@
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { File } from 'expo-file-system';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { getDatabase } from '../db/database';
@@ -168,9 +168,8 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
 
   // 1. JSON Import (CTRACKER format or backup)
   if (fileExt === 'json') {
-    const fileStr = await FileSystem.readAsStringAsync(asset.uri, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
+    const file = new File(asset.uri);
+    const fileStr = await file.text();
     const parsed = JSON.parse(fileStr);
 
     if (Array.isArray(parsed.weights)) {
@@ -202,10 +201,9 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
 
   // 2. Excel Import (.xlsx, .xls)
   else if (fileExt === 'xlsx' || fileExt === 'xls') {
-    const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    const workbook = XLSX.read(base64, { type: 'base64' });
+    const file = new File(asset.uri);
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
 
     // Check for FitnessLog Multi-Sheet Pattern
     const sheetNames = workbook.SheetNames;
@@ -272,9 +270,8 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
 
   // 3. CSV Import
   else {
-    const csvStr = await FileSystem.readAsStringAsync(asset.uri, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
+    const file = new File(asset.uri);
+    const csvStr = await file.text();
     const parsedCsv = Papa.parse<Record<string, any>>(csvStr, {
       header: true,
       skipEmptyLines: true,
