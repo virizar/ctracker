@@ -269,3 +269,89 @@ export async function upsertFoodCatalog(
     ]
   );
 }
+
+export interface DayLogStatus {
+  date: string;
+  hasWeight: boolean;
+  rawWeight?: number | null;
+  hasFood: boolean;
+  totalCalories: number;
+}
+
+export async function getMonthLogStatus(
+  username = 'victor',
+  year: number,
+  month: number // 1-12
+): Promise<Record<string, DayLogStatus>> {
+  const db = await getDatabase();
+  const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+  const pattern = `${monthStr}-%`;
+
+  const result: Record<string, DayLogStatus> = {};
+
+  // 1. Fetch from daily_summaries (covers calculated & imported history)
+  const summaries = await db.getAllAsync<{
+    date: string;
+    raw_weight: number | null;
+    total_calories: number;
+  }>(
+    'SELECT date, raw_weight, total_calories FROM daily_summaries WHERE username = ? AND date LIKE ?',
+    [username, pattern]
+  );
+
+  for (const s of summaries) {
+    result[s.date] = {
+      date: s.date,
+      hasWeight: s.raw_weight !== null && s.raw_weight > 0,
+      rawWeight: s.raw_weight,
+      hasFood: s.total_calories > 0,
+      totalCalories: s.total_calories || 0,
+    };
+  }
+
+  // 2. Fetch directly from scale_weights (in case not yet recalculated)
+  const weights = await db.getAllAsync<{ date: string; raw_weight: number }>(
+    'SELECT date, raw_weight FROM scale_weights WHERE username = ? AND date LIKE ?',
+    [username, pattern]
+  );
+  for (const w of weights) {
+    if (!result[w.date]) {
+      result[w.date] = {
+        date: w.date,
+        hasWeight: true,
+        rawWeight: w.raw_weight,
+        hasFood: false,
+        totalCalories: 0,
+      };
+    } else {
+      result[w.date].hasWeight = true;
+      result[w.date].rawWeight = w.raw_weight;
+    }
+  }
+
+  // 3. Fetch directly from meal_logs (in case not yet recalculated)
+  const meals = await db.getAllAsync<{ date: string; total_calories: number }>(
+    `SELECT date, SUM(calories) as total_calories
+     FROM meal_logs
+     WHERE username = ? AND date LIKE ?
+     GROUP BY date`,
+    [username, pattern]
+  );
+  for (const m of meals) {
+    const cals = m.total_calories || 0;
+    if (!result[m.date]) {
+      result[m.date] = {
+        date: m.date,
+        hasWeight: false,
+        rawWeight: null,
+        hasFood: cals > 0,
+        totalCalories: cals,
+      };
+    } else {
+      result[m.date].hasFood = cals > 0;
+      result[m.date].totalCalories = cals;
+    }
+  }
+
+  return result;
+}

@@ -27,6 +27,8 @@ import {
   getScaleWeights,
   getDailySummariesRange,
   logScaleWeight,
+  getMonthLogStatus,
+  DayLogStatus,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
 import { UserProfile, ScaleWeight, DailySummary } from '../types';
@@ -452,9 +454,177 @@ function ExpenditureCalorieChart({ data, width }: ExpenditureCalorieChartProps) 
 }
 
 // -------------------------------------------------------------
+// 3. Habit & Adherence Calendar Card (FitnessLog Style)
+// -------------------------------------------------------------
+interface HabitCalendarCardProps {
+  onNavigateToDate?: (date: string) => void;
+  refreshTrigger?: number;
+}
+
+function HabitCalendarCard({ onNavigateToDate, refreshTrigger }: HabitCalendarCardProps) {
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth() + 1); // 1-12
+  const [monthData, setMonthData] = useState<Record<string, DayLogStatus>>({});
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
+  const loadMonth = useCallback(async () => {
+    try {
+      const data = await getMonthLogStatus('victor', viewYear, viewMonth);
+      setMonthData(data);
+    } catch (err) {
+      console.error('Failed to load habit calendar data:', err);
+    }
+  }, [viewYear, viewMonth]);
+
+  useEffect(() => {
+    loadMonth();
+  }, [loadMonth, refreshTrigger]);
+
+  const handlePrevMonth = () => {
+    if (viewMonth === 1) {
+      setViewMonth(12);
+      setViewYear((y) => y - 1);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (viewMonth === 12) {
+      setViewMonth(1);
+      setViewYear((y) => y + 1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  };
+
+  const handleCurrentMonth = () => {
+    const now = new Date();
+    setViewYear(now.getFullYear());
+    setViewMonth(now.getMonth() + 1);
+  };
+
+  const firstDay = new Date(viewYear, viewMonth - 1, 1).getDay();
+  // Monday as index 0 (Sun = 0 -> 6, Mon = 1 -> 0, etc.)
+  const startOffset = (firstDay + 6) % 7;
+  const daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+  const todayStr = formatDate(today);
+
+  let daysWithWeight = 0;
+  let daysWithFood = 0;
+  Object.values(monthData).forEach((d) => {
+    if (d.hasWeight) daysWithWeight++;
+    if (d.hasFood) daysWithFood++;
+  });
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.calHeaderRow}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Ionicons name="calendar-outline" size={20} color="#2563eb" style={{ marginRight: 8 }} />
+          <Text style={styles.cardHeader}>Adherence Calendar</Text>
+        </View>
+        <View style={styles.calNavControls}>
+          <TouchableOpacity
+            onPress={handlePrevMonth}
+            style={styles.calNavBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chevron-back" size={18} color="#0f172a" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleCurrentMonth}>
+            <Text style={styles.calMonthText}>
+              {monthNames[viewMonth - 1]} {viewYear}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleNextMonth}
+            style={styles.calNavBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chevron-forward" size={18} color="#0f172a" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Weekday Labels (Mon - Sun) */}
+      <View style={styles.calWeekdaysRow}>
+        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+          <Text key={day} style={styles.calWeekdayText}>
+            {day}
+          </Text>
+        ))}
+      </View>
+
+      {/* Days Grid */}
+      <View style={styles.calDaysGrid}>
+        {Array.from({ length: totalCells }).map((_, idx) => {
+          const dayNumber = idx - startOffset + 1;
+          if (dayNumber < 1 || dayNumber > daysInMonth) {
+            return <View key={`blank-${idx}`} style={styles.calDayCell} />;
+          }
+
+          const dateStr = `${viewYear}-${String(viewMonth).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
+          const isToday = dateStr === todayStr;
+          const status = monthData[dateStr];
+          const hasWeight = status?.hasWeight ?? false;
+          const hasFood = status?.hasFood ?? false;
+
+          return (
+            <TouchableOpacity
+              key={dateStr}
+              style={[styles.calDayCell, isToday && styles.calTodayCell]}
+              onPress={() => onNavigateToDate?.(dateStr)}
+              activeOpacity={0.65}
+            >
+              <Text style={[styles.calDayNumber, isToday && styles.calTodayNumber]}>
+                {dayNumber}
+              </Text>
+              <View style={styles.calDotsRow}>
+                {hasWeight && <View style={[styles.calDot, { backgroundColor: '#0284c7' }]} />}
+                {hasFood && <View style={[styles.calDot, { backgroundColor: '#10b981' }]} />}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Legend & Stats */}
+      <View style={styles.calFooter}>
+        <View style={styles.calMetricsRow}>
+          <View style={styles.calMetricBadge}>
+            <View style={[styles.calLegendDot, { backgroundColor: '#0284c7' }]} />
+            <Text style={styles.calMetricText}>
+              Weight: <Text style={{ fontWeight: '700', color: '#0f172a' }}>{daysWithWeight}</Text>/{daysInMonth}d
+            </Text>
+          </View>
+          <View style={styles.calMetricBadge}>
+            <View style={[styles.calLegendDot, { backgroundColor: '#10b981' }]} />
+            <Text style={styles.calMetricText}>
+              Food: <Text style={{ fontWeight: '700', color: '#0f172a' }}>{daysWithFood}</Text>/{daysInMonth}d
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.calHintText}>Tap any day to view or edit meals on Today screen</Text>
+      </View>
+    </View>
+  );
+}
+
+// -------------------------------------------------------------
 // Main WeightTrendsScreen
 // -------------------------------------------------------------
-export function WeightTrendsScreen() {
+export interface WeightTrendsScreenProps {
+  onNavigateToDate?: (date: string) => void;
+}
+
+export function WeightTrendsScreen({ onNavigateToDate }: WeightTrendsScreenProps = {}) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [weights, setWeights] = useState<ScaleWeight[]>([]);
   const [summaries, setSummaries] = useState<DailySummary[]>([]);
@@ -726,40 +896,10 @@ export function WeightTrendsScreen() {
           </View>
         </View>
 
-        {/* Weight History Table */}
-        <View style={styles.card}>
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: 12,
-            }}
-          >
-            <Text style={styles.cardHeader}>Recent Weigh-Ins</Text>
-            <TouchableOpacity
-              style={styles.logBtn}
-              onPress={() => {
-                setWeightDate(formatDate(new Date()));
-                setModalVisible(true);
-              }}
-            >
-              <Ionicons name="add" size={18} color="#fff" />
-              <Text style={styles.logBtnText}>Log Weight</Text>
-            </TouchableOpacity>
-          </View>
-
-          {weights.length === 0 ? (
-            <Text style={styles.emptyText}>No weigh-ins recorded yet.</Text>
-          ) : (
-            weights.slice(0, 15).map((w, idx) => (
-              <View key={w.id || idx} style={styles.weightRow}>
-                <Text style={styles.weightDate}>{w.date}</Text>
-                <Text style={styles.weightVal}>{w.raw_weight.toFixed(1)} kg</Text>
-              </View>
-            ))
-          )}
-        </View>
+        {/* Habit & Adherence Calendar */}
+        <HabitCalendarCard
+          onNavigateToDate={onNavigateToDate}
+        />
       </ScrollView>
 
       {/* Weight Modal */}
@@ -1015,6 +1155,115 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#0f172a',
+  },
+  calHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  calNavControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  calNavBtn: {
+    padding: 4,
+  },
+  calMonthText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginHorizontal: 8,
+  },
+  calWeekdaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingBottom: 6,
+  },
+  calWeekdayText: {
+    width: '14.28%',
+    textAlign: 'center',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94a3b8',
+    textTransform: 'uppercase',
+  },
+  calDaysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calDayCell: {
+    width: '14.28%',
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  calTodayCell: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1.5,
+    borderColor: '#3b82f6',
+  },
+  calDayNumber: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  calTodayNumber: {
+    fontWeight: '800',
+    color: '#2563eb',
+  },
+  calDotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    marginTop: 3,
+    height: 6,
+  },
+  calDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  calFooter: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  calMetricsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 8,
+  },
+  calMetricBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  calLegendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  calMetricText: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  calHintText: {
+    fontSize: 11,
+    color: '#94a3b8',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   modalOverlay: {
     flex: 1,

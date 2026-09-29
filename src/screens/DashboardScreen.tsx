@@ -25,14 +25,32 @@ import { UserProfile, DailySummary, MealLog } from '../types';
 interface DashboardScreenProps {
   onOpenQuickLog: () => void;
   refreshTrigger?: number;
+  currentDate?: string;
+  onDateChange?: (date: string) => void;
 }
 
-export function DashboardScreen({ onOpenQuickLog, refreshTrigger }: DashboardScreenProps) {
-  const [currentDate, setCurrentDate] = useState<string>(formatDate(new Date()));
+export function DashboardScreen({
+  onOpenQuickLog,
+  refreshTrigger,
+  currentDate: propDate,
+  onDateChange,
+}: DashboardScreenProps) {
+  const [currentDate, setCurrentDate] = useState<string>(propDate || formatDate(new Date()));
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [summary, setSummary] = useState<DailySummary | null>(null);
   const [meals, setMeals] = useState<MealLog[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (propDate && propDate !== currentDate) {
+      setCurrentDate(propDate);
+    }
+  }, [propDate]);
+
+  const updateDate = (newDate: string) => {
+    setCurrentDate(newDate);
+    onDateChange?.(newDate);
+  };
 
   // Weight Logging Modal State
   const [isWeightModalVisible, setIsWeightModalVisible] = useState(false);
@@ -70,17 +88,17 @@ export function DashboardScreen({ onOpenQuickLog, refreshTrigger }: DashboardScr
   const handlePrevDay = () => {
     const d = parseDate(currentDate);
     d.setDate(d.getDate() - 1);
-    setCurrentDate(formatDate(d));
+    updateDate(formatDate(d));
   };
 
   const handleNextDay = () => {
     const d = parseDate(currentDate);
     d.setDate(d.getDate() + 1);
-    setCurrentDate(formatDate(d));
+    updateDate(formatDate(d));
   };
 
   const handleToday = () => {
-    setCurrentDate(formatDate(new Date()));
+    updateDate(formatDate(new Date()));
   };
 
   const handleDeleteMeal = (mealId: number) => {

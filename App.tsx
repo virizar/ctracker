@@ -10,7 +10,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { getDatabase } from './src/db/database';
-import { recalculateUserTdee } from './src/services/tdee';
+import { recalculateUserTdee, formatDate } from './src/services/tdee';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { WeightTrendsScreen } from './src/screens/WeightTrendsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -19,6 +19,7 @@ import { QuickLogModal } from './src/screens/QuickLogModal';
 function MainApp() {
   const insets = useSafeAreaInsets();
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'trends' | 'settings'>('dashboard');
+  const [activeDate, setActiveDate] = useState<string>(formatDate(new Date()));
   const [isQuickLogVisible, setIsQuickLogVisible] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -31,12 +32,20 @@ function MainApp() {
         {currentTab === 'dashboard' && (
           <DashboardScreen
             key={`dashboard-${refreshKey}`}
+            currentDate={activeDate}
+            onDateChange={setActiveDate}
             refreshTrigger={refreshKey}
             onOpenQuickLog={() => setIsQuickLogVisible(true)}
           />
         )}
         {currentTab === 'trends' && (
-          <WeightTrendsScreen key={`trends-${refreshKey}`} />
+          <WeightTrendsScreen
+            key={`trends-${refreshKey}`}
+            onNavigateToDate={(date) => {
+              setActiveDate(date);
+              setCurrentTab('dashboard');
+            }}
+          />
         )}
         {currentTab === 'settings' && (
           <SettingsScreen onDatabaseWiped={() => setRefreshKey((k) => k + 1)} />
