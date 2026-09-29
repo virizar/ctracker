@@ -43,3 +43,6 @@ yarn-error.*
 # local databases
 *.db
 *.sqlite
+
+# test coverage
+coverage/

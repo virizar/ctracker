@@ -49,6 +49,29 @@ const FOOD_PARSER_SCHEMA = {
   },
 };
 
+export function extractFoodItemsFromJson(candidateText: string): ParsedFoodItem[] {
+  if (!candidateText || !candidateText.trim()) {
+    return [];
+  }
+  let clean = candidateText.trim();
+  if (clean.startsWith('```json')) {
+    clean = clean.slice(7);
+  } else if (clean.startsWith('```')) {
+    clean = clean.slice(3);
+  }
+  if (clean.endsWith('```')) {
+    clean = clean.slice(0, -3);
+  }
+  clean = clean.trim();
+
+  try {
+    const parsed = JSON.parse(clean);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    throw new Error('Could not parse nutrition data returned by Gemini.');
+  }
+}
+
 export async function parseFoodInput(userInput: string): Promise<ParsedFoodItem[]> {
   const apiKey = await getGeminiApiKey();
   if (!apiKey) {
@@ -98,11 +121,5 @@ export async function parseFoodInput(userInput: string): Promise<ParsedFoodItem[
     return [];
   }
 
-  try {
-    const parsed = JSON.parse(candidateText);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (err) {
-    console.error('Failed to parse Gemini JSON output:', err, candidateText);
-    throw new Error('Could not parse nutrition data returned by Gemini.');
-  }
+  return extractFoodItemsFromJson(candidateText);
 }

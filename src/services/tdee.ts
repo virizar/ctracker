@@ -32,11 +32,60 @@ export function calculateAgeYears(dobStr: string, currentDateStr: string): numbe
     const dob = new Date(dobStr);
     const curr = new Date(currentDateStr);
     const diffMs = curr.getTime() - dob.getTime();
+    if (isNaN(diffMs)) return 38.0;
     const diffDays = diffMs / (1000 * 60 * 60 * 24);
     return Math.max(18.0, diffDays / 365.25);
   } catch {
     return 38.0;
   }
+}
+
+export function calculateWeightEmaAlpha(tauDays: number = CONSTANTS.TAU_W): number {
+  return 1.0 - Math.exp(-1.0 / tauDays);
+}
+
+export function calculateExpenditureEmaAlpha(tauDays: number = CONSTANTS.TAU_E): number {
+  return 1.0 - Math.exp(-1.0 / tauDays);
+}
+
+export function calculateTrendWeightStep(
+  previousTrend: number,
+  rawWeight: number,
+  alpha: number
+): number {
+  return previousTrend + alpha * (rawWeight - previousTrend);
+}
+
+export function calculateTdeeStep(
+  previousTdee: number,
+  avgIntake: number,
+  weightChangeKg: number,
+  windowDays: number = CONSTANTS.WINDOW_DAYS,
+  alpha: number = 1.0 - Math.exp(-1.0 / CONSTANTS.TAU_E)
+): number {
+  const energyDelta = (weightChangeKg * CONSTANTS.FAT_KCAL_PER_KG) / windowDays;
+  let rawTdee = avgIntake - energyDelta;
+  rawTdee = Math.max(1000.0, Math.min(5000.0, rawTdee));
+  return alpha * rawTdee + (1.0 - alpha) * previousTdee;
+}
+
+export function calculateDailyTarget(
+  tdee: number,
+  targetMonthlyRateKg: number,
+  minFloor: number = CONSTANTS.DEFAULT_MIN_DAILY_CALORIES
+): { targetCalories: number; isCapped: boolean } {
+  const dailyDeficit =
+    (targetMonthlyRateKg * CONSTANTS.FAT_KCAL_PER_KG) / CONSTANTS.DAYS_PER_MONTH;
+  const rawTarget = tdee + dailyDeficit;
+  let targetCalories = Math.round(rawTarget);
+  let isCapped = false;
+
+  if (targetCalories < minFloor) {
+    targetCalories = minFloor;
+    isCapped = true;
+  }
+
+  return { targetCalories, isCapped };
 }
 
 export function formatDate(d: Date): string {

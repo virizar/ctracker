@@ -32,7 +32,7 @@ export interface ColumnMapping {
   weightUnit?: 'kg' | 'lbs';
 }
 
-function normalizeDate(rawDate: any, formatHint?: string): string | null {
+export function normalizeDate(rawDate: any, formatHint?: string): string | null {
   if (!rawDate) return null;
   const str = String(rawDate).trim();
 
