@@ -1,22 +1,21 @@
 # TDEE Engine & System Knowledge Base (`KNOWLEDGE.md`)
 
-This document serves as the open knowledge repository for `ctracker`. It details the reverse-engineering methodology, mathematical equations, algorithm parameters, and edge-case behaviors derived from benchmarking against **985 days (2024 to 2026)** of real-world data_export export data.
+This document serves as the comprehensive technical knowledge repository for **CTracker**. It details the mathematical formulas, reverse-engineered metabolic algorithms, local-first database architecture, UI charting principles, and CI/CD automation pipelines derived from real-world benchmarking against **985 days (2024 to 2026)** of FitnessLog data.
 
 ---
 
-## 1. data_export Reverse-Engineering Findings
+## 1. FitnessLog Benchmark Dataset Analysis (985 Days)
 
-### Dataset Analysis (985 Days)
-From the exported data_export dataset (`drive-download-20260917T151205Z-1-001.zip`):
+From the benchmark dataset:
 * **Scale Weight Entries**: 582 days logged
-* **Food Intake Logs**: 707 days logged (calories, macros, micronutrients)
-* **data_export Expenditure Curve**: 985 consecutive daily TDEE values
+* **Food Intake Logs**: 707 days logged (calories, macros, items)
+* **FitnessLog Expenditure Curve**: 985 consecutive daily TDEE values
 
 ---
 
 ## 2. Dynamic TDEE Mathematical Engine
 
-The core TDEE engine consists of a **Two-Stage Continuous Time-Decay Exponential Moving Average (EMA)** model.
+The core TDEE engine consists of a **Two-Stage Continuous Time-Decay Exponential Moving Average (EMA)** model implemented in [`src/services/tdee.ts`](file:///home/victor/Personal/ctracker_api/src/services/tdee.ts).
 
 ### A. Cold-Start BMR & Initial TDEE Baseline
 When starting without prior historical logs, the engine uses the **Mifflin-St Jeor Equation** to establish the initial expenditure baseline:
@@ -30,18 +29,18 @@ Where:
 **Validation**: For a 38-year-old male, 185 cm tall, weighing 104.4 kg:
 * Calculated BMR: **2,024.8 kcal**
 * Estimated Initial TDEE ($2,024.8 \times 1.613$): **3,266 kcal**
-* data_export Actual Day 1 Expenditure: **3,253 kcal** (Deviation < 0.4%).
+* Actual FitnessLog Day 1 Expenditure: **3,253 kcal** (Deviation < 0.4%).
 
 ---
 
 ### B. Weight Trend Smoothing ($\text{Trend Weight}_t$)
-Raw scale weight fluctuates daily due to sodium intake, hydration, glycogen, and gut volume. The trend weight is updated using continuous time-decay exponential smoothing:
+Raw scale weight fluctuates daily due to sodium intake, hydration, glycogen, and digestive contents. The trend weight is updated using continuous time-decay exponential smoothing:
 
 $$\alpha_w = 1 - e^{-\frac{\Delta t}{\tau_w}}$$
 
 $$\text{Trend Weight}_t = \alpha_w \cdot \text{Scale Weight}_t + (1 - \alpha_w) \cdot \text{Trend Weight}_{t - \Delta t}$$
 
-* **Time Constant ($\tau_w$)**: 14 days.
+* **Time Constant ($\tau_w$)**: 14 days (`CONSTANTS.TAU_W`).
 * **Gap Handling ($\Delta t$)**: Measures the actual number of days elapsed since the last scale entry. If 5 days are missed, $\Delta t = 5$, automatically scaling $\alpha_w$ gracefully without creating artificial sharp steps.
 
 ---
@@ -64,7 +63,8 @@ Over a rolling window $k = 14$ days:
 
    $$\text{Expenditure}_t = \alpha_e \cdot \text{Raw TDEE}_t + (1 - \alpha_e) \cdot \text{Expenditure}_{t-1}$$
 
-* **Expenditure Time Constant ($\tau_e$)**: 28 days (dampens rapid wild swings in burn estimation).
+* **Expenditure Time Constant ($\tau_e$)**: 28 days (`CONSTANTS.TAU_E`) to prevent wild oscillations from short-term dietary anomalies.
+* **Safety Bounds**: Clamped between $1,000\text{ kcal}$ and $5,000\text{ kcal}$.
 
 ---
 
@@ -72,7 +72,7 @@ Over a rolling window $k = 14$ days:
 
 ### Rule 1: Fasted Days vs. Unlogged / Missing Days
 * **Unlogged / Missing Days**: If no food is logged on day $t$, day $t$ is **omitted** from average intake calculations. Treating missing days as 0 kcal would falsely collapse the calculated TDEE.
-* **Fasting Days**: Explicitly tagged as `is_fasted = True` with `0` calories. Fasting days are included in intake averages.
+* **Fasting Days**: Explicitly tagged with `0` calories. Fasting days are included in intake averages.
 
 ### Rule 2: 5-Day Minimum Logging Density Gate
 * Within any 14-day rolling window, the engine checks the number of valid food logging days ($N_{\text{food}}$).
@@ -84,134 +84,106 @@ Over a rolling window $k = 14$ days:
 
 ## 4. Benchmark Validation Results
 
-Running this exact algorithm against the 985-day data_export export yields:
+Running this exact algorithm against the 985-day FitnessLog export yields:
 * **Mean Absolute Error (MAE)**: **87.10 kcal/day**
 * **Root Mean Square Error (RMSE)**: **112.4 kcal/day**
 
 ---
 
-## 5. Offline Resilience & API Idempotency Architecture
+## 5. Local-First Application Architecture
 
-To safely allow clients (mobile app, web PWA, Telegram bot) to retry failed network calls through Cloudflare Tunnels:
+CTracker is built as a **100% local-first mobile architecture** with zero server dependency:
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│                   Client Outbox Queue                  │
+│                   CTracker Mobile App                  │
 │                                                        │
-│  User Action ──► Generate `client_event_id` (UUIDv4)   │
-│              ──► Save to Local Storage (PENDING)       │
+│  ├── React Native / Expo UI (Tabs, Modals, SVG Charts) │
+│  ├── Gemini AI Client (Direct HTTPS to Google API)     │
+│  ├── TDEE & Smoothing Engine (Pure TypeScript)         │
+│  └── Universal Data Importer (CSV / XLSX / PapaParse)   │
 └──────────────────────────┬─────────────────────────────┘
                            │
-             HTTP POST with `client_event_id`
+             Direct Embedded C/C++ Binding
                            │
                            ▼
 ┌────────────────────────────────────────────────────────┐
-│                  FastAPI Backend Server                │
+│             Embedded SQLite (expo-sqlite)              │
 │                                                        │
-│   1. SELECT FROM processed_events WHERE id = :event_id │
-│   2. IF EXISTS: Return cached 200 OK (Do nothing)     │
-│   3. IF NEW: Run DB insert/upsert + update TDEE       │
-│      INSERT INTO processed_events (id, processed_at)   │
-│      Return 200 OK                                     │
+│  ├── WAL Mode (Write-Ahead Logging)                    │
+│  ├── Prepared Statements & Atomic Transactions         │
+│  ├── Relational Tables (meals, scale_weights, profile) │
+│  └── FTS5 Virtual Table (food_catalog_fts + Triggers)  │
 └────────────────────────────────────────────────────────┘
 ```
 
-### Key Outbox Principles
-1. **Client Event IDs**: All mutations (logging a meal, updating scale weight) must include a unique `client_event_id`.
-2. **Upsert Semantics**: Scale weight logs for the same date overwrite the previous raw weight entry for that date rather than appending duplicate rows.
-3. **Double-Count Protection**: Resent requests dropped by network timeouts are safely ignored if the server already processed their `client_event_id`.
+### Key Architectural Advantages
+1. **Zero Cloud Maintenance**: No server containers to host, monitor, or pay for.
+2. **Total Privacy & Offline Operation**: All weight logs, meal entries, and metabolic histories remain strictly on the device.
+3. **Instant Latency**: Zero network latency for logging, searching, and charting.
 
 ---
 
-## 6. API Endpoint Specification (`/v1`)
+## 6. SQLite Database & Full-Text Search (FTS5)
 
-### 🔐 Authentication & Administration
-* `GET /v1/auth/me` — Retrieve profile settings, BMR, baseline activity, and target parameters for the authenticated user.
-* `PATCH /v1/auth/me` — Update profile settings (height, DOB, sex, target loss/gain rate, macro ratios).
-* `POST /v1/admin/keys` — Provision new user API key *(Requires `X-Master-Key`)*.
-* `GET /v1/admin/keys` — List all provisioned API keys *(Requires `X-Master-Key`)*.
-* `DELETE /v1/admin/keys/{key_id}` — Revoke API key *(Requires `X-Master-Key`)*.
+Configured in [`src/db/database.ts`](file:///home/victor/Personal/ctracker_api/src/db/database.ts):
 
-### 🥗 Food & Meal Logging
-* `POST /v1/food/meals` — Log single OR batch meal items array *(Supports `canonical_name` auto-linking & `client_event_id`)*.
-* `GET /v1/food/search?q=query` — Search standardized food catalog by usage frequency.
-* `POST /v1/food/interpret` — Raw text/voice input $\rightarrow$ Gemini NLP parsing $\rightarrow$ Macro calculation $\rightarrow$ Log meal events.
-* `GET /v1/food/meals?date=YYYY-MM-DD` — List meals logged on a given date.
-* `DELETE /v1/food/meals/{meal_id}` — Delete a meal.
+### A. WAL Mode & Performance Pragmas
+* `PRAGMA journal_mode = WAL;` (Write-Ahead Logging enables non-blocking concurrent reads and writes).
+* `PRAGMA synchronous = NORMAL;` (Maximizes mobile disk I/O performance while preserving crash resilience).
+* `PRAGMA foreign_keys = ON;`
 
-### ⚖️ Scale Weight Tracking
-* `POST /v1/weight` — Log or upsert daily scale weight *(Requires `client_event_id`)*.
-* `GET /v1/weight?start_date=...&end_date=...` — Retrieve weight history & trend values.
-* `DELETE /v1/weight/{date}` — Remove scale weight log for a given date.
-
-### 📊 Dashboard & Analytics
-* `GET /v1/dashboard/summary?date=YYYY-MM-DD` — Daily summary (Total calories, macros breakdown, current Trend Weight, live TDEE, target calorie budget, dual goal projections, safety floor capping status).
-* `GET /v1/dashboard/trends?days=30` — Historical trend array for charts (`date`, `raw_weight`, `trend_weight`, `logged_calories`, `tdee`).
-
-### 📦 Data Migration & Import
-* `POST /v1/import/file` — Single-purpose bulk migration endpoint. Accepts `.json` or `.json.gz` file payload containing `weights` and `meals` arrays, auto-populates food catalog, and triggers a single-pass TDEE recalculation pass.
+### B. Catalog FTS5 Table with Triggers
+* Food catalog search utilizes SQLite's FTS5 virtual table (`food_catalog_fts`) with **Porter stemmer tokenization** (`porter unicode61`).
+* **Order-Agnostic & Stemmed**: Querying `"pancakes"` matches `"Pancake, homemade"`.
+* **Auto-Sync Triggers**: SQLite `AFTER INSERT`, `AFTER UPDATE`, and `AFTER DELETE` triggers keep the virtual search index synchronized automatically.
 
 ---
 
-## 7. Goal Projections, Safety Floor & Configuration Architecture
+## 7. Interactive SVG Visualizations
 
-### A. Target Weight & Calorie Budget Calculation
-The daily target calorie budget is computed from the monthly goal rate (`target_monthly_rate_kg`):
+Implemented in [`src/screens/WeightTrendsScreen.tsx`](file:///home/victor/Personal/ctracker_api/src/screens/WeightTrendsScreen.tsx) using pure `react-native-svg`:
 
-$$\text{Daily Deficit} = \frac{\text{target\_monthly\_rate\_kg} \times 7,700\text{ kcal/kg}}{30.4375\text{ days/month}}$$
-
-$$\text{Raw Calorie Target} = \text{TDEE}_t + \text{Daily Deficit}$$
-
-$$\text{Target Calories}_t = \max(\text{Raw Calorie Target}, \text{min\_daily\_calories})$$
-
-* **Safety Floor (`min_daily_calories`)**: Default floor of `1500.0 kcal/day`.
-* **Safety Flag (`is_rate_capped_by_safety_floor`)**: Evaluates to `True` whenever $\text{Raw Calorie Target} < \text{min\_daily\_calories}$.
-
----
-
-### B. Dual Goal Projections (Target Rate vs Actual 30d Observed Pace)
-
-1. **Target Rate Projection**:
-   $$\text{Remaining Weight} = |\text{Current Trend Weight} - \text{Target Weight}|$$
-   $$\text{Days to Goal (Target)} = \frac{\text{Remaining Weight}}{|\text{target\_monthly\_rate\_kg}| / 30.4375}$$
-   $$\text{Projected Date (Target)} = \text{Current Date} + \text{Days to Goal (Target)}$$
-
-2. **Actual Observed Trend Pace (30-Day Window)**:
-   $$\text{Actual Monthly Loss Rate (30d)} = \left( \frac{\text{Trend Weight}_{t-30} - \text{Trend Weight}_t}{30} \right) \times 30.4375$$
-   $$\text{Days to Goal (Actual)} = \frac{\text{Remaining Weight}}{\text{Actual Daily Loss Rate}}$$
-   $$\text{Projected Date (Actual)} = \text{Current Date} + \text{Days to Goal (Actual)}$$
+1. **Weight Trend Graph**:
+   * Raw scale weights rendered as subtle scatter dots (`#94a3b8`).
+   * Smoothed trend weight drawn as a bold bezier/line curve (`#0284c7`) with an area gradient fill.
+   * Dashed target weight reference line (`#f59e0b`).
+2. **Expenditure vs. Intake Graph**:
+   * Daily calorie intake rendered as vertical rounded bars (`#10b981`).
+   * Dynamic TDEE expenditure curve drawn as a smooth flowing violet line (`#8b5cf6`).
+3. **Timeframe Selector**:
+   * Segmented button controls for `30D`, `90D`, `180D`, and `All`.
+   * Dynamic delta metrics (e.g. `+0.4 kg in 90D`, `2,450 kcal/day avg intake`).
 
 ---
 
-### C. Centralized Engine Constants & Configuration (`app/config.py`)
+## 8. Data Import Engine & Deduplication
 
-All algorithm constants and defaults are centralized:
-* `TAU_W = 14.0` (Scale weight continuous smoothing time constant)
-* `TAU_E = 28.0` (Expenditure continuous smoothing time constant)
-* `WINDOW_DAYS = 14` (Rolling calculation window)
-* `MIN_FOOD_LOGGED_DAYS = 5` (Data density gate)
-* `FAT_KCAL_PER_KG = 7700.0` (Energy equivalent of 1 kg body mass change)
-* `DAYS_PER_MONTH = 30.4375` (Average days per month)
-* `DEFAULT_MIN_DAILY_CALORIES = 1500.0` (Safety floor default)
+Implemented in [`src/services/importer.ts`](file:///home/victor/Personal/ctracker_api/src/services/importer.ts):
+* **Format Agnostic**: Detects FitnessLog CSV/JSON, MyFitnessPal, and arbitrary spreadsheets.
+* **Date-Range Atomic Replacement**: Deletes existing records within `[minDate, maxDate]` before batch inserting rows, allowing repeat foods (e.g. 2 identical eggs or toast) without false deduplication dropping meals.
+* **Prepared Statements**: Uses `db.prepareAsync()` and SQLite transactions for high-speed imports (thousands of rows in < 2 seconds).
 
 ---
 
-## 8. SQLite WAL Mode & FTS5 Search Architecture
+## 9. CI/CD, EAS Cloud Builds & Semantic Release
 
-### A. WAL Mode (Write-Ahead Logging)
-To prevent `database is locked` errors during concurrent API reads and writes across Cloudflare Tunnels:
-* Connection initialization executes:
-  `PRAGMA journal_mode=WAL;`
-  `PRAGMA synchronous=NORMAL;`
-* **Benefits**: Non-blocking concurrent reads while background writes/TDEE calculations occur.
+### A. Commit Message Convention
+Enforced via **commitlint** ([`.commitlintrc.json`](file:///home/victor/Personal/ctracker_api/.commitlintrc.json)) and local `.git/hooks/commit-msg`:
+* `feat:` ➔ Signals a **MINOR** release (`1.0.0` → `1.1.0`).
+* `fix:`, `perf:`, `refactor:` ➔ Signals a **PATCH** release (`1.0.0` → `1.0.1`).
+* `feat!:` or `BREAKING CHANGE:` ➔ Signals a **MAJOR** release (`1.0.0` → `2.0.0`).
 
----
+### B. Continuous Integration ([`.github/workflows/ci.yml`](file:///home/victor/Personal/ctracker_api/.github/workflows/ci.yml))
+* Runs on all PRs and pushes to `main`.
+* Validates commit message formatting.
+* Runs TypeScript check: `npm run typecheck`.
+* Runs Jest unit tests with coverage: `npm run test:coverage`.
 
-### B. SQLite FTS5 Full-Text Search Table & Auto-Sync Triggers
-Catalog search utilizes an FTS5 virtual table (`food_catalog_fts`) with **Porter stemmer tokenization** (`porter unicode61`):
-
-* **Capabilities**:
-  * **Stemming**: Querying `"pancakes"` (plural) matches `"Pancake, homemade"`.
-  * **Order-Agnostic**: Querying `"homemade pancake"` matches `"Pancake, homemade"`.
-  * **Relevance & Frequency Ranking**: Results are ranked by **BM25 score** combined with `usage_count` frequency.
-* **Auto-Sync Triggers**: SQLite `AFTER INSERT`, `AFTER UPDATE`, and `AFTER DELETE` triggers keep `food_catalog_fts` synchronized automatically.
+### C. Automated Release on Demand ([`.github/workflows/release.yml`](file:///home/victor/Personal/ctracker_api/.github/workflows/release.yml))
+* Triggered manually via GitHub Actions (`workflow_dispatch`).
+* Compares commits between the latest Git tag and `HEAD`.
+* Auto-calculates next semantic version and generates categorized release notes.
+* Updates `package.json` and `app.json`, creates a Git tag, and pushes to `main`.
+* Triggers an EAS cloud build to compile a standalone Android `.apk`.
+* Automatically attaches the compiled `.apk` to the new GitHub Release.
