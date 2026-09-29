@@ -1,5 +1,5 @@
 {
-  "name": "mobile",
+  "name": "ctracker",
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
@@ -11,6 +11,7 @@
     "expo-secure-store": "^57.0.4",
     "expo-sqlite": "^57.0.3",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.24",
     "papaparse": "^5.7.0",
     "react": "19.2.3",
     "react-native": "0.86.3",
@@ -22,7 +23,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit"
   },
   "private": true,
   "devDependencies": {
