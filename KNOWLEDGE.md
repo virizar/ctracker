@@ -157,7 +157,42 @@ Implemented in [`src/screens/WeightTrendsScreen.tsx`](file:///home/victor/Person
 
 ---
 
-## 8. Data Import Engine & Deduplication
+## 8. Habit & Adherence Calendar
+
+Implemented in [`src/screens/WeightTrendsScreen.tsx`](file:///home/victor/Personal/ctracker_api/src/screens/WeightTrendsScreen.tsx):
+* Replaces the redundant textual weigh-in list on the Trends screen with an intuitive monthly habit calendar.
+* **Dual Status Dots**:
+  * **Blue Dot (`#0284c7`)**: Scale weight logged for that calendar day.
+  * **Green Dot (`#16a34a`)**: Food / calorie intake logged for that calendar day.
+* **1-Tap Fast Jump**: Tapping any calendar day immediately navigates to that exact date on the Today / Dashboard tab.
+* **Monthly Adherence Metrics**: Displays real-time weigh-in and nutrition tracking consistency percentages for any selected month.
+
+---
+
+## 9. Food Serving Size Engine, Portion Memory & In-Place Editing
+
+Implemented in [`src/services/serving.ts`](file:///home/victor/Personal/ctracker_api/src/services/serving.ts) and [`src/components/FoodServingModal.tsx`](file:///home/victor/Personal/ctracker_api/src/components/FoodServingModal.tsx):
+
+### A. Dynamic Serving Size & Unit Scaling
+* When tapping an item from search or the personal food catalog, CTracker opens an interactive serving size dialog instead of blindly logging a static entry.
+* **Universal Conversion Engine**: Supports grams (`g`), ounces (`oz`), milliliters (`ml`), cups, tablespoons (`tbsp`), teaspoons (`tsp`), and discrete servings (`slice`, `scoop`, `egg`).
+* **Live Macronutrient Scaling**: Calories, protein, carbohydrates, and fat update in real time as the user types quantities or selects units.
+* **Quick Multipliers**: One-tap buttons for rapid portion increments (`-50g`, `-10g`, `+10g`, `+50g` or `0.5x`, `1x`, `1.5x`, `2x`).
+
+### B. Habit Portion Memory (`last_used_qty`, `last_used_unit`)
+* Following FitnessLog UX principles, personal logging habits are remembered per food:
+  * When a user logs `50g` of rice, `food_catalog.last_used_qty` is set to `50` and `last_used_unit` is set to `'g'`.
+  * The next time that food is searched or tapped, it automatically defaults to `50g` rather than arbitrary defaults.
+  * The catalog search UI indicates remembered portion sizes with a subtle history indicator (`50 g`).
+
+### C. In-Place Food Name Editing
+* Avoids fragile regexes or heavy LLM passes over historical exports.
+* When viewing the serving dialog, the food name is an editable field. If an imported item has an awkward name (e.g. `"4 cheeks of pork"`), the user can tap and edit it directly to `"Pork cheek"`.
+* SQLite catalog updates rename the entry in `food_catalog` with collision-safe merging (`renameFoodCatalogItem`), and automatically updates the FTS5 full-text search index via triggers.
+
+---
+
+## 10. Data Import Engine & Deduplication
 
 Implemented in [`src/services/importer.ts`](file:///home/victor/Personal/ctracker_api/src/services/importer.ts):
 * **Format Agnostic**: Detects FitnessLog CSV/JSON, MyFitnessPal, and arbitrary spreadsheets.
@@ -166,7 +201,12 @@ Implemented in [`src/services/importer.ts`](file:///home/victor/Personal/ctracke
 
 ---
 
-## 9. CI/CD, EAS Cloud Builds & Semantic Release
+## 11. SecureStore Persistence (API Keys & LLM Models)
+
+Implemented in [`src/services/keychain.ts`](file:///home/victor/Personal/ctracker_api/src/services/keychain.ts):
+* API keys and Gemini model selection (`gemini-2.5-flash`, `gemini-2.0-flash`, or custom user models) are persisted via `expo-secure-store`.
+* Encrypted at rest via native Android Keystore and iOS Keychain.
+* Survives application restarts, background terminations, updates, and SQLite database wipes.
 
 ### A. Commit Message Convention
 Enforced via **commitlint** ([`.commitlintrc.json`](file:///home/victor/Personal/ctracker_api/.commitlintrc.json)) and local `.git/hooks/commit-msg`:

@@ -66,6 +66,9 @@ export interface FoodCatalogItem {
   carbs: number;
   fat: number;
   usage_count: number;
+  base_weight_g?: number | null;
+  last_used_qty?: number | null;
+  last_used_unit?: string | null;
   last_used_at?: string;
   created_at?: string;
 }

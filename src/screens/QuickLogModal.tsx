@@ -13,9 +13,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { parseFoodInput } from '../services/gemini';
-import { logMeal, searchFoodCatalog } from '../db/queries';
+import {
+  logMeal,
+  searchFoodCatalog,
+  renameFoodCatalogItem,
+  updateCatalogLastUsedMeasurement,
+} from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
 import { ParsedFoodItem, FoodCatalogItem } from '../types';
+import { FoodServingModal } from '../components/FoodServingModal';
 
 interface QuickLogModalProps {
   visible: boolean;
@@ -41,6 +47,9 @@ export function QuickLogModal({
   // Search Tab State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FoodCatalogItem[]>([]);
+
+  // Serving & Portion Modal State
+  const [servingModalItem, setServingModalItem] = useState<FoodCatalogItem | null>(null);
 
   useEffect(() => {
     if (activeTab === 'search') {
@@ -99,27 +108,100 @@ export function QuickLogModal({
     onSuccess();
   };
 
-  const handleQuickAddCatalogItem = async (item: FoodCatalogItem) => {
-    await logMeal('victor', {
-      date: targetDate,
-      food_name: item.canonical_name,
-      canonical_name: item.canonical_name,
-      serving_size: item.default_serving || '1 serving',
-      calories: item.calories,
-      protein: item.protein,
-      carbs: item.carbs,
-      fat: item.fat,
+  const handleOpenAiItemServing = (aiItem: ParsedFoodItem, idx: number) => {
+    setServingModalItem({
+      id: -1 * (idx + 1),
+      username: 'victor',
+      canonical_name: aiItem.food_name,
+      default_serving: aiItem.serving_size,
+      base_weight_g: null,
+      calories: aiItem.calories,
+      protein: aiItem.protein,
+      carbs: aiItem.carbs,
+      fat: aiItem.fat,
+      usage_count: 1,
+      last_used_qty: null,
+      last_used_unit: null,
+      last_used_at: undefined,
+      created_at: '',
     });
+  };
 
-    await recalculateUserTdee('victor');
-    resetAndClose();
-    onSuccess();
+  const handleConfirmServing = async (result: {
+    foodName: string;
+    originalCanonicalName: string;
+    servingSizeStr: string;
+    quantity: number;
+    unit: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }) => {
+    try {
+      const finalName = result.foodName.trim() || result.originalCanonicalName;
+
+      // Case 1: Editing a temporary item from the AI preview list
+      if (servingModalItem && servingModalItem.id !== undefined && servingModalItem.id < 0) {
+        const itemIdx = Math.abs(servingModalItem.id) - 1;
+        setParsedItems((prev) => {
+          const updated = [...prev];
+          updated[itemIdx] = {
+            food_name: finalName,
+            canonical_name: finalName,
+            serving_size: result.servingSizeStr,
+            calories: result.calories,
+            protein: result.protein,
+            carbs: result.carbs,
+            fat: result.fat,
+          };
+          return updated;
+        });
+        setServingModalItem(null);
+        return;
+      }
+
+      // Case 2: Logging an item from Food Catalog
+      if (servingModalItem && servingModalItem.id !== undefined && servingModalItem.id > 0) {
+        // If food was renamed, rename in SQLite catalog
+        if (result.originalCanonicalName && finalName !== result.originalCanonicalName) {
+          await renameFoodCatalogItem('victor', result.originalCanonicalName, finalName);
+        }
+
+        // Remember last used quantity & unit
+        await updateCatalogLastUsedMeasurement(
+          'victor',
+          finalName,
+          result.quantity,
+          result.unit
+        );
+      }
+
+      await logMeal('victor', {
+        date: targetDate,
+        food_name: finalName,
+        canonical_name: finalName,
+        serving_size: result.servingSizeStr,
+        calories: result.calories,
+        protein: result.protein,
+        carbs: result.carbs,
+        fat: result.fat,
+      });
+
+      await recalculateUserTdee('victor');
+      setServingModalItem(null);
+      resetAndClose();
+      onSuccess();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to log food serving.');
+    }
   };
 
   const resetAndClose = () => {
     setInputQuery('');
     setParsedItems([]);
     setSearchQuery('');
+    setServingModalItem(null);
     onClose();
   };
 
@@ -208,18 +290,29 @@ export function QuickLogModal({
             {/* Parsed Items Preview */}
             {parsedItems.length > 0 && (
               <View style={styles.previewContainer}>
-                <Text style={styles.previewTitle}>Estimated Items ({parsedItems.length})</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <Text style={styles.previewTitle}>Estimated Items ({parsedItems.length})</Text>
+                  <Text style={{ fontSize: 12, color: '#94a3b8' }}>Tap item to adjust portion</Text>
+                </View>
 
                 {parsedItems.map((item, idx) => (
-                  <View key={idx} style={styles.previewCard}>
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.previewCard}
+                    onPress={() => handleOpenAiItemServing(item, idx)}
+                    activeOpacity={0.7}
+                  >
                     <View style={{ flex: 1 }}>
                       <Text style={styles.previewFoodName}>{item.food_name}</Text>
                       <Text style={styles.previewDetails}>
                         {item.serving_size} • P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
                       </Text>
                     </View>
-                    <Text style={styles.previewCalories}>{Math.round(item.calories)} kcal</Text>
-                  </View>
+                    <View style={{ alignItems: 'flex-end', flexDirection: 'row', gap: 6 }}>
+                      <Text style={styles.previewCalories}>{Math.round(item.calories)} kcal</Text>
+                      <Ionicons name="create-outline" size={16} color="#94a3b8" />
+                    </View>
+                  </TouchableOpacity>
                 ))}
 
                 <TouchableOpacity
@@ -249,28 +342,57 @@ export function QuickLogModal({
               {searchResults.length === 0 ? (
                 <Text style={styles.noResultsText}>No foods found in your catalog.</Text>
               ) : (
-                searchResults.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.searchItem}
-                    onPress={() => handleQuickAddCatalogItem(item)}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.searchItemTitle}>{item.canonical_name}</Text>
-                      <Text style={styles.searchItemSub}>
-                        {item.default_serving || '1 serving'} • P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
-                      </Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={styles.searchItemCals}>{Math.round(item.calories)} kcal</Text>
-                      <Text style={styles.searchItemUsage}>Logged {item.usage_count}x</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))
+                searchResults.map((item) => {
+                  const hasLastUsed = Boolean(item.last_used_qty && item.last_used_unit);
+                  const servingDisplay = hasLastUsed
+                    ? `${item.last_used_qty} ${item.last_used_unit}`
+                    : item.default_serving || '1 serving';
+
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.searchItem}
+                      onPress={() => setServingModalItem(item)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.searchItemTitle}>{item.canonical_name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 4 }}>
+                          {hasLastUsed ? (
+                            <Ionicons name="time-outline" size={12} color="#2563eb" />
+                          ) : null}
+                          <Text
+                            style={[
+                              styles.searchItemSub,
+                              hasLastUsed ? { color: '#2563eb', fontWeight: '500' } : null,
+                            ]}
+                          >
+                            {servingDisplay}
+                          </Text>
+                          <Text style={styles.searchItemSub}>
+                            • P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={styles.searchItemCals}>{Math.round(item.calories)} kcal</Text>
+                        <Text style={styles.searchItemUsage}>Logged {item.usage_count}x</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
               )}
             </ScrollView>
           </View>
         )}
+
+        {/* Serving Size & Quantity Adjustment Modal */}
+        <FoodServingModal
+          visible={servingModalItem !== null}
+          item={servingModalItem}
+          onClose={() => setServingModalItem(null)}
+          onConfirm={handleConfirmServing}
+        />
       </View>
     </Modal>
   );

@@ -93,6 +93,9 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
       protein REAL NOT NULL,
       carbs REAL NOT NULL,
       fat REAL NOT NULL,
+      base_weight_g REAL,
+      last_used_qty REAL DEFAULT 1.0,
+      last_used_unit TEXT,
       usage_count INTEGER NOT NULL DEFAULT 1,
       last_used_at TEXT NOT NULL DEFAULT (datetime('now')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -129,6 +132,17 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
       VALUES (new.id, new.canonical_name, new.username);
     END;
   `);
+
+  // Safe migrations for food_catalog extra columns
+  try {
+    await db.execAsync('ALTER TABLE food_catalog ADD COLUMN base_weight_g REAL;');
+  } catch {}
+  try {
+    await db.execAsync('ALTER TABLE food_catalog ADD COLUMN last_used_qty REAL DEFAULT 1.0;');
+  } catch {}
+  try {
+    await db.execAsync('ALTER TABLE food_catalog ADD COLUMN last_used_unit TEXT;');
+  } catch {}
 
   // Seed default user profile if none exists
   const existingUser = await db.getFirstAsync<UserProfile>(

@@ -248,14 +248,18 @@ export async function upsertFoodCatalog(
   const db = await getDatabase();
   await db.runAsync(
     `INSERT INTO food_catalog (
-      username, canonical_name, default_serving, calories, protein, carbs, fat, usage_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      username, canonical_name, default_serving, calories, protein, carbs, fat,
+      base_weight_g, last_used_qty, last_used_unit, usage_count
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     ON CONFLICT(username, canonical_name) DO UPDATE SET
       default_serving = COALESCE(excluded.default_serving, food_catalog.default_serving),
       calories = excluded.calories,
       protein = excluded.protein,
       carbs = excluded.carbs,
       fat = excluded.fat,
+      base_weight_g = COALESCE(excluded.base_weight_g, food_catalog.base_weight_g),
+      last_used_qty = COALESCE(excluded.last_used_qty, food_catalog.last_used_qty),
+      last_used_unit = COALESCE(excluded.last_used_unit, food_catalog.last_used_unit),
       usage_count = food_catalog.usage_count + 1,
       last_used_at = datetime('now')`,
     [
@@ -266,7 +270,63 @@ export async function upsertFoodCatalog(
       item.protein,
       item.carbs,
       item.fat,
+      item.base_weight_g ?? null,
+      item.last_used_qty ?? null,
+      item.last_used_unit ?? null,
     ]
+  );
+}
+
+export async function renameFoodCatalogItem(
+  username = 'victor',
+  oldCanonicalName: string,
+  newCanonicalName: string
+): Promise<void> {
+  const oldName = oldCanonicalName.trim();
+  const newName = newCanonicalName.trim();
+  if (!newName || oldName === newName) return;
+
+  const db = await getDatabase();
+  const existing = await db.getFirstAsync<{ id: number; usage_count: number }>(
+    `SELECT id, usage_count FROM food_catalog WHERE username = ? AND canonical_name = ?`,
+    [username, newName]
+  );
+
+  if (existing) {
+    await db.runAsync(
+      `UPDATE food_catalog SET usage_count = usage_count + 1 WHERE id = ?`,
+      [existing.id]
+    );
+    await db.runAsync(
+      `DELETE FROM food_catalog WHERE username = ? AND canonical_name = ?`,
+      [username, oldName]
+    );
+  } else {
+    await db.runAsync(
+      `UPDATE food_catalog 
+       SET canonical_name = ?
+       WHERE username = ? AND canonical_name = ?`,
+      [newName, username, oldName]
+    );
+  }
+}
+
+
+export async function updateCatalogLastUsedMeasurement(
+  username = 'victor',
+  canonicalName: string,
+  qty: number,
+  unit: string
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE food_catalog
+     SET last_used_qty = ?,
+         last_used_unit = ?,
+         usage_count = usage_count + 1,
+         last_used_at = datetime('now')
+     WHERE username = ? AND canonical_name = ?`,
+    [qty, unit, username, canonicalName.trim()]
   );
 }
 
