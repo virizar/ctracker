@@ -1,15 +1,15 @@
 # TDEE Engine & System Knowledge Base (`KNOWLEDGE.md`)
 
-This document serves as the comprehensive technical knowledge repository for **CTracker**. It details the mathematical formulas, reverse-engineered metabolic algorithms, local-first database architecture, UI charting principles, and CI/CD automation pipelines derived from real-world benchmarking against **985 days (2024 to 2026)** of FitnessLog data.
+This document serves as the comprehensive technical knowledge repository for **CTracker**. It details the mathematical formulas, adaptive metabolic algorithms, local-first database architecture, UI charting principles, and CI/CD automation pipelines derived from real-world benchmarking against **985 days (2024 to 2026)** of empirical longitudinal tracking data.
 
 ---
 
-## 1. FitnessLog Benchmark Dataset Analysis (985 Days)
+## 1. Longitudinal Benchmark Dataset Analysis (985 Days)
 
 From the benchmark dataset:
 * **Scale Weight Entries**: 582 days logged
 * **Food Intake Logs**: 707 days logged (calories, macros, items)
-* **FitnessLog Expenditure Curve**: 985 consecutive daily TDEE values
+* **Reference Expenditure Curve**: 985 consecutive daily TDEE values
 
 ---
 
@@ -29,7 +29,7 @@ Where:
 **Validation**: For a 38-year-old male, 185 cm tall, weighing 104.4 kg:
 * Calculated BMR: **2,024.8 kcal**
 * Estimated Initial TDEE ($2,024.8 \times 1.613$): **3,266 kcal**
-* Actual FitnessLog Day 1 Expenditure: **3,253 kcal** (Deviation < 0.4%).
+* Target Benchmark Day 1 Expenditure: **3,253 kcal** (Deviation < 0.4%).
 
 ---
 
@@ -84,7 +84,7 @@ Over a rolling window $k = 14$ days:
 
 ## 4. Benchmark Validation Results
 
-Running this exact algorithm against the 985-day FitnessLog export yields:
+Running this exact algorithm against the 985-day longitudinal benchmark dataset yields:
 * **Mean Absolute Error (MAE)**: **87.10 kcal/day**
 * **Root Mean Square Error (RMSE)**: **112.4 kcal/day**
 
@@ -180,7 +180,7 @@ Implemented in [`src/services/serving.ts`](file:///home/victor/Personal/ctracker
 * **Quick Multipliers**: One-tap buttons for rapid portion increments (`-50g`, `-10g`, `+10g`, `+50g` or `0.5x`, `1x`, `1.5x`, `2x`).
 
 ### B. Habit Portion Memory (`last_used_qty`, `last_used_unit`)
-* Following FitnessLog UX principles, personal logging habits are remembered per food:
+* Following adaptive UX principles, personal logging habits are remembered per food:
   * When a user logs `50g` of rice, `food_catalog.last_used_qty` is set to `50` and `last_used_unit` is set to `'g'`.
   * The next time that food is searched or tapped, it automatically defaults to `50g` rather than arbitrary defaults.
   * The catalog search UI indicates remembered portion sizes with a subtle history indicator (`50 g`).
@@ -195,7 +195,7 @@ Implemented in [`src/services/serving.ts`](file:///home/victor/Personal/ctracker
 ## 10. Data Import Engine & Deduplication
 
 Implemented in [`src/services/importer.ts`](file:///home/victor/Personal/ctracker_api/src/services/importer.ts):
-* **Format Agnostic**: Detects FitnessLog CSV/JSON, MyFitnessPal, and arbitrary spreadsheets.
+* **Format Agnostic**: Detects multi-sheet XLSX, Cronometer, MyFitnessPal CSV, and arbitrary spreadsheets.
 * **Date-Range Atomic Replacement**: Deletes existing records within `[minDate, maxDate]` before batch inserting rows, allowing repeat foods (e.g. 2 identical eggs or toast) without false deduplication dropping meals.
 * **Prepared Statements**: Uses `db.prepareAsync()` and SQLite transactions for high-speed imports (thousands of rows in < 2 seconds).
 

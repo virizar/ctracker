@@ -2,7 +2,7 @@
 
 A local-first, privacy-first mobile calorie and weight tracker built with **Expo (React Native)** and **TypeScript**. 
 
-CTracker runs 100% locally on your phone using an embedded SQLite database (`expo-sqlite`). It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation algorithm inspired by metabolic literature, adaptive trend smoothing, interactive SVG charts, direct Gemini AI food parsing, and high-speed CSV/Excel imports.
+CTracker runs 100% locally on your phone using an embedded SQLite database (`expo-sqlite`). It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation algorithm inspired by metabolic literature, continuous exponential trend smoothing, interactive SVG charts, direct Gemini AI food parsing, and high-speed CSV/Excel imports.
 
 ---
 
@@ -17,7 +17,7 @@ CTracker runs 100% locally on your phone using an embedded SQLite database (`exp
   * **Adherence-Neutral Metabolic Burn Rate**: Automatically adapts your daily expenditure based on logged intake vs. weight trend.
   * **Gap Resilience**: Gracefully handles missed days or vacations with time-decay factors ($\Delta t$).
 
-* **📊 adaptive Charts**:
+* **📊 Interactive Metabolic & Trend Charts**:
   * **Weight Trend**: Scale weight dots, smooth trend line, under-curve gradient, and dashed goal reference line.
   * **Expenditure vs. Intake**: Daily calorie intake columns alongside a continuous flowing TDEE curve.
   * **Timeframe Filters**: View periods across `30D`, `90D`, `180D`, and `All`.
@@ -28,7 +28,7 @@ CTracker runs 100% locally on your phone using an embedded SQLite database (`exp
   * Automatically parses foods, quantities, calories, and macronutrients.
 
 * **📥 Data Import & Migration**:
-  * Full-fidelity import support for FitnessLog, MyFitnessPal, and custom CSV/Excel spreadsheets.
+  * Full-fidelity import support for multi-sheet fitness exports, MyFitnessPal, Cronometer, and custom CSV/Excel spreadsheets.
   * Auto-detects column schemas and calculates retroactive daily expenditure.
 
 ---

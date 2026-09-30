@@ -161,7 +161,7 @@ export function SettingsScreen({ onDatabaseWiped }: SettingsScreenProps) {
           <Text style={styles.cardTitle}>Smart Data Import</Text>
         </View>
         <Text style={styles.infoText}>
-          Import historical data from FitnessLog (.xlsx), MyFitnessPal, Cronometer (.csv), or JSON. If the format is unknown, Gemini AI will automatically detect the columns and units.
+          Import historical data from multi-sheet spreadsheets (.xlsx), MyFitnessPal, Cronometer (.csv), or JSON. If the format is unknown, Gemini AI will automatically detect the columns and units.
         </Text>
 
         <TouchableOpacity

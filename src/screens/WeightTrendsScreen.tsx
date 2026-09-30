@@ -47,7 +47,7 @@ function formatShortDate(dStr: string): string {
 }
 
 // -------------------------------------------------------------
-// 1. Weight Trend Chart Component (FitnessLog Style)
+// 1. Weight Trend Chart Component (Continuous Exponential Smoothing)
 // -------------------------------------------------------------
 interface WeightTrendChartProps {
   data: DailySummary[];
@@ -275,7 +275,7 @@ function WeightTrendChart({ data, targetWeight, width }: WeightTrendChartProps) 
 }
 
 // -------------------------------------------------------------
-// 2. Expenditure (TDEE) & Calorie Intake Chart (FitnessLog Style)
+// 2. Expenditure (TDEE) & Calorie Intake Chart
 // -------------------------------------------------------------
 interface ExpenditureCalorieChartProps {
   data: DailySummary[];
@@ -454,7 +454,7 @@ function ExpenditureCalorieChart({ data, width }: ExpenditureCalorieChartProps) 
 }
 
 // -------------------------------------------------------------
-// 3. Habit & Adherence Calendar Card (FitnessLog Style)
+// 3. Habit & Adherence Calendar Card (Dual-Indicator Adherence)
 // -------------------------------------------------------------
 interface HabitCalendarCardProps {
   onNavigateToDate?: (date: string) => void;

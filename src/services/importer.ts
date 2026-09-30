@@ -296,14 +296,14 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
     const arrayBuffer = await readUriAsArrayBuffer(asset.uri);
     const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
 
-    // Check for FitnessLog Multi-Sheet Pattern
+    // Check for Multi-Sheet Fitness Log Pattern
     const sheetNames = workbook.SheetNames;
-    const isFitnessLog =
+    const isMultiSheetFitness =
       sheetNames.some((s) => s.toLowerCase().includes('scale weight')) ||
       sheetNames.some((s) => s.toLowerCase().includes('nutrition'));
 
-    if (isFitnessLog) {
-      sourceFormat = 'FitnessLog Spreadsheet';
+    if (isMultiSheetFitness) {
+      sourceFormat = 'Multi-Sheet Fitness Spreadsheet';
 
       // Parse Scale Weight sheet
       const weightSheetName = sheetNames.find((s) =>
@@ -372,8 +372,8 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
     if (rows.length > 0) {
       const headers = Object.keys(rows[0]);
 
-      // Check for FitnessLog CSV signature
-      const isFitnessLogCsv =
+      // Check for Standard Calorie & Macro CSV signature
+      const isStandardNutritionCsv =
         headers.some((h) => h.toLowerCase() === 'food name') &&
         headers.some(
           (h) =>
@@ -381,8 +381,8 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
             h.toLowerCase().includes('calories (kcal)')
         );
 
-      if (isFitnessLogCsv) {
-        sourceFormat = 'FitnessLog CSV';
+      if (isStandardNutritionCsv) {
+        sourceFormat = 'Standard Nutrition CSV';
         for (const row of rows) {
           const normDate = normalizeDate(row['Date'] || findRowDate(row));
           const name = row['Food Name'] || row['food_name'];
