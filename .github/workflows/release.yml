@@ -32,7 +32,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -128,11 +128,10 @@ jobs:
           git tag "$NEW_TAG"
           git push origin main --tags
 
-      - name: Setup Expo & EAS
+      - name: Setup EAS
         if: env.EXPO_TOKEN != ''
         uses: expo/expo-github-action@v8
         with:
-          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
         env:
