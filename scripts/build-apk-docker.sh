@@ -19,7 +19,7 @@ echo "Building CTracker Android APK via Docker..."
 echo "==============================================="
 
 docker build -t ctracker-android-builder -f docker/Dockerfile.android .
-docker run --rm -v "$ROOT_DIR/dist:/output" ctracker-android-builder
+docker run --rm --init --shm-size=2g -v "$ROOT_DIR/dist:/output" ctracker-android-builder
 
 echo ""
 echo "Success! Output artifact:"

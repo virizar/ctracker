@@ -2,6 +2,9 @@ FROM reactnativecommunity/react-native-android:latest
 
 WORKDIR /app
 
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+ENV GRADLE_OPTS="-Xmx3072m -XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC"
+
 # Install project dependencies
 COPY package*.json ./
 RUN npm ci
@@ -9,10 +12,14 @@ RUN npm ci
 # Copy full project source
 COPY . .
 
-# Prebuild clean native Android project and compile release APK
+# Prebuild clean native Android project, configure JVM Metaspace, and compile release APK
 CMD npx expo prebuild --platform android --clean && \
     cd android && \
-    ./gradlew assembleRelease && \
+    sed -i 's/-XX:MaxMetaspaceSize=[0-9]*m/-XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC/g' gradle.properties && \
+    echo "kotlin.daemon.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=1024m" >> gradle.properties && \
+    echo "org.gradle.parallel=false" >> gradle.properties && \
+    echo "org.gradle.workers.max=2" >> gradle.properties && \
+    ./gradlew assembleRelease --no-daemon --max-workers=2 && \
     mkdir -p /output && \
     cp app/build/outputs/apk/release/app-release.apk /output/CTracker.apk && \
     echo "===============================================" && \

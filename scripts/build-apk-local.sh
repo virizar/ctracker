@@ -33,15 +33,20 @@ if [ -z "$ANDROID_HOME" ] || [ ! -d "$ANDROID_HOME" ]; then
 fi
 
 export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+export NODE_OPTIONS="--max-old-space-size=4096"
+export GRADLE_OPTS="-Xmx3072m -XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC"
 
 mkdir -p "$ROOT_DIR/dist"
 
 echo "1. Generating native Android project via Expo prebuild..."
 npx expo prebuild --platform android --clean
 
-echo "2. Compiling standalone release APK with Gradle..."
+echo "2. Compiling standalone release APK with Gradle (capped workers & expanded Metaspace)..."
 cd android
-./gradlew assembleRelease
+./gradlew assembleRelease \
+  --no-daemon \
+  --max-workers=2 \
+  -Dorg.gradle.jvmargs="-Xmx3072m -XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC"
 
 echo "3. Copying APK to dist/..."
 cp app/build/outputs/apk/release/app-release.apk "$ROOT_DIR/dist/CTracker.apk"
