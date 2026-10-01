@@ -16,9 +16,7 @@ COPY . .
 CMD npx expo prebuild --platform android --clean && \
     cd android && \
     sed -i 's/-XX:MaxMetaspaceSize=[0-9]*m/-XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=1536m -XX:+UseG1GC/g' gradle.properties && \
-    echo "kotlin.daemon.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=1024m" >> gradle.properties && \
-    echo "org.gradle.parallel=false" >> gradle.properties && \
-    echo "org.gradle.workers.max=2" >> gradle.properties && \
+    printf '\nkotlin.daemon.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=1024m\norg.gradle.parallel=false\norg.gradle.workers.max=2\n' >> gradle.properties && \
     ./gradlew assembleRelease --no-daemon --max-workers=2 && \
     mkdir -p /output && \
     cp app/build/outputs/apk/release/app-release.apk /output/CTracker.apk && \
