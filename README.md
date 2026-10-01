@@ -59,30 +59,32 @@ CTracker runs 100% locally on your phone using an embedded SQLite database (`exp
 
 ## 📲 Building a Standalone Android App (APK)
 
-CTracker is pre-configured with **EAS (Expo Application Services)** to compile direct `.apk` files for your Android phone without needing Android Studio.
+CTracker can be compiled locally into a standalone `.apk` using Docker without needing cloud queues or Expo tokens:
 
-### 1. Log in to Expo
+### 1. Build via Docker
 ```bash
-npx eas-cli login
+npm run build:apk
 ```
+* Compiles the Android native code in a self-contained container using OpenJDK 17 and Android Gradle.
+* Drops the compiled installer at `dist/CTracker.apk`.
 
-### 2. Build the APK
-```bash
-npx eas-cli build -p android --profile preview
-```
-* EAS will ask to generate and securely store your Android keystore in the cloud. Select **Yes**.
-* When compilation finishes (~5–8 min), scan the terminal QR code or visit the download link on your phone to install `CTracker.apk`.
+### 2. Install on Device
+* Connect your phone via USB and run:
+  ```bash
+  adb install dist/CTracker.apk
+  ```
+* Or copy `dist/CTracker.apk` to your phone via Google Drive, Telegram, or local file sharing.
 
 ---
 
-## 🔄 Over-The-Air (OTA) Updates
+## 🏷️ Releasing a Version
 
-Once CTracker is installed on your phone, you don't need to rebuild the APK when modifying screens, styles, or algorithms:
-
+To cut a new version locally:
 ```bash
-npx eas update --auto
+npm run release          # Auto-detects bump (patch/minor/major) from commits
+npm run release minor    # Or specify bump explicitly
 ```
-The app will automatically download and apply the updated bundle when launched on your phone!
+This runs typecheck and unit tests, bumps `package.json` and `app.json`, and creates a Git commit and tag.
 
 ---
 

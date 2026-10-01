@@ -215,15 +215,21 @@ Enforced via **commitlint** ([`.commitlintrc.json`](file:///home/victor/Personal
 * `feat!:` or `BREAKING CHANGE:` ➔ Signals a **MAJOR** release (`1.0.0` → `2.0.0`).
 
 ### B. Continuous Integration ([`.github/workflows/ci.yml`](file:///home/victor/Personal/ctracker_api/.github/workflows/ci.yml))
-* Runs on all PRs and pushes to `main`.
-* Validates commit message formatting.
-* Runs TypeScript check: `npm run typecheck`.
-* Runs Jest unit tests with coverage: `npm run test:coverage`.
+* Runs automatically on all PRs and pushes to `main`.
+* Validates commit message formatting (commitlint).
+* Strict TypeScript compilation check (`npm run typecheck`).
+* Runs Jest unit tests with coverage (`npm run test:coverage`).
+* Executes in ~30 seconds with zero cloud deployment friction or token requirements.
 
-### C. Automated Release on Demand ([`.github/workflows/release.yml`](file:///home/victor/Personal/ctracker_api/.github/workflows/release.yml))
-* Triggered manually via GitHub Actions (`workflow_dispatch`).
-* Compares commits between the latest Git tag and `HEAD`.
-* Auto-calculates next semantic version and generates categorized release notes.
-* Updates `package.json` and `app.json`, creates a Git tag, and pushes to `main`.
-* Triggers an EAS cloud build to compile a standalone Android `.apk`.
-* Automatically attaches the compiled `.apk` to the new GitHub Release.
+### C. Local Standalone Android Compilation (Docker)
+* Uses a self-contained container ([`docker/Dockerfile.android`](file:///home/victor/Personal/ctracker_api/docker/Dockerfile.android)) with OpenJDK 17 and Android SDK platforms.
+* Triggered locally via `npm run build:apk` ([`scripts/build-apk-docker.sh`](file:///home/victor/Personal/ctracker_api/scripts/build-apk-docker.sh)).
+* Executes `npx expo prebuild` and `./gradlew assembleRelease` inside the container and outputs `dist/CTracker.apk`.
+* Zero host machine clutter, zero cloud queue times, and completely reproducible.
+
+### D. Local Semantic Release Workflow
+* Executed via `npm run release` ([`scripts/release.sh`](file:///home/victor/Personal/ctracker_api/scripts/release.sh)):
+  1. Runs typecheck and full Jest test suite.
+  2. Auto-detects semantic version bump from commits since previous tag.
+  3. Updates `package.json` and `app.json`.
+  4. Creates clean local commit and signed Git tag (`vX.Y.Z`).

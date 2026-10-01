@@ -1,0 +1,20 @@
+FROM reactnativecommunity/react-native-android:latest
+
+WORKDIR /app
+
+# Install project dependencies
+COPY package*.json ./
+RUN npm ci
+
+# Copy full project source
+COPY . .
+
+# Prebuild clean native Android project and compile release APK
+CMD npx expo prebuild --platform android --clean && \
+    cd android && \
+    ./gradlew assembleRelease && \
+    mkdir -p /output && \
+    cp app/build/outputs/apk/release/app-release.apk /output/CTracker.apk && \
+    echo "===============================================" && \
+    echo "Build succeeded! Standalone APK saved to /output/CTracker.apk" && \
+    echo "==============================================="
