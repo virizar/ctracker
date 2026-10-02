@@ -75,7 +75,7 @@ function MainApp() {
           styles.bottomNav,
           {
             paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
-            height: 60 + (insets.bottom > 0 ? insets.bottom : 8),
+            height: 52 + (insets.bottom > 0 ? insets.bottom : 8),
           },
         ]}
       >
@@ -83,20 +83,14 @@ function MainApp() {
           style={styles.navItem}
           onPress={() => setCurrentTab('dashboard')}
           activeOpacity={0.7}
+          accessibilityLabel="Dashboard"
+          accessibilityRole="tab"
         >
           <Ionicons
             name={currentTab === 'dashboard' ? 'home' : 'home-outline'}
-            size={22}
+            size={25}
             color={currentTab === 'dashboard' ? '#2563eb' : '#64748b'}
           />
-          <Text
-            style={[
-              styles.navLabel,
-              currentTab === 'dashboard' && styles.navLabelActive,
-            ]}
-          >
-            Today
-          </Text>
         </TouchableOpacity>
 
         {/* Center Floating Plus/AI Button */}
@@ -104,6 +98,7 @@ function MainApp() {
           style={styles.floatingActionBtn}
           onPress={() => setIsQuickLogVisible(true)}
           activeOpacity={0.85}
+          accessibilityLabel="Quick Log Food"
         >
           <Ionicons name="sparkles" size={24} color="#ffffff" />
         </TouchableOpacity>
@@ -112,20 +107,14 @@ function MainApp() {
           style={styles.navItem}
           onPress={() => setCurrentTab('trends')}
           activeOpacity={0.7}
+          accessibilityLabel="Trends"
+          accessibilityRole="tab"
         >
           <Ionicons
             name={currentTab === 'trends' ? 'trending-up' : 'trending-up-outline'}
-            size={22}
+            size={25}
             color={currentTab === 'trends' ? '#2563eb' : '#64748b'}
           />
-          <Text
-            style={[
-              styles.navLabel,
-              currentTab === 'trends' && styles.navLabelActive,
-            ]}
-          >
-            Trends
-          </Text>
         </TouchableOpacity>
       </View>
 
@@ -205,17 +194,9 @@ const styles = StyleSheet.create({
   },
   navItem: {
     flex: 1,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  navLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#64748b',
-    marginTop: 2,
-  },
-  navLabelActive: {
-    color: '#2563eb',
   },
   floatingActionBtn: {
     width: 48,

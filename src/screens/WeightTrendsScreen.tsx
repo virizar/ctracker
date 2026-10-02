@@ -27,8 +27,6 @@ import {
   getScaleWeights,
   getDailySummariesRange,
   logScaleWeight,
-  getMonthLogStatus,
-  DayLogStatus,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
 import { UserProfile, ScaleWeight, DailySummary } from '../types';
@@ -455,166 +453,148 @@ function ExpenditureCalorieChart({ data, width }: ExpenditureCalorieChartProps) 
 }
 
 // -------------------------------------------------------------
-// 3. Habit & Adherence Calendar Card (Dual-Indicator Adherence)
+// 3. Adherence & Consistency Dashboard Card
 // -------------------------------------------------------------
-interface HabitCalendarCardProps {
+interface AdherenceDashboardCardProps {
+  data: DailySummary[];
+  timeframe: '30D' | '90D' | '180D' | 'All';
   onNavigateToDate?: (date: string) => void;
-  refreshTrigger?: number;
 }
 
-function HabitCalendarCard({ onNavigateToDate, refreshTrigger }: HabitCalendarCardProps) {
-  const today = new Date();
-  const [viewYear, setViewYear] = useState(today.getFullYear());
-  const [viewMonth, setViewMonth] = useState(today.getMonth() + 1); // 1-12
-  const [monthData, setMonthData] = useState<Record<string, DayLogStatus>>({});
+function AdherenceDashboardCard({ data, timeframe, onNavigateToDate }: AdherenceDashboardCardProps) {
+  const totalDays = data.length;
+  if (totalDays === 0) return null;
 
-  const monthNames = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
+  const daysWithFood = data.filter((d) => (d.total_calories || 0) > 0).length;
+  const foodPct = totalDays > 0 ? Math.round((daysWithFood / totalDays) * 100) : 0;
 
-  const loadMonth = useCallback(async () => {
-    try {
-      const u = await getUserProfile();
-      const uname = u?.username || 'victor';
-      const data = await getMonthLogStatus(uname, viewYear, viewMonth);
-      setMonthData(data);
-    } catch (err) {
-      console.error('Failed to load habit calendar data:', err);
-    }
-  }, [viewYear, viewMonth]);
+  const daysWithWeight = data.filter((d) => (d.raw_weight || 0) > 0).length;
+  const weightPct = totalDays > 0 ? Math.round((daysWithWeight / totalDays) * 100) : 0;
 
-  useEffect(() => {
-    loadMonth();
-  }, [loadMonth, refreshTrigger]);
-
-  const handlePrevMonth = () => {
-    if (viewMonth === 1) {
-      setViewMonth(12);
-      setViewYear((y) => y - 1);
+  // Calculate current food streak (consecutive days ending at latest data point)
+  let currentStreak = 0;
+  for (let i = data.length - 1; i >= 0; i--) {
+    if ((data[i].total_calories || 0) > 0) {
+      currentStreak++;
     } else {
-      setViewMonth((m) => m - 1);
+      break;
     }
-  };
+  }
 
-  const handleNextMonth = () => {
-    if (viewMonth === 12) {
-      setViewMonth(1);
-      setViewYear((y) => y + 1);
-    } else {
-      setViewMonth((m) => m + 1);
-    }
-  };
+  // Calorie target compliance (within +/- 100 kcal of target_calories)
+  const loggedDays = data.filter((d) => (d.total_calories || 0) > 0 && (d.target_calories || 0) > 0);
+  const onTargetDays = loggedDays.filter(
+    (d) => Math.abs(d.total_calories - (d.target_calories || 0)) <= 100
+  ).length;
+  const onTargetPct = loggedDays.length > 0 ? Math.round((onTargetDays / loggedDays.length) * 100) : 0;
 
-  const handleCurrentMonth = () => {
-    const now = new Date();
-    setViewYear(now.getFullYear());
-    setViewMonth(now.getMonth() + 1);
-  };
-
-  const firstDay = new Date(viewYear, viewMonth - 1, 1).getDay();
-  // Monday as index 0 (Sun = 0 -> 6, Mon = 1 -> 0, etc.)
-  const startOffset = (firstDay + 6) % 7;
-  const daysInMonth = new Date(viewYear, viewMonth, 0).getDate();
-  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
-  const todayStr = formatDate(today);
-
-  let daysWithWeight = 0;
-  let daysWithFood = 0;
-  Object.values(monthData).forEach((d) => {
-    if (d.hasWeight) daysWithWeight++;
-    if (d.hasFood) daysWithFood++;
-  });
+  // Recent 14 days slice for daily visual consistency strip
+  const recentDays = data.slice(-14);
 
   return (
     <View style={styles.card}>
-      <View style={styles.calHeaderRow}>
-        <View style={styles.calHeaderTitleGroup}>
-          <Ionicons name="calendar-outline" size={18} color="#2563eb" style={{ marginRight: 6 }} />
-          <Text style={styles.cardHeader} numberOfLines={1}>Adherence Calendar</Text>
+      <View style={styles.adherenceHeaderRow}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Ionicons name="shield-checkmark-outline" size={20} color="#2563eb" />
+          <Text style={styles.cardHeader}>Adherence & Consistency</Text>
         </View>
-        <View style={styles.calNavControls}>
-          <TouchableOpacity
-            onPress={handlePrevMonth}
-            style={styles.calNavBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="chevron-back" size={15} color="#0f172a" />
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleCurrentMonth}>
-            <Text style={styles.calMonthText}>
-              {monthNames[viewMonth - 1]} {viewYear}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={handleNextMonth}
-            style={styles.calNavBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="chevron-forward" size={15} color="#0f172a" />
-          </TouchableOpacity>
+        <View style={styles.timeframeBadge}>
+          <Text style={styles.timeframeBadgeText}>{timeframe}</Text>
         </View>
       </View>
 
-      {/* Weekday Labels (Mon - Sun) */}
-      <View style={styles.calWeekdaysRow}>
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
-          <Text key={day} style={styles.calWeekdayText}>
-            {day}
+      {/* Consistency Stat Badges */}
+      <View style={styles.adherenceStatsGrid}>
+        <View style={styles.adherenceStatCard}>
+          <Text style={styles.adherenceStatLabel}>Food Logged</Text>
+          <Text style={styles.adherenceStatValue}>{foodPct}%</Text>
+          <Text style={styles.adherenceStatSub}>
+            {daysWithFood} / {totalDays}d
           </Text>
-        ))}
+        </View>
+
+        <View style={styles.adherenceStatCard}>
+          <Text style={styles.adherenceStatLabel}>Weight Logged</Text>
+          <Text style={styles.adherenceStatValue}>{weightPct}%</Text>
+          <Text style={styles.adherenceStatSub}>
+            {daysWithWeight} / {totalDays}d
+          </Text>
+        </View>
+
+        <View style={styles.adherenceStatCard}>
+          <Text style={styles.adherenceStatLabel}>Current Streak</Text>
+          <Text style={[styles.adherenceStatValue, { color: '#f59e0b' }]}>
+            {currentStreak}d 🔥
+          </Text>
+          <Text style={styles.adherenceStatSub}>Consecutive</Text>
+        </View>
+
+        <View style={styles.adherenceStatCard}>
+          <Text style={styles.adherenceStatLabel}>Target Match</Text>
+          <Text style={[styles.adherenceStatValue, { color: '#10b981' }]}>
+            {onTargetPct}%
+          </Text>
+          <Text style={styles.adherenceStatSub}>
+            {onTargetDays} / {loggedDays.length || 0}d
+          </Text>
+        </View>
       </View>
 
-      {/* Days Grid */}
-      <View style={styles.calDaysGrid}>
-        {Array.from({ length: totalCells }).map((_, idx) => {
-          const dayNumber = idx - startOffset + 1;
-          if (dayNumber < 1 || dayNumber > daysInMonth) {
-            return <View key={`blank-${idx}`} style={styles.calDayCell} />;
-          }
+      {/* Recent 14-Day Consistency Strip */}
+      <View style={styles.stripContainer}>
+        <Text style={styles.stripTitle}>Recent 14-Day Calorie Compliance</Text>
+        <View style={styles.stripRow}>
+          {recentDays.map((d) => {
+            const hasFood = (d.total_calories || 0) > 0;
+            const target = d.target_calories || 2000;
+            const diff = (d.total_calories || 0) - target;
 
-          const dateStr = `${viewYear}-${String(viewMonth).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
-          const isToday = dateStr === todayStr;
-          const status = monthData[dateStr];
-          const hasWeight = status?.hasWeight ?? false;
-          const hasFood = status?.hasFood ?? false;
+            let bgColor = '#e2e8f0'; // unlogged
+            if (hasFood) {
+              if (Math.abs(diff) <= 100) {
+                bgColor = '#10b981'; // on target
+              } else if (diff < -100) {
+                bgColor = '#3b82f6'; // under
+              } else {
+                bgColor = '#f59e0b'; // over
+              }
+            }
 
-          return (
-            <TouchableOpacity
-              key={dateStr}
-              style={[styles.calDayCell, isToday && styles.calTodayCell]}
-              onPress={() => onNavigateToDate?.(dateStr)}
-              activeOpacity={0.65}
-            >
-              <Text style={[styles.calDayNumber, isToday && styles.calTodayNumber]}>
-                {dayNumber}
-              </Text>
-              <View style={styles.calDotsRow}>
-                {hasWeight && <View style={[styles.calDot, { backgroundColor: '#0284c7' }]} />}
-                {hasFood && <View style={[styles.calDot, { backgroundColor: '#10b981' }]} />}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+            const dayNum = parseInt(d.date.split('-')[2], 10);
 
-      {/* Legend & Stats */}
-      <View style={styles.calFooter}>
-        <View style={styles.calMetricsRow}>
-          <View style={styles.calMetricBadge}>
-            <View style={[styles.calLegendDot, { backgroundColor: '#0284c7' }]} />
-            <Text style={styles.calMetricText}>
-              Weight: <Text style={{ fontWeight: '700', color: '#0f172a' }}>{daysWithWeight}</Text>/{daysInMonth}d
-            </Text>
+            return (
+              <TouchableOpacity
+                key={d.date}
+                style={styles.stripItem}
+                onPress={() => onNavigateToDate?.(d.date)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.stripBar, { backgroundColor: bgColor }]} />
+                <Text style={styles.stripDayText}>{dayNum}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Strip Legend */}
+        <View style={styles.stripLegendRow}>
+          <View style={styles.stripLegendItem}>
+            <View style={[styles.stripLegendDot, { backgroundColor: '#10b981' }]} />
+            <Text style={styles.stripLegendText}>On Target (±100)</Text>
           </View>
-          <View style={styles.calMetricBadge}>
-            <View style={[styles.calLegendDot, { backgroundColor: '#10b981' }]} />
-            <Text style={styles.calMetricText}>
-              Food: <Text style={{ fontWeight: '700', color: '#0f172a' }}>{daysWithFood}</Text>/{daysInMonth}d
-            </Text>
+          <View style={styles.stripLegendItem}>
+            <View style={[styles.stripLegendDot, { backgroundColor: '#3b82f6' }]} />
+            <Text style={styles.stripLegendText}>Under</Text>
+          </View>
+          <View style={styles.stripLegendItem}>
+            <View style={[styles.stripLegendDot, { backgroundColor: '#f59e0b' }]} />
+            <Text style={styles.stripLegendText}>Over</Text>
+          </View>
+          <View style={styles.stripLegendItem}>
+            <View style={[styles.stripLegendDot, { backgroundColor: '#e2e8f0' }]} />
+            <Text style={styles.stripLegendText}>Unlogged</Text>
           </View>
         </View>
-        <Text style={styles.calHintText}>Tap any day to view or edit meals on Today screen</Text>
       </View>
     </View>
   );
@@ -917,8 +897,10 @@ export function WeightTrendsScreen({ onNavigateToDate, onOpenSettings }: WeightT
           </View>
         </View>
 
-        {/* Habit & Adherence Calendar */}
-        <HabitCalendarCard
+        {/* Adherence & Consistency Dashboard */}
+        <AdherenceDashboardCard
+          data={filteredData}
+          timeframe={timeframe}
           onNavigateToDate={onNavigateToDate}
         />
       </ScrollView>
@@ -1204,121 +1186,108 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0f172a',
   },
-  calHeaderRow: {
+  adherenceHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
-    gap: 8,
+    marginBottom: 16,
   },
-  calHeaderTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-  },
-  calNavControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5f9',
-    borderRadius: 14,
-    paddingHorizontal: 6,
+  timeframeBadge: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    flexShrink: 0,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
   },
-  calNavBtn: {
-    padding: 3,
-  },
-  calMonthText: {
+  timeframeBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#0f172a',
-    marginHorizontal: 4,
-  },
-  calWeekdaysRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-    paddingBottom: 6,
-  },
-  calWeekdayText: {
-    width: '14.28%',
-    textAlign: 'center',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#94a3b8',
-    textTransform: 'uppercase',
-  },
-  calDaysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  calDayCell: {
-    width: '14.28%',
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    marginVertical: 2,
-  },
-  calTodayCell: {
-    backgroundColor: '#eff6ff',
-    borderWidth: 1.5,
-    borderColor: '#3b82f6',
-  },
-  calDayNumber: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  calTodayNumber: {
-    fontWeight: '800',
     color: '#2563eb',
   },
-  calDotsRow: {
+  adherenceStatsGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    marginTop: 3,
-    height: 6,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
   },
-  calDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+  adherenceStatCard: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  calFooter: {
-    marginTop: 14,
-    paddingTop: 12,
+  adherenceStatLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  adherenceStatValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 2,
+  },
+  adherenceStatSub: {
+    fontSize: 11,
+    color: '#94a3b8',
+  },
+  stripContainer: {
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
+    paddingTop: 14,
   },
-  calMetricsRow: {
+  stripTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 10,
+  },
+  stripRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 12,
   },
-  calMetricBadge: {
+  stripItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  stripBar: {
+    width: 14,
+    height: 32,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  stripDayText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  stripLegendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 4,
+  },
+  stripLegendItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  calLegendDot: {
+  stripLegendDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: 6,
   },
-  calMetricText: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  calHintText: {
+  stripLegendText: {
     fontSize: 11,
-    color: '#94a3b8',
-    textAlign: 'center',
-    fontStyle: 'italic',
+    color: '#64748b',
   },
   modalOverlay: {
     flex: 1,

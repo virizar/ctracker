@@ -26,6 +26,7 @@ import { recalculateUserTdee, formatDate, parseDate } from '../services/tdee';
 import { UserProfile, DailySummary, MealLog, FoodCatalogItem } from '../types';
 import { FoodServingModal } from '../components/FoodServingModal';
 import { parseServingString } from '../services/serving';
+import { DateCalendarModal } from '../components/DateCalendarModal';
 
 interface DashboardScreenProps {
   onOpenQuickLog: () => void;
@@ -62,6 +63,9 @@ export function DashboardScreen({
   // Weight Logging Modal State
   const [isWeightModalVisible, setIsWeightModalVisible] = useState(false);
   const [weightInput, setWeightInput] = useState('');
+
+  // Calendar Date Navigation Modal State
+  const [isCalendarModalVisible, setIsCalendarModalVisible] = useState(false);
 
   // Meal Editing Modal State
   const [editingMeal, setEditingMeal] = useState<MealLog | null>(null);
@@ -338,20 +342,39 @@ export function DashboardScreen({
     <View style={styles.container}>
       {/* Date Navigation Header */}
       <View style={styles.dateHeader}>
-        <View style={styles.headerSideSpacer} />
+        {currentDate !== formatDate(new Date()) ? (
+          <TouchableOpacity
+            onPress={handleToday}
+            style={styles.returnTodayChip}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-undo" size={13} color="#2563eb" />
+            <Text style={styles.returnTodayText}>Today</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSideSpacer} />
+        )}
+
         <View style={styles.dateNavContainer}>
           <TouchableOpacity onPress={handlePrevDay} style={styles.dateNavBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="chevron-back" size={22} color="#0f172a" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={handleToday}>
+          <TouchableOpacity
+            onPress={() => setIsCalendarModalVisible(true)}
+            style={styles.dateTitleBtn}
+            activeOpacity={0.7}
+          >
             <Text style={styles.dateTitle}>
               {currentDate === formatDate(new Date()) ? 'Today' : currentDate}
             </Text>
+            <Ionicons name="calendar-outline" size={16} color="#2563eb" style={{ marginLeft: 5 }} />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleNextDay} style={styles.dateNavBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="chevron-forward" size={22} color="#0f172a" />
           </TouchableOpacity>
         </View>
+
         <TouchableOpacity
           onPress={onOpenSettings}
           style={styles.headerSideBtn}
@@ -744,6 +767,14 @@ export function DashboardScreen({
           </View>
         </View>
       </Modal>
+
+      {/* Date & Adherence Calendar Picker Modal */}
+      <DateCalendarModal
+        visible={isCalendarModalVisible}
+        currentDate={currentDate}
+        onSelectDate={updateDate}
+        onClose={() => setIsCalendarModalVisible(false)}
+      />
     </View>
   );
 }
@@ -808,11 +839,33 @@ const styles = StyleSheet.create({
   dateNavBtn: {
     padding: 6,
   },
+  dateTitleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
   dateTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: '#0f172a',
-    marginHorizontal: 8,
+    marginRight: 2,
+  },
+  returnTodayChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  returnTodayText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563eb',
   },
   scrollContent: {
     padding: 16,
