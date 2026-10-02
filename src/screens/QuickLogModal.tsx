@@ -135,6 +135,15 @@ export function QuickLogModal({
     onSuccess();
   };
 
+  const handleClearAll = () => {
+    setInputQuery('');
+    setParsedItems([]);
+  };
+
+  const handleRemoveAiItem = (index: number) => {
+    setParsedItems((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
   const handleOpenAiItemServing = async (aiItem: ParsedFoodItem, idx: number) => {
     const cleanName = aiItem.food_name.trim() || aiItem.canonical_name.trim();
     const existing = await getFoodCatalogItem(profileUsername, cleanName);
@@ -325,27 +334,47 @@ export function QuickLogModal({
               onChangeText={setInputQuery}
             />
 
-            <TouchableOpacity
-              style={[styles.parseBtn, loading && { opacity: 0.7 }]}
-              onPress={handleParseWithGemini}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <>
-                  <Ionicons name="sparkles" size={18} color="#fff" />
-                  <Text style={styles.parseBtnText}>Calculate Nutrition</Text>
-                </>
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={[styles.parseBtn, loading && { opacity: 0.7 }]}
+                onPress={handleParseWithGemini}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#ffffff" />
+                ) : (
+                  <>
+                    <Ionicons name="sparkles" size={18} color="#fff" />
+                    <Text style={styles.parseBtnText}>Calculate Nutrition</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {(inputQuery.trim().length > 0 || parsedItems.length > 0) && (
+                <TouchableOpacity
+                  style={styles.clearBtn}
+                  onPress={handleClearAll}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#64748b" />
+                  <Text style={styles.clearBtnText}>Clear</Text>
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </View>
 
             {/* Parsed Items Preview */}
             {parsedItems.length > 0 && (
               <View style={styles.previewContainer}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                   <Text style={styles.previewTitle}>Estimated Items ({parsedItems.length})</Text>
-                  <Text style={{ fontSize: 12, color: '#94a3b8' }}>Tap item to adjust portion</Text>
+                  <TouchableOpacity
+                    onPress={handleClearAll}
+                    style={styles.clearAllTextBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={13} color="#ef4444" />
+                    <Text style={styles.clearAllText}>Clear all</Text>
+                  </TouchableOpacity>
                 </View>
 
                 {parsedItems.map((item, idx) => (
@@ -355,15 +384,26 @@ export function QuickLogModal({
                     onPress={() => handleOpenAiItemServing(item, idx)}
                     activeOpacity={0.7}
                   >
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
                       <Text style={styles.previewFoodName}>{item.food_name}</Text>
                       <Text style={styles.previewDetails}>
                         {item.serving_size} • P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
                       </Text>
                     </View>
-                    <View style={{ alignItems: 'flex-end', flexDirection: 'row', gap: 6 }}>
+                    <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8 }}>
                       <Text style={styles.previewCalories}>{Math.round(item.calories)} kcal</Text>
                       <Ionicons name="create-outline" size={16} color="#94a3b8" />
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleRemoveAiItem(idx);
+                        }}
+                        style={styles.deleteCardBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel={`Remove ${item.food_name}`}
+                      >
+                        <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                      </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -573,7 +613,13 @@ const styles = StyleSheet.create({
     minHeight: 100,
     marginBottom: 16,
   },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   parseBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -586,6 +632,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginLeft: 8,
+  },
+  clearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  clearBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  clearAllTextBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    padding: 2,
+  },
+  clearAllText: {
+    fontSize: 13,
+    color: '#ef4444',
+    fontWeight: '600',
+  },
+  deleteCardBtn: {
+    padding: 2,
+    marginLeft: 2,
   },
   previewContainer: {
     marginTop: 24,
