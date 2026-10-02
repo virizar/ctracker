@@ -105,33 +105,38 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
     CREATE INDEX IF NOT EXISTS idx_meal_logs_user_date ON meal_logs(username, date);
     CREATE INDEX IF NOT EXISTS idx_scale_weights_user_date ON scale_weights(username, date);
     CREATE INDEX IF NOT EXISTS idx_daily_summaries_user_date ON daily_summaries(username, date);
-
-    -- Full-text search table for Food Catalog
-    CREATE VIRTUAL TABLE IF NOT EXISTS food_catalog_fts USING fts5(
-      canonical_name,
-      username UNINDEXED,
-      content='food_catalog',
-      tokenize='porter unicode61'
-    );
-
-    -- Auto-sync triggers for FTS5
-    CREATE TRIGGER IF NOT EXISTS food_catalog_ai AFTER INSERT ON food_catalog BEGIN
-      INSERT INTO food_catalog_fts(rowid, canonical_name, username)
-      VALUES (new.id, new.canonical_name, new.username);
-    END;
-
-    CREATE TRIGGER IF NOT EXISTS food_catalog_ad AFTER DELETE ON food_catalog BEGIN
-      INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, username)
-      VALUES ('delete', old.id, old.canonical_name, old.username);
-    END;
-
-    CREATE TRIGGER IF NOT EXISTS food_catalog_au AFTER UPDATE ON food_catalog BEGIN
-      INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, username)
-      VALUES ('delete', old.id, old.canonical_name, old.username);
-      INSERT INTO food_catalog_fts(rowid, canonical_name, username)
-      VALUES (new.id, new.canonical_name, new.username);
-    END;
   `);
+
+  // Full-text search table for Food Catalog (available on native SQLite; falls back on Web)
+  try {
+    await db.execAsync(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS food_catalog_fts USING fts5(
+        canonical_name,
+        username UNINDEXED,
+        content='food_catalog',
+        tokenize='porter unicode61'
+      );
+
+      CREATE TRIGGER IF NOT EXISTS food_catalog_ai AFTER INSERT ON food_catalog BEGIN
+        INSERT INTO food_catalog_fts(rowid, canonical_name, username)
+        VALUES (new.id, new.canonical_name, new.username);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS food_catalog_ad AFTER DELETE ON food_catalog BEGIN
+        INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, username)
+        VALUES ('delete', old.id, old.canonical_name, old.username);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS food_catalog_au AFTER UPDATE ON food_catalog BEGIN
+        INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, username)
+        VALUES ('delete', old.id, old.canonical_name, old.username);
+        INSERT INTO food_catalog_fts(rowid, canonical_name, username)
+        VALUES (new.id, new.canonical_name, new.username);
+      END;
+    `);
+  } catch (err) {
+    console.warn('FTS5 virtual table not supported on this platform/engine, using standard SQL fallback:', err);
+  }
 
   // Safe migrations for food_catalog extra columns
   try {
@@ -181,7 +186,9 @@ export async function wipeAllUserData(): Promise<void> {
     await db.runAsync('DELETE FROM scale_weights');
     await db.runAsync('DELETE FROM daily_summaries');
     await db.runAsync('DELETE FROM food_catalog');
-    await db.runAsync('DELETE FROM food_catalog_fts');
+    try {
+      await db.runAsync('DELETE FROM food_catalog_fts');
+    } catch {}
     // Reset user profile to defaults
     await db.runAsync('DELETE FROM user_profiles');
     await db.runAsync(
