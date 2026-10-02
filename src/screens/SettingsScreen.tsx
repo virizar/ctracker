@@ -9,8 +9,10 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import appConfig from '../../app.json';
 import {
   getGeminiApiKey,
   setGeminiApiKey,
@@ -306,6 +308,67 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
         </TouchableOpacity>
       </View>
 
+      {/* About CTracker Section */}
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Ionicons name="information-circle-outline" size={20} color="#2563eb" />
+          <Text style={styles.cardTitle}>About CTracker</Text>
+        </View>
+
+        <View style={styles.aboutRow}>
+          <Text style={styles.aboutLabel}>App Version</Text>
+          <View style={styles.aboutBadge}>
+            <Text style={styles.aboutBadgeText}>v{appConfig.expo.version}</Text>
+          </View>
+        </View>
+
+        <View style={styles.aboutRow}>
+          <Text style={styles.aboutLabel}>Build Profile</Text>
+          <Text style={styles.aboutValue}>
+            {__DEV__ ? 'Development (Debug)' : 'Standalone (Release)'}
+          </Text>
+        </View>
+
+        <View style={styles.aboutRow}>
+          <Text style={styles.aboutLabel}>Platform</Text>
+          <Text style={styles.aboutValue}>
+            {Platform.OS === 'web'
+              ? 'Web (Browser)'
+              : Platform.OS === 'android'
+              ? 'Android (Native)'
+              : 'iOS (Native)'}
+          </Text>
+        </View>
+
+        <View style={styles.aboutRow}>
+          <Text style={styles.aboutLabel}>Runtime Engine</Text>
+          <Text style={styles.aboutValue}>
+            {(global as any).HermesInternal ? 'Hermes Engine' : 'JavaScriptCore (JSC)'}
+          </Text>
+        </View>
+
+        <View style={styles.aboutRow}>
+          <Text style={styles.aboutLabel}>Package ID</Text>
+          <Text style={styles.aboutValue}>{appConfig.expo.android?.package || 'com.victor.ctracker'}</Text>
+        </View>
+
+        <View style={styles.aboutRow}>
+          <Text style={styles.aboutLabel}>Active AI Model</Text>
+          <Text style={styles.aboutValue}>{model || 'gemini-2.5-flash'}</Text>
+        </View>
+
+        <View style={[styles.aboutRow, { borderBottomWidth: 0 }]}>
+          <Text style={styles.aboutLabel}>Database</Text>
+          <Text style={styles.aboutValue}>Embedded SQLite (Local-First)</Text>
+        </View>
+
+        <View style={styles.aboutFooter}>
+          <Text style={styles.aboutFooterText}>
+            CTracker • 100% Private, Local-First Health & Nutrition
+          </Text>
+        </View>
+      </View>
+
       {/* Import Preview Modal */}
       {importPreview && (
         <Modal visible transparent animationType="fade">
@@ -513,5 +576,49 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginHorizontal: 4,
+  },
+  aboutRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  aboutLabel: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  aboutValue: {
+    fontSize: 13,
+    color: '#0f172a',
+    fontWeight: '600',
+  },
+  aboutBadge: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  aboutBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563eb',
+  },
+  aboutFooter: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    alignItems: 'center',
+  },
+  aboutFooterText: {
+    fontSize: 11,
+    color: '#94a3b8',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
