@@ -95,18 +95,24 @@ export async function logMeal(
     ]
   );
 
-  // Auto-record / update into food catalog
-  const canonical = meal.canonical_name || meal.food_name;
-  await upsertFoodCatalog({
-    username,
-    canonical_name: canonical,
-    default_serving: meal.serving_size || null,
-    calories: meal.calories,
-    protein: meal.protein,
-    carbs: meal.carbs,
-    fat: meal.fat,
-    usage_count: 1,
-  });
+  // Auto-record / update into food catalog (unless it's a fasting entry)
+  const isFastingLog =
+    meal.food_name.toLowerCase().includes('fasted') ||
+    meal.canonical_name?.toLowerCase().includes('fasting');
+
+  if (!isFastingLog) {
+    const canonical = meal.canonical_name || meal.food_name;
+    await upsertFoodCatalog({
+      username,
+      canonical_name: canonical,
+      default_serving: meal.serving_size || null,
+      calories: meal.calories,
+      protein: meal.protein,
+      carbs: meal.carbs,
+      fat: meal.fat,
+      usage_count: 1,
+    });
+  }
 
   return result.lastInsertRowId;
 }
@@ -185,9 +191,12 @@ export async function getDailySummariesRange(
 ): Promise<DailySummary[]> {
   const db = await getDatabase();
   return await db.getAllAsync<DailySummary>(
-    `SELECT * FROM daily_summaries
-     WHERE username = ?
-     ORDER BY date DESC
+    `SELECT ds.*,
+            EXISTS(SELECT 1 FROM meal_logs ml WHERE ml.username = ds.username AND ml.date = ds.date) as has_meal_log,
+            EXISTS(SELECT 1 FROM meal_logs ml WHERE ml.username = ds.username AND ml.date = ds.date AND (ml.food_name = 'Fasted Day' OR ml.canonical_name = 'Fasting')) as is_fasted
+     FROM daily_summaries ds
+     WHERE ds.username = ?
+     ORDER BY ds.date DESC
      LIMIT ?`,
     [username, days]
   );
@@ -509,7 +518,27 @@ export interface DayLogStatus {
   hasWeight: boolean;
   rawWeight?: number | null;
   hasFood: boolean;
+  isFasted?: boolean;
   totalCalories: number;
+}
+
+export async function logFastedDay(
+  username = 'victor',
+  date: string
+): Promise<number> {
+  const db = await getDatabase();
+  await db.runAsync('DELETE FROM meal_logs WHERE username = ? AND date = ?', [username, date]);
+
+  return await logMeal(username, {
+    date,
+    food_name: 'Fasted Day',
+    canonical_name: 'Fasting',
+    serving_size: 'Fasted',
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  });
 }
 
 export async function getMonthLogStatus(
@@ -563,9 +592,17 @@ export async function getMonthLogStatus(
     }
   }
 
-  // 3. Fetch directly from meal_logs (in case not yet recalculated)
-  const meals = await db.getAllAsync<{ date: string; total_calories: number }>(
-    `SELECT date, SUM(calories) as total_calories
+  // 3. Fetch directly from meal_logs (to detect meals, meal counts, and fasting)
+  const meals = await db.getAllAsync<{
+    date: string;
+    total_calories: number;
+    meal_count: number;
+    is_fasted: number;
+  }>(
+    `SELECT date,
+            SUM(calories) as total_calories,
+            COUNT(*) as meal_count,
+            MAX(CASE WHEN food_name = 'Fasted Day' OR canonical_name = 'Fasting' THEN 1 ELSE 0 END) as is_fasted
      FROM meal_logs
      WHERE username = ? AND date LIKE ?
      GROUP BY date`,
@@ -573,16 +610,21 @@ export async function getMonthLogStatus(
   );
   for (const m of meals) {
     const cals = m.total_calories || 0;
+    const isFasted = Boolean(m.is_fasted);
+    const hasFood = cals > 0 || isFasted || m.meal_count > 0;
+
     if (!result[m.date]) {
       result[m.date] = {
         date: m.date,
         hasWeight: false,
         rawWeight: null,
-        hasFood: cals > 0,
+        hasFood,
+        isFasted,
         totalCalories: cals,
       };
     } else {
-      result[m.date].hasFood = cals > 0;
+      result[m.date].hasFood = hasFood;
+      result[m.date].isFasted = isFasted;
       result[m.date].totalCalories = cals;
     }
   }

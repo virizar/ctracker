@@ -21,6 +21,7 @@ import {
   getFoodCatalogItem,
   updateMealLog,
   upsertFoodCatalog,
+  logFastedDay,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate, parseDate } from '../services/tdee';
 import { UserProfile, DailySummary, MealLog, FoodCatalogItem } from '../types';
@@ -135,6 +136,44 @@ export function DashboardScreen({
         },
       },
     ]);
+  };
+
+  const handleMarkFasted = () => {
+    const uname = profile?.username || 'victor';
+    if (meals.length > 0 && !isFastedDay) {
+      Alert.alert(
+        'Mark as Fasted?',
+        'This will replace your currently logged meals for this date with a full day fast (0 kcal).',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Yes, Mark Fasted',
+            style: 'destructive',
+            onPress: async () => {
+              await logFastedDay(uname, currentDate);
+              await recalculateUserTdee(uname);
+              await loadData();
+            },
+          },
+        ]
+      );
+    } else {
+      Alert.alert(
+        'Log Fasted Day',
+        'Record a full day fast (0 kcal) for this date?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm Fast',
+            onPress: async () => {
+              await logFastedDay(uname, currentDate);
+              await recalculateUserTdee(uname);
+              await loadData();
+            },
+          },
+        ]
+      );
+    }
   };
 
   const handleOpenEditMeal = async (m: MealLog) => {
@@ -269,7 +308,20 @@ export function DashboardScreen({
   const deficitBelowTdee = maintenanceTdee !== null ? Math.round(maintenanceTdee - consumedCals) : null;
   const surplusOverTdee = maintenanceTdee !== null ? Math.round(consumedCals - maintenanceTdee) : null;
 
-  if (isWeightLossJourney && maintenanceTdee !== null) {
+  // Fasting Day check
+  const isFastedDay =
+    meals.length > 0 &&
+    meals.every(
+      (m) =>
+        m.food_name.toLowerCase().includes('fasted') ||
+        m.canonical_name?.toLowerCase().includes('fasting')
+    );
+
+  if (isFastedDay) {
+    statusTier = 'target_pace';
+    circleValue = targetCals;
+    circleLabel = 'Fasting';
+  } else if (isWeightLossJourney && maintenanceTdee !== null) {
     if (consumedCals <= targetCals) {
       statusTier = 'target_pace';
       circleValue = Math.max(0, remainingCals);
@@ -678,17 +730,58 @@ export function DashboardScreen({
         {/* Logged Meals Section */}
         <View style={styles.card}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <Text style={styles.cardHeader}>Meals ({meals.length})</Text>
-            <TouchableOpacity onPress={onOpenQuickLog} style={styles.addMealBtn}>
-              <Ionicons name="add" size={18} color="#fff" />
-              <Text style={styles.addMealBtnText}>Log Food</Text>
-            </TouchableOpacity>
+            <Text style={styles.cardHeader}>
+              {isFastedDay ? 'Fasting Logged' : `Meals (${meals.length})`}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              {!isFastedDay && (
+                <TouchableOpacity onPress={handleMarkFasted} style={styles.fastBtn} activeOpacity={0.7}>
+                  <Ionicons name="moon-outline" size={15} color="#8b5cf6" />
+                  <Text style={styles.fastBtnText}>Fasted</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity onPress={onOpenQuickLog} style={styles.addMealBtn}>
+                <Ionicons name="add" size={18} color="#fff" />
+                <Text style={styles.addMealBtnText}>Log Food</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {meals.length === 0 ? (
+          {isFastedDay ? (
+            <View style={styles.fastedCard}>
+              <View style={styles.fastedIconWrap}>
+                <Ionicons name="moon" size={22} color="#8b5cf6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fastedTitle}>Full Day Fast Recorded</Text>
+                <Text style={styles.fastedSub}>0 kcal · Fasting day logged</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => meals[0]?.id && handleDeleteMeal(meals[0].id)}
+                style={{ padding: 6 }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityLabel="Remove Fast"
+              >
+                <Ionicons name="trash-outline" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+            </View>
+          ) : meals.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="fast-food-outline" size={40} color="#cbd5e1" />
               <Text style={styles.emptyText}>No food logged for this day yet.</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                <TouchableOpacity onPress={onOpenQuickLog} style={styles.emptyActionBtn}>
+                  <Ionicons name="add" size={16} color="#2563eb" />
+                  <Text style={styles.emptyActionBtnText}>Log Food</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleMarkFasted}
+                  style={[styles.emptyActionBtn, { borderColor: '#c4b5fd', backgroundColor: '#f5f3ff' }]}
+                >
+                  <Ionicons name="moon-outline" size={15} color="#8b5cf6" />
+                  <Text style={[styles.emptyActionBtnText, { color: '#8b5cf6' }]}>I Fasted Today</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ) : (
             meals.map((m) => (
@@ -1223,6 +1316,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginLeft: 4,
   },
+  fastBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#f5f3ff',
+    borderWidth: 1,
+    borderColor: '#ddd6fe',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  fastBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#8b5cf6',
+  },
+  fastedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f3ff',
+    borderWidth: 1,
+    borderColor: '#ddd6fe',
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+  },
+  fastedIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ede9fe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fastedTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#6d28d9',
+  },
+  fastedSub: {
+    fontSize: 12,
+    color: '#7c3aed',
+    marginTop: 2,
+  },
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 24,
@@ -1231,6 +1368,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#94a3b8',
     marginTop: 8,
+  },
+  emptyActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  emptyActionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#2563eb',
   },
   mealItem: {
     flexDirection: 'row',

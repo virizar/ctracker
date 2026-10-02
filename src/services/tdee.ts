@@ -204,7 +204,7 @@ export async function recalculateUserTdee(username = 'victor'): Promise<void> {
         const validIntakes = windowDates
           .map((dt) => foodDays.get(dt))
           .filter((entry): entry is { calories: number; protein: number; carbs: number; fat: number; hasLog: boolean } =>
-            Boolean(entry && entry.hasLog && entry.calories > 0)
+            Boolean(entry && entry.hasLog)
           );
 
         if (validIntakes.length >= CONSTANTS.MIN_FOOD_LOGGED_DAYS) {

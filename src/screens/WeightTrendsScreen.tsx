@@ -465,7 +465,7 @@ function AdherenceDashboardCard({ data, timeframe, onNavigateToDate }: Adherence
   const totalDays = data.length;
   if (totalDays === 0) return null;
 
-  const daysWithFood = data.filter((d) => (d.total_calories || 0) > 0).length;
+  const daysWithFood = data.filter((d) => (d.total_calories || 0) > 0 || Boolean(d.is_fasted)).length;
   const foodPct = totalDays > 0 ? Math.round((daysWithFood / totalDays) * 100) : 0;
 
   const daysWithWeight = data.filter((d) => (d.raw_weight || 0) > 0).length;
@@ -474,7 +474,7 @@ function AdherenceDashboardCard({ data, timeframe, onNavigateToDate }: Adherence
   // Calculate current food streak (consecutive days ending at latest data point)
   let currentStreak = 0;
   for (let i = data.length - 1; i >= 0; i--) {
-    if ((data[i].total_calories || 0) > 0) {
+    if ((data[i].total_calories || 0) > 0 || Boolean(data[i].is_fasted)) {
       currentStreak++;
     } else {
       break;
@@ -545,12 +545,15 @@ function AdherenceDashboardCard({ data, timeframe, onNavigateToDate }: Adherence
         <Text style={styles.stripTitle}>Recent 14-Day Calorie Compliance</Text>
         <View style={styles.stripRow}>
           {recentDays.map((d) => {
-            const hasFood = (d.total_calories || 0) > 0;
+            const isFasted = Boolean(d.is_fasted);
+            const hasFood = (d.total_calories || 0) > 0 || isFasted;
             const target = d.target_calories || 2000;
             const diff = (d.total_calories || 0) - target;
 
             let bgColor = '#e2e8f0'; // unlogged
-            if (hasFood) {
+            if (isFasted) {
+              bgColor = '#8b5cf6'; // fasted (purple)
+            } else if (hasFood) {
               if (Math.abs(diff) <= 100) {
                 bgColor = '#10b981'; // on target
               } else if (diff < -100) {
@@ -581,6 +584,10 @@ function AdherenceDashboardCard({ data, timeframe, onNavigateToDate }: Adherence
           <View style={styles.stripLegendItem}>
             <View style={[styles.stripLegendDot, { backgroundColor: '#10b981' }]} />
             <Text style={styles.stripLegendText}>On Target (±100)</Text>
+          </View>
+          <View style={styles.stripLegendItem}>
+            <View style={[styles.stripLegendDot, { backgroundColor: '#8b5cf6' }]} />
+            <Text style={styles.stripLegendText}>Fasted</Text>
           </View>
           <View style={styles.stripLegendItem}>
             <View style={[styles.stripLegendDot, { backgroundColor: '#3b82f6' }]} />

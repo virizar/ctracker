@@ -54,6 +54,8 @@ export interface DailySummary {
   tdee: number | null;
   target_calories: number | null;
   is_rate_capped_by_safety_floor: boolean;
+  has_meal_log?: boolean | number;
+  is_fasted?: boolean | number;
   updated_at?: string;
 }
 

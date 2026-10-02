@@ -94,9 +94,11 @@ export function DateCalendarModal({
 
   let daysWithWeight = 0;
   let daysWithFood = 0;
+  let daysWithFasting = 0;
   Object.values(monthData).forEach((d) => {
     if (d.hasWeight) daysWithWeight++;
-    if (d.hasFood) daysWithFood++;
+    if (d.isFasted) daysWithFasting++;
+    else if (d.hasFood) daysWithFood++;
   });
 
   return (
@@ -160,6 +162,7 @@ export function DateCalendarModal({
               const status = monthData[dateStr];
               const hasWeight = status?.hasWeight ?? false;
               const hasFood = status?.hasFood ?? false;
+              const isFasted = status?.isFasted ?? false;
 
               return (
                 <TouchableOpacity
@@ -186,7 +189,11 @@ export function DateCalendarModal({
                   </Text>
                   <View style={styles.dotsRow}>
                     {hasWeight && <View style={[styles.dot, { backgroundColor: '#0284c7' }]} />}
-                    {hasFood && <View style={[styles.dot, { backgroundColor: '#10b981' }]} />}
+                    {isFasted ? (
+                      <View style={[styles.dot, { backgroundColor: '#8b5cf6' }]} />
+                    ) : (
+                      hasFood && <View style={[styles.dot, { backgroundColor: '#10b981' }]} />
+                    )}
                   </View>
                 </TouchableOpacity>
               );
@@ -207,6 +214,14 @@ export function DateCalendarModal({
                 Food: <Text style={{ fontWeight: '700', color: '#0f172a' }}>{daysWithFood}</Text>/{daysInMonth}d
               </Text>
             </View>
+            {daysWithFasting > 0 && (
+              <View style={styles.legendBadge}>
+                <View style={[styles.legendDot, { backgroundColor: '#8b5cf6' }]} />
+                <Text style={styles.legendText}>
+                  Fasted: <Text style={{ fontWeight: '700', color: '#0f172a' }}>{daysWithFasting}</Text>d
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Quick Return to Today Button */}
@@ -338,7 +353,8 @@ const styles = StyleSheet.create({
   legendRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 16,
+    flexWrap: 'wrap',
+    gap: 12,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
