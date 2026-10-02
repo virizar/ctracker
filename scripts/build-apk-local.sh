@@ -48,9 +48,19 @@ cd android
   --max-workers=2 \
   -Dorg.gradle.jvmargs="-Xmx3072m -XX:MetaspaceSize=512m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC"
 
+BUILD_VER=$(node -e "try { console.log(require('$ROOT_DIR/app.json').expo.version); } catch(e) { console.log('latest'); }")
+VERSIONED_APK="CTracker-v${BUILD_VER}.apk"
+
 echo "3. Copying APK to dist/..."
-cp app/build/outputs/apk/release/app-release.apk "$ROOT_DIR/dist/CTracker.apk"
+cp app/build/outputs/apk/release/app-release.apk "$ROOT_DIR/dist/$VERSIONED_APK"
+cp "$ROOT_DIR/dist/$VERSIONED_APK" "$ROOT_DIR/dist/CTracker.apk"
 
 echo ""
+echo "==============================================="
 echo "Success! Standalone APK built at:"
+ls -lh "$ROOT_DIR/dist/$VERSIONED_APK"
 ls -lh "$ROOT_DIR/dist/CTracker.apk"
+echo ""
+echo "To install on connected Android device via ADB:"
+echo "  adb install -r dist/$VERSIONED_APK"
+echo "==============================================="

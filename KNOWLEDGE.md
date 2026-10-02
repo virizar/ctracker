@@ -201,35 +201,89 @@ Implemented in [`src/services/importer.ts`](file:///home/victor/Personal/ctracke
 
 ---
 
-## 11. SecureStore Persistence (API Keys & LLM Models)
+## 11. Platform-Aware Storage & Engine Matrix
 
-Implemented in [`src/services/keychain.ts`](file:///home/victor/Personal/ctracker_api/src/services/keychain.ts):
-* API keys and Gemini model selection (`gemini-2.5-flash`, `gemini-2.0-flash`, or custom user models) are persisted via `expo-secure-store`.
-* Encrypted at rest via native Android Keystore and iOS Keychain.
-* Survives application restarts, background terminations, updates, and SQLite database wipes.
+Implemented across [`src/services/keychain.ts`](file:///home/victor/Personal/ctracker_api/src/services/keychain.ts) and [`src/db/database.ts`](file:///home/victor/Personal/ctracker_api/src/db/database.ts):
+
+| Capability / Layer | Native Android & iOS | Web Browser (`npm run web`) |
+| :--- | :--- | :--- |
+| **Database Engine** | Native embedded SQLite with WAL mode & FTS5 | WebAssembly SQLite (`wa-sqlite.wasm`) via OPFS |
+| **Full-Text Search** | SQLite FTS5 with Porter stemmer & BM25 ranking | Standard SQL `LIKE` fallback (FTS5 gracefully caught) |
+| **Connection Pooling** | Native Android/iOS connection reuse | Promise mutex (`dbPromise`) preventing OPFS sync handle lock conflicts |
+| **API Key Storage** | Hardware-backed Android Keystore / iOS Keychain (`expo-secure-store`) | Encrypted browser `window.localStorage` |
+| **JS Engine** | High-performance Facebook Hermes Engine | Browser V8 / SpiderMonkey |
+
+* **Zero Data Loss on Reinstall**: Because data is stored in the app's internal sandbox SQLite database (`ctracker.db`), updating the app via `adb install -r` replaces the executable package while leaving all existing database records completely untouched.
+
+---
+
+## 12. Local Tooling, Release Automation & Sideloading Architecture
 
 ### A. Commit Message Convention
-Enforced via **commitlint** ([`.commitlintrc.json`](file:///home/victor/Personal/ctracker_api/.commitlintrc.json)) and local `.git/hooks/commit-msg`:
-* `feat:` ➔ Signals a **MINOR** release (`1.0.0` → `1.1.0`).
-* `fix:`, `perf:`, `refactor:` ➔ Signals a **PATCH** release (`1.0.0` → `1.0.1`).
-* `feat!:` or `BREAKING CHANGE:` ➔ Signals a **MAJOR** release (`1.0.0` → `2.0.0`).
+Enforced via **commitlint** ([`.commitlintrc.json`](file:///home/victor/Personal/ctracker_api/.commitlintrc.json)) and local Git commit hooks:
+* `feat:` ➔ Signals a **MINOR** release (`1.1.0` → `1.2.0`).
+* `fix:`, `perf:`, `refactor:` ➔ Signals a **PATCH** release (`1.1.2` → `1.1.3`).
+* `feat!:` or `BREAKING CHANGE:` ➔ Signals a **MAJOR** release (`1.1.2` → `2.0.0`).
 
-### B. Continuous Integration ([`.github/workflows/ci.yml`](file:///home/victor/Personal/ctracker_api/.github/workflows/ci.yml))
-* Runs automatically on all PRs and pushes to `main`.
-* Validates commit message formatting (commitlint).
-* Strict TypeScript compilation check (`npm run typecheck`).
-* Runs Jest unit tests with coverage (`npm run test:coverage`).
-* Executes in ~30 seconds with zero cloud deployment friction or token requirements.
+### B. Local Semantic Release Workflow
+Executed via `npm run release` ([`scripts/release.sh`](file:///home/victor/Personal/ctracker_api/scripts/release.sh)):
+1. **Pre-flight Cleanliness Check**: Verifies `git status --porcelain` is empty.
+2. **Quality Gates**: Executes strict TypeScript typecheck (`tsc --noEmit`) and Jest unit test suite (`npm test`).
+3. **Automated Version Calculation**: Inspects conventional commits between the latest Git tag and `HEAD`.
+4. **Synchronized File Bumping**: Automatically updates `version` in `package.json`, `package-lock.json`, and `app.json` (`expo.version`).
+5. **Git Commit & Tag**: Commits `chore(release): bump version to vX.Y.Z` and tags `vX.Y.Z`.
+6. **Remote Synchronization**: Run `git push origin main --tags` to publish tags.
 
-### C. Local Standalone Android Compilation (Docker)
-* Uses a self-contained container ([`docker/Dockerfile.android`](file:///home/victor/Personal/ctracker_api/docker/Dockerfile.android)) with OpenJDK 17 and Android SDK platforms.
-* Triggered locally via `npm run build:apk` ([`scripts/build-apk-docker.sh`](file:///home/victor/Personal/ctracker_api/scripts/build-apk-docker.sh)).
-* Executes `npx expo prebuild` and `./gradlew assembleRelease` inside the container and outputs `dist/CTracker.apk`.
-* Zero host machine clutter, zero cloud queue times, and completely reproducible.
+### C. Standalone Android Compilation (Docker)
+Implemented in [`docker/Dockerfile.android`](file:///home/victor/Personal/ctracker_api/docker/Dockerfile.android) and [`scripts/build-apk-docker.sh`](file:///home/victor/Personal/ctracker_api/scripts/build-apk-docker.sh):
+* **Reproducible Toolchain**: OpenJDK 17, Android SDK Build-Tools 36, and Gradle 9.x.
+* **Worker & Memory Hardening**:
+  * Capped workers: `--max-workers=2` and `org.gradle.parallel=false` to prevent classloader OutOfMemory crashes on multi-core host CPUs.
+  * Metaspace tuning: `MetaspaceSize=512m` and `MaxMetaspaceSize=1536m` with G1GC garbage collection.
+* **Building Current Code**: `npm run build:apk` builds active working tree and outputs `dist/CTracker-vX.Y.Z.apk`.
+* **Building Arbitrary Git Tags / Commits**:
+  ```bash
+  npm run build:apk -- v1.1.2
+  npm run build:apk -- <commit-hash>
+  ```
+  Uses `git archive <ref>` to stream the exact code snapshot directly into the Docker build context without checking out or altering the user's active Git working tree.
 
-### D. Local Semantic Release Workflow
-* Executed via `npm run release` ([`scripts/release.sh`](file:///home/victor/Personal/ctracker_api/scripts/release.sh)):
-  1. Runs typecheck and full Jest test suite.
-  2. Auto-detects semantic version bump from commits since previous tag.
-  3. Updates `package.json` and `app.json`.
-  4. Creates clean local commit and signed Git tag (`vX.Y.Z`).
+### D. Android Debug Bridge (ADB) Sideloading Protocols
+* **In-Place Reinstallation (`-r`)**:
+  ```bash
+  adb install -r dist/CTracker-v1.1.2.apk
+  ```
+  Replaces the APK binary in-place while guaranteeing 100% data preservation of `ctracker.db` and user settings.
+* **Downgrades (`-r -d`)**:
+  ```bash
+  adb install -r -d dist/CTracker-v1.1.0.apk
+  ```
+  Permits installing an older build over a newer build without uninstalling.
+* **Wireless ADB (Android 11+)**:
+  Pair via `adb pair <ip>:<port>` and connect via `adb connect <ip>:<port>`.
+
+### E. Zero-Overhead Laptop Debugging (`scrcpy`)
+Instead of running a resource-heavy 4 GB Android Studio emulator on the development laptop:
+* Screen mirroring and keyboard/mouse control via `scrcpy` (`sudo apt install scrcpy && scrcpy`).
+* Real-time React Native JS log streaming:
+  ```bash
+  adb logcat -s ReactNativeJS:V
+  ```
+
+---
+
+## 13. UI Navigation & Screen Layout Architecture
+
+* **Balanced 3-Element Bottom Navigation Dock**:
+  * **Left**: `Today` screen (`flex: 1`)
+  * **Center**: 🔵 Floating circular Quick Log / AI action button (`width: 52`, `height: 52`, elevated shadow)
+  * **Right**: `Trends` screen (`flex: 1`)
+  * Exactly centered at 50% screen width with symmetrical spacing.
+* **Top Header Actions**:
+  * The `Settings` screen is accessed via a header gear icon ⚙️ in the top-right corner of both `Today` and `Trends` screens.
+  * A matching invisible spacer on the top-left ensures date navigation (`< Today >`) and screen titles remain dead-center in the top bar.
+  * In Settings, a dedicated top header provides a `<` Back button returning seamlessly to the prior screen.
+* **Adaptive Calendar Header**:
+  * Abbreviated 3-letter month formatting (`Oct 2026`) and compact navigation controls prevent card boundary overflows across all mobile viewport widths.
+* **In-App Build Inspection**:
+  * The **About CTracker** card in Settings provides real-time verification of App Version, Build Profile (`Standalone Release` vs `Development Debug`), Platform, JS Engine (`Hermes`), and Package ID.
