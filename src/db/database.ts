@@ -1,7 +1,9 @@
+import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import { UserProfile } from '../types';
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
+let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export const DB_NAME = 'ctracker.db';
 
@@ -9,18 +11,36 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (dbInstance) {
     return dbInstance;
   }
+  if (dbPromise) {
+    return dbPromise;
+  }
 
-  const db = await SQLite.openDatabaseAsync(DB_NAME);
+  dbPromise = (async () => {
+    try {
+      const db = await SQLite.openDatabaseAsync(DB_NAME);
 
-  // Enable WAL mode & foreign keys for high performance
-  await db.execAsync(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = ON;
-  `);
+      // Enable WAL mode on native (web OPFS uses its own synchronous access locking)
+      if (Platform.OS !== 'web') {
+        await db.execAsync(`
+          PRAGMA journal_mode = WAL;
+          PRAGMA foreign_keys = ON;
+        `);
+      } else {
+        await db.execAsync(`
+          PRAGMA foreign_keys = ON;
+        `);
+      }
 
-  await initializeSchema(db);
-  dbInstance = db;
-  return db;
+      await initializeSchema(db);
+      dbInstance = db;
+      return db;
+    } catch (err) {
+      dbPromise = null;
+      throw err;
+    }
+  })();
+
+  return dbPromise;
 }
 
 export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void> {
