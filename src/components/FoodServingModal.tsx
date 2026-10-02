@@ -96,7 +96,15 @@ export function FoodServingModal({
     });
 
     // Check if food already has a remembered measurement or custom initial serving
-    const initialUnit = initialServing?.unit || item.last_used_unit || parsed.initialUnit || 'g';
+    let cleanLastUsedUnit = item.last_used_unit;
+    if (cleanLastUsedUnit) {
+      const parsedLast = parseServingString(cleanLastUsedUnit);
+      if (parsedLast.initialUnit) {
+        cleanLastUsedUnit = parsedLast.initialUnit;
+      }
+    }
+
+    const initialUnit = initialServing?.unit || cleanLastUsedUnit || parsed.initialUnit || 'g';
     const initialQty = initialServing?.quantity !== undefined
       ? initialServing.quantity.toString()
       : item.last_used_qty
@@ -124,6 +132,9 @@ export function FoodServingModal({
     const units = new Set<string>(['g', 'oz', 'serving']);
     if (initialServing?.unit) {
       units.add(initialServing.unit);
+    }
+    if (cleanLastUsedUnit && cleanLastUsedUnit !== 'g' && cleanLastUsedUnit !== 'oz') {
+      units.add(cleanLastUsedUnit);
     }
     if (parsed.initialUnit && parsed.initialUnit !== 'g' && parsed.initialUnit !== 'oz') {
       units.add(parsed.initialUnit);

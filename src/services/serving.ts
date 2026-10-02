@@ -163,3 +163,29 @@ export function scaleNutrition(
     servingSizeStr,
   };
 }
+
+/**
+ * Formats the serving description shown in catalog cards, ensuring quantities
+ * are not duplicated (e.g. preventing "1 1 tbsp (14g)").
+ */
+export function formatCatalogServing(
+  lastUsedQty?: number | null,
+  lastUsedUnit?: string | null,
+  defaultServing?: string | null
+): string {
+  if (lastUsedQty !== undefined && lastUsedQty !== null && lastUsedUnit && lastUsedUnit.trim()) {
+    const trimmedUnit = lastUsedUnit.trim();
+    // Check if unit already starts with a number (e.g. "1 tbsp (14g)", "1 slice (100g)")
+    const match = trimmedUnit.match(/^([0-9.]+)\s*(.*)$/);
+    if (match) {
+      const unitNumber = parseFloat(match[1]);
+      const rest = match[2].trim();
+      if (lastUsedQty === unitNumber || lastUsedQty === 1) {
+        return trimmedUnit;
+      }
+      return `${lastUsedQty} ${rest}`;
+    }
+    return `${lastUsedQty} ${trimmedUnit}`;
+  }
+  return defaultServing || '1 serving';
+}

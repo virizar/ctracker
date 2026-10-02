@@ -23,6 +23,7 @@ import {
   getUserProfile,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
+import { formatCatalogServing } from '../services/serving';
 import { ParsedFoodItem, FoodCatalogItem } from '../types';
 import { FoodServingModal } from '../components/FoodServingModal';
 
@@ -404,9 +405,11 @@ export function QuickLogModal({
               ) : (
                 searchResults.map((item) => {
                   const hasLastUsed = Boolean(item.last_used_qty && item.last_used_unit);
-                  const servingDisplay = hasLastUsed
-                    ? `${item.last_used_qty} ${item.last_used_unit}`
-                    : item.default_serving || '1 serving';
+                  const servingDisplay = formatCatalogServing(
+                    item.last_used_qty,
+                    item.last_used_unit,
+                    item.default_serving
+                  );
 
                   return (
                     <TouchableOpacity

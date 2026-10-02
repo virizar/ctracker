@@ -1,4 +1,4 @@
-import { parseServingString, scaleNutrition } from '../src/services/serving';
+import { parseServingString, scaleNutrition, formatCatalogServing } from '../src/services/serving';
 
 describe('Food Serving & Unit Conversion Engine Tests', () => {
   describe('parseServingString', () => {
@@ -87,6 +87,29 @@ describe('Food Serving & Unit Conversion Engine Tests', () => {
       const scaled = scaleNutrition(baseFood, 0, 'g');
       expect(scaled.calories).toBe(0);
       expect(scaled.protein).toBe(0);
+    });
+  });
+
+  describe('formatCatalogServing', () => {
+    it('formats clean unit and quantity normally', () => {
+      expect(formatCatalogServing(150, 'g', '100g')).toBe('150 g');
+      expect(formatCatalogServing(2, 'tbsp', '1 tbsp')).toBe('2 tbsp');
+    });
+
+    it('prevents duplicated quantity when last_used_unit already starts with a number', () => {
+      // Bug case: last_used_qty=1, last_used_unit="1 tbsp (14g)" -> must NOT be "1 1 tbsp (14g)"
+      expect(formatCatalogServing(1, '1 tbsp (14g)', '1 tbsp (14g)')).toBe('1 tbsp (14g)');
+      expect(formatCatalogServing(1, '1 slice (100g)', '1 slice (100g)')).toBe('1 slice (100g)');
+      expect(formatCatalogServing(1, '1 square (10g)', '1 square (10g)')).toBe('1 square (10g)');
+    });
+
+    it('scales properly when quantity differs from leading unit number', () => {
+      expect(formatCatalogServing(2, '1 slice (100g)', '1 slice (100g)')).toBe('2 slice (100g)');
+    });
+
+    it('falls back to default serving when last used is not present', () => {
+      expect(formatCatalogServing(null, null, '1 slice (43g)')).toBe('1 slice (43g)');
+      expect(formatCatalogServing(null, null, null)).toBe('1 serving');
     });
   });
 });
