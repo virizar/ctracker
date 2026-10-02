@@ -20,6 +20,32 @@ describe('Gemini AI Response Parsing Tests', () => {
     expect(result[0].calories).toBe(140);
   });
 
+  it('parses generalized clean name and catalog base units correctly', () => {
+    const raw = JSON.stringify([
+      {
+        food_name: 'Torta di Mele',
+        canonical_name: 'Torta di Mele',
+        serving_size: '2 thin slices (approx. 160g)',
+        calories: 408,
+        protein: 6,
+        carbs: 60,
+        fat: 16,
+        base_serving: '1 slice (80g)',
+        base_weight_g: 80,
+        base_calories: 204,
+        base_protein: 3,
+        base_carbs: 30,
+        base_fat: 8,
+      },
+    ]);
+
+    const result = extractFoodItemsFromJson(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].food_name).toBe('Torta di Mele');
+    expect(result[0].base_serving).toBe('1 slice (80g)');
+    expect(result[0].base_calories).toBe(204);
+  });
+
   it('strips markdown ```json codeblock markers', () => {
     const raw = `\`\`\`json
 [

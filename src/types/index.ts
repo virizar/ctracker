@@ -104,4 +104,10 @@ export interface ParsedFoodItem {
   protein: number;
   carbs: number;
   fat: number;
+  base_serving?: string | null;
+  base_weight_g?: number | null;
+  base_calories?: number | null;
+  base_protein?: number | null;
+  base_carbs?: number | null;
+  base_fat?: number | null;
 }

@@ -18,6 +18,8 @@ import {
   searchFoodCatalog,
   renameFoodCatalogItem,
   updateCatalogLastUsedMeasurement,
+  upsertFoodCatalog,
+  getUserProfile,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
 import { ParsedFoodItem, FoodCatalogItem } from '../types';
@@ -38,6 +40,7 @@ export function QuickLogModal({
 }: QuickLogModalProps) {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'ai' | 'search'>('ai');
+  const [profileUsername, setProfileUsername] = useState('victor');
 
   // AI Tab State
   const [inputQuery, setInputQuery] = useState('');
@@ -52,14 +55,22 @@ export function QuickLogModal({
   const [servingModalItem, setServingModalItem] = useState<FoodCatalogItem | null>(null);
 
   useEffect(() => {
+    if (visible) {
+      getUserProfile().then((u) => {
+        if (u?.username) setProfileUsername(u.username);
+      });
+    }
+  }, [visible]);
+
+  useEffect(() => {
     if (activeTab === 'search') {
       loadSearchResults(searchQuery);
     }
-  }, [activeTab, searchQuery]);
+  }, [activeTab, searchQuery, profileUsername]);
 
   const loadSearchResults = async (q: string) => {
     try {
-      const results = await searchFoodCatalog('victor', q);
+      const results = await searchFoodCatalog(profileUsername, q);
       setSearchResults(results);
     } catch (err) {
       console.error('Error searching food catalog:', err);
@@ -74,7 +85,7 @@ export function QuickLogModal({
 
     setLoading(true);
     try {
-      const items = await parseFoodInput(inputQuery);
+      const items = await parseFoodInput(inputQuery, profileUsername);
       if (items.length === 0) {
         Alert.alert('No Food Detected', 'Gemini could not identify any food items in your description.');
       } else {
@@ -91,19 +102,48 @@ export function QuickLogModal({
     if (parsedItems.length === 0) return;
 
     for (const item of parsedItems) {
-      await logMeal('victor', {
+      const cleanName = item.food_name.trim() || item.canonical_name.trim();
+
+      // 1. Log the meal entry for today
+      await logMeal(profileUsername, {
         date: targetDate,
-        food_name: item.food_name,
-        canonical_name: item.canonical_name,
+        food_name: cleanName,
+        canonical_name: cleanName,
         serving_size: item.serving_size,
         calories: item.calories,
         protein: item.protein,
         carbs: item.carbs,
         fat: item.fat,
       });
+
+      // 2. Automatically upsert clean food into Food Catalog with normalized unit
+      try {
+        const defaultServing = item.base_serving || item.serving_size;
+        const baseCalories = item.base_calories ?? item.calories;
+        const baseProtein = item.base_protein ?? item.protein;
+        const baseCarbs = item.base_carbs ?? item.carbs;
+        const baseFat = item.base_fat ?? item.fat;
+        const baseWeightG = item.base_weight_g ?? null;
+
+        await upsertFoodCatalog({
+          username: profileUsername,
+          canonical_name: cleanName,
+          default_serving: defaultServing,
+          calories: baseCalories,
+          protein: baseProtein,
+          carbs: baseCarbs,
+          fat: baseFat,
+          base_weight_g: baseWeightG,
+          last_used_qty: 1,
+          last_used_unit: defaultServing,
+          usage_count: 1,
+        });
+      } catch (catErr) {
+        console.warn('Could not auto-add AI meal to catalog:', catErr);
+      }
     }
 
-    await recalculateUserTdee('victor');
+    await recalculateUserTdee(profileUsername);
     resetAndClose();
     onSuccess();
   };
@@ -111,10 +151,10 @@ export function QuickLogModal({
   const handleOpenAiItemServing = (aiItem: ParsedFoodItem, idx: number) => {
     setServingModalItem({
       id: -1 * (idx + 1),
-      username: 'victor',
+      username: profileUsername,
       canonical_name: aiItem.food_name,
       default_serving: aiItem.serving_size,
-      base_weight_g: null,
+      base_weight_g: aiItem.base_weight_g ?? null,
       calories: aiItem.calories,
       protein: aiItem.protein,
       carbs: aiItem.carbs,
@@ -165,19 +205,19 @@ export function QuickLogModal({
       if (servingModalItem && servingModalItem.id !== undefined && servingModalItem.id > 0) {
         // If food was renamed, rename in SQLite catalog
         if (result.originalCanonicalName && finalName !== result.originalCanonicalName) {
-          await renameFoodCatalogItem('victor', result.originalCanonicalName, finalName);
+          await renameFoodCatalogItem(profileUsername, result.originalCanonicalName, finalName);
         }
 
         // Remember last used quantity & unit
         await updateCatalogLastUsedMeasurement(
-          'victor',
+          profileUsername,
           finalName,
           result.quantity,
           result.unit
         );
       }
 
-      await logMeal('victor', {
+      await logMeal(profileUsername, {
         date: targetDate,
         food_name: finalName,
         canonical_name: finalName,
@@ -188,7 +228,7 @@ export function QuickLogModal({
         fat: result.fat,
       });
 
-      await recalculateUserTdee('victor');
+      await recalculateUserTdee(profileUsername);
       setServingModalItem(null);
       resetAndClose();
       onSuccess();
