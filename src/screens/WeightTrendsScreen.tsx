@@ -468,8 +468,8 @@ function HabitCalendarCard({ onNavigateToDate, refreshTrigger }: HabitCalendarCa
   const [monthData, setMonthData] = useState<Record<string, DayLogStatus>>({});
 
   const monthNames = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
   ];
 
   const loadMonth = useCallback(async () => {
@@ -526,9 +526,9 @@ function HabitCalendarCard({ onNavigateToDate, refreshTrigger }: HabitCalendarCa
   return (
     <View style={styles.card}>
       <View style={styles.calHeaderRow}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Ionicons name="calendar-outline" size={20} color="#2563eb" style={{ marginRight: 8 }} />
-          <Text style={styles.cardHeader}>Adherence Calendar</Text>
+        <View style={styles.calHeaderTitleGroup}>
+          <Ionicons name="calendar-outline" size={18} color="#2563eb" style={{ marginRight: 6 }} />
+          <Text style={styles.cardHeader} numberOfLines={1}>Adherence Calendar</Text>
         </View>
         <View style={styles.calNavControls}>
           <TouchableOpacity
@@ -536,7 +536,7 @@ function HabitCalendarCard({ onNavigateToDate, refreshTrigger }: HabitCalendarCa
             style={styles.calNavBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="chevron-back" size={18} color="#0f172a" />
+            <Ionicons name="chevron-back" size={15} color="#0f172a" />
           </TouchableOpacity>
           <TouchableOpacity onPress={handleCurrentMonth}>
             <Text style={styles.calMonthText}>
@@ -548,7 +548,7 @@ function HabitCalendarCard({ onNavigateToDate, refreshTrigger }: HabitCalendarCa
             style={styles.calNavBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="chevron-forward" size={18} color="#0f172a" />
+            <Ionicons name="chevron-forward" size={15} color="#0f172a" />
           </TouchableOpacity>
         </View>
       </View>
@@ -1203,23 +1203,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 14,
+    gap: 8,
+  },
+  calHeaderTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
   },
   calNavControls: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f1f5f9',
-    borderRadius: 20,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 14,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    flexShrink: 0,
   },
   calNavBtn: {
-    padding: 4,
+    padding: 3,
   },
   calMonthText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#0f172a',
-    marginHorizontal: 8,
+    marginHorizontal: 4,
   },
   calWeekdaysRow: {
     flexDirection: 'row',
