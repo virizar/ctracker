@@ -622,9 +622,10 @@ function HabitCalendarCard({ onNavigateToDate, refreshTrigger }: HabitCalendarCa
 // -------------------------------------------------------------
 export interface WeightTrendsScreenProps {
   onNavigateToDate?: (date: string) => void;
+  onOpenSettings?: () => void;
 }
 
-export function WeightTrendsScreen({ onNavigateToDate }: WeightTrendsScreenProps = {}) {
+export function WeightTrendsScreen({ onNavigateToDate, onOpenSettings }: WeightTrendsScreenProps = {}) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [weights, setWeights] = useState<ScaleWeight[]>([]);
   const [summaries, setSummaries] = useState<DailySummary[]>([]);
@@ -750,6 +751,20 @@ export function WeightTrendsScreen({ onNavigateToDate }: WeightTrendsScreenProps
 
   return (
     <View style={styles.container}>
+      {/* Top Header */}
+      <View style={styles.topHeader}>
+        <View style={styles.headerSideSpacer} />
+        <Text style={styles.topHeaderTitle}>Trends & Analytics</Text>
+        <TouchableOpacity
+          onPress={onOpenSettings}
+          style={styles.headerSideBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="settings-outline" size={22} color="#475569" />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -946,6 +961,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  topHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  topHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  headerSideSpacer: {
+    width: 36,
+    height: 36,
+  },
+  headerSideBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
   },
   scrollContent: {
     padding: 16,

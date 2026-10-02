@@ -25,9 +25,10 @@ import { UserProfile } from '../types';
 
 interface SettingsScreenProps {
   onDatabaseWiped?: () => void;
+  onGoBack?: () => void;
 }
 
-export function SettingsScreen({ onDatabaseWiped }: SettingsScreenProps) {
+export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProps) {
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gemini-2.5-flash');
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -153,7 +154,26 @@ export function SettingsScreen({ onDatabaseWiped }: SettingsScreenProps) {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <View style={styles.container}>
+      {/* Top Header */}
+      <View style={styles.header}>
+        {onGoBack ? (
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onGoBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={24} color="#0f172a" />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
+        <Text style={styles.headerTitle}>Settings</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
       {/* Smart Import Card */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
@@ -349,7 +369,8 @@ export function SettingsScreen({ onDatabaseWiped }: SettingsScreenProps) {
           </View>
         </Modal>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -357,6 +378,33 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  headerSpacer: {
+    width: 36,
+    height: 36,
   },
   content: {
     padding: 16,

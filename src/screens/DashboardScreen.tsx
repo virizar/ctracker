@@ -24,6 +24,7 @@ import { UserProfile, DailySummary, MealLog } from '../types';
 
 interface DashboardScreenProps {
   onOpenQuickLog: () => void;
+  onOpenSettings?: () => void;
   refreshTrigger?: number;
   currentDate?: string;
   onDateChange?: (date: string) => void;
@@ -31,6 +32,7 @@ interface DashboardScreenProps {
 
 export function DashboardScreen({
   onOpenQuickLog,
+  onOpenSettings,
   refreshTrigger,
   currentDate: propDate,
   onDateChange,
@@ -156,16 +158,27 @@ export function DashboardScreen({
     <View style={styles.container}>
       {/* Date Navigation Header */}
       <View style={styles.dateHeader}>
-        <TouchableOpacity onPress={handlePrevDay} style={styles.dateNavBtn}>
-          <Ionicons name="chevron-back" size={24} color="#0f172a" />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleToday}>
-          <Text style={styles.dateTitle}>
-            {currentDate === formatDate(new Date()) ? 'Today' : currentDate}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={handleNextDay} style={styles.dateNavBtn}>
-          <Ionicons name="chevron-forward" size={24} color="#0f172a" />
+        <View style={styles.headerSideSpacer} />
+        <View style={styles.dateNavContainer}>
+          <TouchableOpacity onPress={handlePrevDay} style={styles.dateNavBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="chevron-back" size={22} color="#0f172a" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleToday}>
+            <Text style={styles.dateTitle}>
+              {currentDate === formatDate(new Date()) ? 'Today' : currentDate}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleNextDay} style={styles.dateNavBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="chevron-forward" size={22} color="#0f172a" />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity
+          onPress={onOpenSettings}
+          style={styles.headerSideBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="settings-outline" size={22} color="#475569" />
         </TouchableOpacity>
       </View>
 
@@ -395,20 +408,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
+  },
+  dateNavContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSideSpacer: {
+    width: 36,
+    height: 36,
+  },
+  headerSideBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
   },
   dateNavBtn: {
     padding: 6,
   },
   dateTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#0f172a',
+    marginHorizontal: 8,
   },
   scrollContent: {
     padding: 16,

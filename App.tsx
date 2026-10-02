@@ -19,9 +19,21 @@ import { QuickLogModal } from './src/screens/QuickLogModal';
 function MainApp() {
   const insets = useSafeAreaInsets();
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'trends' | 'settings'>('dashboard');
+  const [previousTab, setPreviousTab] = useState<'dashboard' | 'trends'>('dashboard');
   const [activeDate, setActiveDate] = useState<string>(formatDate(new Date()));
   const [isQuickLogVisible, setIsQuickLogVisible] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleOpenSettings = () => {
+    if (currentTab !== 'settings') {
+      setPreviousTab(currentTab);
+    }
+    setCurrentTab('settings');
+  };
+
+  const handleGoBackFromSettings = () => {
+    setCurrentTab(previousTab);
+  };
 
   return (
     <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
@@ -36,6 +48,7 @@ function MainApp() {
             onDateChange={setActiveDate}
             refreshTrigger={refreshKey}
             onOpenQuickLog={() => setIsQuickLogVisible(true)}
+            onOpenSettings={handleOpenSettings}
           />
         )}
         {currentTab === 'trends' && (
@@ -45,14 +58,18 @@ function MainApp() {
               setActiveDate(date);
               setCurrentTab('dashboard');
             }}
+            onOpenSettings={handleOpenSettings}
           />
         )}
         {currentTab === 'settings' && (
-          <SettingsScreen onDatabaseWiped={() => setRefreshKey((k) => k + 1)} />
+          <SettingsScreen
+            onDatabaseWiped={() => setRefreshKey((k) => k + 1)}
+            onGoBack={handleGoBackFromSettings}
+          />
         )}
       </View>
 
-      {/* Bottom Navigation Bar with System Bar Insets */}
+      {/* Perfectly Centered Bottom Navigation Bar */}
       <View
         style={[
           styles.bottomNav,
@@ -82,7 +99,7 @@ function MainApp() {
           </Text>
         </TouchableOpacity>
 
-        {/* Center Floating Plus Button */}
+        {/* Center Floating Plus/AI Button */}
         <TouchableOpacity
           style={styles.floatingActionBtn}
           onPress={() => setIsQuickLogVisible(true)}
@@ -108,26 +125,6 @@ function MainApp() {
             ]}
           >
             Trends
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => setCurrentTab('settings')}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={currentTab === 'settings' ? 'settings' : 'settings-outline'}
-            size={22}
-            color={currentTab === 'settings' ? '#2563eb' : '#64748b'}
-          />
-          <Text
-            style={[
-              styles.navLabel,
-              currentTab === 'settings' && styles.navLabelActive,
-            ]}
-          >
-            Settings
           </Text>
         </TouchableOpacity>
       </View>
