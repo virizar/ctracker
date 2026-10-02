@@ -49,6 +49,12 @@ export function QuickLogModal({
   const [loading, setLoading] = useState(false);
   const [parsedItems, setParsedItems] = useState<ParsedFoodItem[]>([]);
 
+  // Computed AI Totals
+  const totalAiCalories = Math.round(parsedItems.reduce((acc, it) => acc + (it.calories || 0), 0));
+  const totalAiProtein = Math.round(parsedItems.reduce((acc, it) => acc + (it.protein || 0), 0) * 10) / 10;
+  const totalAiCarbs = Math.round(parsedItems.reduce((acc, it) => acc + (it.carbs || 0), 0) * 10) / 10;
+  const totalAiFat = Math.round(parsedItems.reduce((acc, it) => acc + (it.fat || 0), 0) * 10) / 10;
+
   // Search Tab State
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<FoodCatalogItem[]>([]);
@@ -362,12 +368,34 @@ export function QuickLogModal({
                   </TouchableOpacity>
                 ))}
 
+                {/* Total Nutrition Summary Card */}
+                <View style={styles.summaryTotalCard}>
+                  <View style={styles.summaryTotalHeader}>
+                    <Text style={styles.summaryTotalLabel}>Total Estimated Nutrition</Text>
+                    <Text style={styles.summaryTotalCals}>{totalAiCalories} kcal</Text>
+                  </View>
+                  <View style={styles.summaryMacrosRow}>
+                    <View style={styles.summaryMacroBadge}>
+                      <Text style={styles.summaryMacroLabel}>Protein</Text>
+                      <Text style={[styles.summaryMacroVal, { color: '#2563eb' }]}>{totalAiProtein}g</Text>
+                    </View>
+                    <View style={styles.summaryMacroBadge}>
+                      <Text style={styles.summaryMacroLabel}>Carbs</Text>
+                      <Text style={[styles.summaryMacroVal, { color: '#10b981' }]}>{totalAiCarbs}g</Text>
+                    </View>
+                    <View style={styles.summaryMacroBadge}>
+                      <Text style={styles.summaryMacroLabel}>Fat</Text>
+                      <Text style={[styles.summaryMacroVal, { color: '#f59e0b' }]}>{totalAiFat}g</Text>
+                    </View>
+                  </View>
+                </View>
+
                 <TouchableOpacity
                   style={styles.confirmBtn}
                   onPress={handleConfirmAiMeals}
                 >
                   <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={styles.confirmBtnText}>Add All to Log</Text>
+                  <Text style={styles.confirmBtnText}>Add All to Log ({totalAiCalories} kcal)</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -595,6 +623,56 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#2563eb',
+  },
+  summaryTotalCard: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  summaryTotalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  summaryTotalLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1e3a8a',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryTotalCals: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1d4ed8',
+  },
+  summaryMacrosRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  summaryMacroBadge: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  summaryMacroLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 2,
+  },
+  summaryMacroVal: {
+    fontSize: 14,
+    fontWeight: '800',
   },
   confirmBtn: {
     flexDirection: 'row',
