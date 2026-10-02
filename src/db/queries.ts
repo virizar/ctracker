@@ -9,9 +9,13 @@ import {
 
 export async function getUserProfile(username = 'victor'): Promise<UserProfile | null> {
   const db = await getDatabase();
-  return await db.getFirstAsync<UserProfile>(
+  const user = await db.getFirstAsync<UserProfile>(
     'SELECT * FROM user_profiles WHERE username = ?',
     [username]
+  );
+  if (user) return user;
+  return await db.getFirstAsync<UserProfile>(
+    'SELECT * FROM user_profiles ORDER BY id ASC LIMIT 1'
   );
 }
 

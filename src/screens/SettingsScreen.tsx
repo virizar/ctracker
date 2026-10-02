@@ -19,9 +19,14 @@ import {
   getGeminiModel,
   setGeminiModel,
 } from '../services/keychain';
-import { getUserProfile, updateUserProfile } from '../db/queries';
+import { getUserProfile, updateUserProfile, getScaleWeights } from '../db/queries';
 import { wipeAllUserData } from '../db/database';
-import { recalculateUserTdee } from '../services/tdee';
+import {
+  recalculateUserTdee,
+  mifflinStJeor,
+  calculateAgeYears,
+  formatDate,
+} from '../services/tdee';
 import { pickAndInspectFile, ImportPreview } from '../services/importer';
 import { UserProfile } from '../types';
 
@@ -34,10 +39,18 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gemini-2.5-flash');
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [currentWeight, setCurrentWeight] = useState<number | null>(null);
 
-  // Profile Form States
+  // Physiology & Demographics Form States
+  const [name, setName] = useState('Victor');
+  const [dob, setDob] = useState('1987-12-07');
+  const [sex, setSex] = useState<'male' | 'female'>('male');
+  const [height, setHeight] = useState('185');
+  const [activity, setActivity] = useState(1.2);
+
+  // Goal & Strategy Form States
   const [targetWeight, setTargetWeight] = useState('85.0');
-  const [targetRate, setTargetRate] = useState('-2.0');
+  const [targetRate, setTargetRate] = useState('2.0');
   const [minCalories, setMinCalories] = useState('1500');
 
   // Import State
@@ -56,12 +69,24 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
     const m = await getGeminiModel();
     if (m) setModel(m);
 
-    const u = await getUserProfile('victor');
+    const u = await getUserProfile();
     if (u) {
       setProfile(u);
+      setName(u.name || u.username || 'Victor');
+      setDob(u.dob || '1987-12-07');
+      setSex(u.sex || 'male');
+      setHeight(u.height_cm ? u.height_cm.toString() : '185');
+      setActivity(u.activity_multiplier || 1.2);
       setTargetWeight(u.target_weight_kg ? u.target_weight_kg.toString() : '85.0');
-      setTargetRate(u.target_monthly_rate_kg ? u.target_monthly_rate_kg.toString() : '-2.0');
+      setTargetRate(
+        u.target_monthly_rate_kg ? Math.abs(u.target_monthly_rate_kg).toString() : '2.0'
+      );
       setMinCalories(u.min_daily_calories ? u.min_daily_calories.toString() : '1500');
+
+      const weights = await getScaleWeights(u.username || 'victor', 1);
+      if (weights.length > 0) {
+        setCurrentWeight(weights[0].raw_weight);
+      }
     }
   };
 
@@ -75,24 +100,78 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
     Alert.alert('Success', 'Gemini API settings saved securely.');
   };
 
+  // Live calculations for BMR, Age, and Baseline TDEE
+  const ageYears =
+    dob && dob.match(/^\d{4}-\d{2}-\d{2}$/)
+      ? Math.round(calculateAgeYears(dob, formatDate(new Date())))
+      : 38;
+  const parsedHeight = parseFloat(height) || 180;
+  const parsedWeight = currentWeight || parseFloat(targetWeight) || 80;
+  const baselineBmr = Math.round(mifflinStJeor(parsedWeight, parsedHeight, ageYears, sex));
+  const startingTdee = Math.round(baselineBmr * activity);
+
+  // Smart Goal Inference
+  const parsedTw = parseFloat(targetWeight);
+  const parsedRate = Math.abs(parseFloat(targetRate) || 0);
+  const referenceWeight = currentWeight ?? (profile?.target_weight_kg ?? 80);
+
+  let goalMode: 'loss' | 'gain' | 'maintain' = 'maintain';
+  let dailyDeltaCals = 0;
+  let smartRateSigned = 0;
+
+  if (!isNaN(parsedTw) && referenceWeight) {
+    if (parsedTw < referenceWeight - 0.2) {
+      goalMode = 'loss';
+      smartRateSigned = -parsedRate;
+      dailyDeltaCals = Math.round((parsedRate * 7700) / 30.4375);
+    } else if (parsedTw > referenceWeight + 0.2) {
+      goalMode = 'gain';
+      smartRateSigned = parsedRate;
+      dailyDeltaCals = Math.round((parsedRate * 7700) / 30.4375);
+    } else {
+      goalMode = 'maintain';
+      smartRateSigned = 0;
+      dailyDeltaCals = 0;
+    }
+  }
+
   const handleSaveProfile = async () => {
     const tw = parseFloat(targetWeight);
-    const tr = parseFloat(targetRate);
     const mc = parseFloat(minCalories);
+    const h = parseFloat(height);
 
-    if (isNaN(tw) || isNaN(tr) || isNaN(mc)) {
-      Alert.alert('Invalid Input', 'Please enter valid numerical values.');
+    if (isNaN(tw) || isNaN(mc) || isNaN(h)) {
+      Alert.alert('Invalid Input', 'Please enter valid numbers for weight, height, and calories.');
       return;
     }
 
-    await updateUserProfile('victor', {
+    if (!dob.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      Alert.alert(
+        'Invalid Date of Birth',
+        'Please enter your date of birth in YYYY-MM-DD format (e.g. 1987-12-07).'
+      );
+      return;
+    }
+
+    const effectiveUsername = profile?.username || 'victor';
+
+    await updateUserProfile(effectiveUsername, {
+      name: name.trim() || effectiveUsername,
+      dob: dob.trim(),
+      sex,
+      height_cm: h,
+      activity_multiplier: activity,
       target_weight_kg: tw,
-      target_monthly_rate_kg: tr,
+      target_monthly_rate_kg: smartRateSigned,
       min_daily_calories: mc,
     });
 
-    await recalculateUserTdee('victor');
-    Alert.alert('Profile Updated', 'Target weight and safety floor saved. TDEE targets recalculated.');
+    await recalculateUserTdee(effectiveUsername);
+    await loadSettings();
+    Alert.alert(
+      'Profile Updated! 🎯',
+      'Physiology, baseline TDEE, and adaptive goals have been recalculated successfully.'
+    );
   };
 
   const handlePickFile = async () => {
@@ -233,31 +312,203 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
         </TouchableOpacity>
       </View>
 
-      {/* Goals & Targets Card */}
+      {/* 1. Profile & Physiology Card */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
-          <Ionicons name="flag" size={20} color="#10b981" />
-          <Text style={styles.cardTitle}>Weight Goals & Safety Floor</Text>
+          <Ionicons name="person" size={20} color="#2563eb" />
+          <Text style={styles.cardTitle}>Profile & Physiology</Text>
         </View>
 
-        <Text style={styles.label}>Target Weight (kg)</Text>
+        <Text style={styles.label}>Display Name</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Victor"
+          value={name}
+          onChangeText={setName}
+          placeholderTextColor="#94a3b8"
+        />
+
+        <View style={styles.twoColRow}>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <View style={styles.labelWithBadgeRow}>
+              <Text style={styles.label}>Date of Birth</Text>
+              <Text style={styles.ageBadge}>{ageYears} yrs</Text>
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="YYYY-MM-DD"
+              value={dob}
+              onChangeText={setDob}
+              placeholderTextColor="#94a3b8"
+            />
+          </View>
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={styles.label}>Biological Sex</Text>
+            <View style={styles.segmentedRow}>
+              <TouchableOpacity
+                style={[styles.segmentBtn, sex === 'male' && styles.segmentBtnActive]}
+                onPress={() => setSex('male')}
+              >
+                <Text style={[styles.segmentBtnText, sex === 'male' && styles.segmentBtnTextActive]}>
+                  Male
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentBtn, sex === 'female' && styles.segmentBtnActive]}
+                onPress={() => setSex('female')}
+              >
+                <Text style={[styles.segmentBtnText, sex === 'female' && styles.segmentBtnTextActive]}>
+                  Female
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        <Text style={styles.label}>Height (cm)</Text>
         <TextInput
           style={styles.input}
           keyboardType="decimal-pad"
-          value={targetWeight}
-          onChangeText={setTargetWeight}
+          placeholder="185"
+          value={height}
+          onChangeText={setHeight}
         />
 
-        <Text style={styles.label}>Target Monthly Loss Rate (kg/month)</Text>
-        <TextInput
-          style={styles.input}
-          keyboardType="numbers-and-punctuation"
-          placeholder="-2.0"
-          value={targetRate}
-          onChangeText={setTargetRate}
-        />
+        <Text style={styles.label}>Daily Physical Activity Level</Text>
+        <View style={styles.activityOptionsContainer}>
+          {[
+            { mult: 1.2, title: 'Sedentary (1.2)', desc: 'Desk job, little intentional exercise' },
+            { mult: 1.375, title: 'Lightly Active (1.375)', desc: '1–3 workouts/wk or active job' },
+            { mult: 1.55, title: 'Moderately Active (1.55)', desc: '3–5 moderate workouts/wk' },
+            { mult: 1.725, title: 'Very Active (1.725)', desc: '6–7 intense workouts/wk' },
+          ].map((act) => (
+            <TouchableOpacity
+              key={act.mult}
+              style={[styles.activityCard, activity === act.mult && styles.activityCardActive]}
+              onPress={() => setActivity(act.mult)}
+            >
+              <View style={styles.activityCardContent}>
+                <Text
+                  style={[
+                    styles.activityCardTitle,
+                    activity === act.mult && styles.activityCardTitleActive,
+                  ]}
+                >
+                  {act.title}
+                </Text>
+                <Text style={styles.activityCardDesc}>{act.desc}</Text>
+              </View>
+              {activity === act.mult && (
+                <Ionicons name="checkmark-circle" size={18} color="#2563eb" />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
 
-        <Text style={styles.label}>Minimum Daily Calories (Safety Floor)</Text>
+        {/* Live Baseline Preview Box */}
+        <View style={styles.baselinePreviewBox}>
+          <View style={styles.baselineHeaderRow}>
+            <Ionicons name="flash" size={15} color="#d97706" />
+            <Text style={styles.baselinePreviewTitle}>Baseline Estimation (Mifflin-St Jeor)</Text>
+          </View>
+          <View style={styles.baselineStatsRow}>
+            <View style={styles.baselineStatItem}>
+              <Text style={styles.baselineStatLabel}>Baseline BMR</Text>
+              <Text style={styles.baselineStatVal}>{baselineBmr} kcal</Text>
+            </View>
+            <View style={styles.baselineStatDivider} />
+            <View style={styles.baselineStatItem}>
+              <Text style={styles.baselineStatLabel}>Starting TDEE</Text>
+              <Text style={[styles.baselineStatVal, { color: '#2563eb' }]}>{startingTdee} kcal</Text>
+            </View>
+          </View>
+          <Text style={styles.baselineNote}>
+            Used as initial metabolic reference until your logged meals and weigh-ins establish your true expenditure.
+          </Text>
+        </View>
+      </View>
+
+      {/* 2. Goals & Strategy Card */}
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Ionicons name="flag" size={20} color="#10b981" />
+          <Text style={styles.cardTitle}>Goals & Strategy</Text>
+        </View>
+
+        <View style={styles.twoColRow}>
+          <View style={{ flex: 1, marginRight: 8 }}>
+            <Text style={styles.label}>Target Weight (kg)</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="decimal-pad"
+              value={targetWeight}
+              onChangeText={setTargetWeight}
+            />
+          </View>
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text style={styles.label}>Desired Pace (kg/mo)</Text>
+            <TextInput
+              style={styles.input}
+              keyboardType="decimal-pad"
+              placeholder="1.5"
+              value={targetRate}
+              onChangeText={setTargetRate}
+            />
+          </View>
+        </View>
+
+        {/* Smart Inferred Goal Badge */}
+        <View
+          style={[
+            styles.smartGoalBadge,
+            goalMode === 'loss' && styles.smartGoalLoss,
+            goalMode === 'gain' && styles.smartGoalGain,
+            goalMode === 'maintain' && styles.smartGoalMaintain,
+          ]}
+        >
+          <Ionicons
+            name={
+              goalMode === 'loss'
+                ? 'trending-down'
+                : goalMode === 'gain'
+                ? 'trending-up'
+                : 'reorder-two'
+            }
+            size={18}
+            color={
+              goalMode === 'loss'
+                ? '#059669'
+                : goalMode === 'gain'
+                ? '#2563eb'
+                : '#475569'
+            }
+          />
+          <View style={{ flex: 1, marginLeft: 8 }}>
+            <Text
+              style={[
+                styles.smartGoalTitle,
+                goalMode === 'loss' && { color: '#065f46' },
+                goalMode === 'gain' && { color: '#1d4ed8' },
+                goalMode === 'maintain' && { color: '#334155' },
+              ]}
+            >
+              {goalMode === 'loss'
+                ? `Weight Loss Target (-${parsedRate} kg/mo)`
+                : goalMode === 'gain'
+                ? `Weight Gain / Bulk Target (+${parsedRate} kg/mo)`
+                : 'Weight Maintenance'}
+            </Text>
+            <Text style={styles.smartGoalSub}>
+              {goalMode === 'loss'
+                ? `~${dailyDeltaCals} kcal/day deficit below TDEE (${currentWeight ? currentWeight.toFixed(1) : '--'} → ${parsedTw.toFixed(1)} kg)`
+                : goalMode === 'gain'
+                ? `~${dailyDeltaCals} kcal/day surplus above TDEE (${currentWeight ? currentWeight.toFixed(1) : '--'} → ${parsedTw.toFixed(1)} kg)`
+                : `Target matches current weight (${parsedTw.toFixed(1)} kg)`}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={[styles.label, { marginTop: 14 }]}>Minimum Daily Calories (Safety Floor)</Text>
         <TextInput
           style={styles.input}
           keyboardType="numeric"
@@ -267,7 +518,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
         />
 
         <TouchableOpacity style={styles.saveBtn} onPress={handleSaveProfile}>
-          <Text style={styles.saveBtnText}>Update Goals & Targets</Text>
+          <Text style={styles.saveBtnText}>Save Profile & Goals</Text>
         </TouchableOpacity>
       </View>
 
@@ -620,5 +871,181 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  labelWithBadgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+    marginTop: 8,
+  },
+  ageBadge: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563eb',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+  },
+  segmentedRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 10,
+    padding: 3,
+    height: 42,
+    alignItems: 'center',
+  },
+  segmentBtn: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+  },
+  segmentBtnActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  },
+  segmentBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  segmentBtnTextActive: {
+    color: '#0f172a',
+    fontWeight: '700',
+  },
+  activityOptionsContainer: {
+    marginTop: 4,
+    gap: 8,
+  },
+  activityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+  },
+  activityCardActive: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#3b82f6',
+  },
+  activityCardContent: {
+    flex: 1,
+  },
+  activityCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  activityCardTitleActive: {
+    color: '#1d4ed8',
+  },
+  activityCardDesc: {
+    fontSize: 11.5,
+    color: '#64748b',
+    marginTop: 1,
+  },
+  baselinePreviewBox: {
+    backgroundColor: '#fefce8',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#fef08a',
+  },
+  baselineHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 6,
+  },
+  baselinePreviewTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#854d0e',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  baselineStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#fef08a',
+  },
+  baselineStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  baselineStatLabel: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#713f12',
+    textTransform: 'uppercase',
+  },
+  baselineStatVal: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: 2,
+  },
+  baselineStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#fef08a',
+  },
+  baselineNote: {
+    fontSize: 11,
+    color: '#a16207',
+    marginTop: 8,
+    lineHeight: 15,
+  },
+  smartGoalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+  },
+  smartGoalLoss: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#a7f3d0',
+  },
+  smartGoalGain: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  smartGoalMaintain: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#cbd5e1',
+  },
+  smartGoalTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  smartGoalSub: {
+    fontSize: 11.5,
+    color: '#64748b',
+    marginTop: 2,
   },
 });

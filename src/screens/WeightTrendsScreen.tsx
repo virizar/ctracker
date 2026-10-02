@@ -88,7 +88,7 @@ function WeightTrendChart({ data, targetWeight, width }: WeightTrendChartProps) 
 
   if (targetWeight && targetWeight > 0) {
     // If target weight is within reasonable distance, include it in axis
-    if (Math.abs(targetWeight - (minVal + maxVal) / 2) < 20) {
+    if (Math.abs(targetWeight - (minVal + maxVal) / 2) < 35) {
       minVal = Math.min(minVal, targetWeight);
       maxVal = Math.max(maxVal, targetWeight);
     }
@@ -193,12 +193,13 @@ function WeightTrendChart({ data, targetWeight, width }: WeightTrendChartProps) 
               strokeWidth={1.5}
               strokeDasharray="4 4"
             />
+            {/* Clamped label anchored on the left above the line to prevent Android right-edge and bottom-edge clipping */}
             <SvgText
-              x={padLeft + plotW}
-              y={targetY - 4}
-              fontSize={9}
+              x={padLeft + 8}
+              y={Math.min(padTop + plotH - 6, Math.max(padTop + 11, targetY - 4))}
+              fontSize={10}
               fill="#d97706"
-              textAnchor="end"
+              textAnchor="start"
               fontWeight="700"
             >
               Goal: {targetWeight} kg
@@ -474,7 +475,9 @@ function HabitCalendarCard({ onNavigateToDate, refreshTrigger }: HabitCalendarCa
 
   const loadMonth = useCallback(async () => {
     try {
-      const data = await getMonthLogStatus('victor', viewYear, viewMonth);
+      const u = await getUserProfile();
+      const uname = u?.username || 'victor';
+      const data = await getMonthLogStatus(uname, viewYear, viewMonth);
       setMonthData(data);
     } catch (err) {
       console.error('Failed to load habit calendar data:', err);
@@ -631,7 +634,7 @@ export function WeightTrendsScreen({ onNavigateToDate, onOpenSettings }: WeightT
   const [summaries, setSummaries] = useState<DailySummary[]>([]);
   const [timeframe, setTimeframe] = useState<TimeframeOption>('90D');
   const [refreshing, setRefreshing] = useState(false);
-  const [cardWidth, setCardWidth] = useState(Dimensions.get('window').width - 32);
+  const [cardWidth, setCardWidth] = useState(Dimensions.get('window').width - 64);
 
   // Modal State
   const [modalVisible, setModalVisible] = useState(false);
@@ -640,14 +643,15 @@ export function WeightTrendsScreen({ onNavigateToDate, onOpenSettings }: WeightT
 
   const loadData = useCallback(async () => {
     try {
-      const u = await getUserProfile('victor');
+      const u = await getUserProfile();
       setProfile(u);
+      const uname = u?.username || 'victor';
 
-      const w = await getScaleWeights('victor', 60);
+      const w = await getScaleWeights(uname, 60);
       setWeights(w);
 
       // Load up to 1000 days of history and reverse to chronological order (oldest to newest)
-      const s = await getDailySummariesRange('victor', 1000);
+      const s = await getDailySummariesRange(uname, 1000);
       setSummaries(s.reverse());
     } catch (err) {
       console.error('Error loading weight trends:', err);
@@ -660,7 +664,8 @@ export function WeightTrendsScreen({ onNavigateToDate, onOpenSettings }: WeightT
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await recalculateUserTdee('victor');
+    const uname = profile?.username || 'victor';
+    await recalculateUserTdee(uname);
     await loadData();
     setRefreshing(false);
   };
@@ -671,10 +676,11 @@ export function WeightTrendsScreen({ onNavigateToDate, onOpenSettings }: WeightT
       Alert.alert('Invalid Weight', 'Please enter a valid weight in kg (e.g. 84.5)');
       return;
     }
-    await logScaleWeight('victor', weightDate, val);
+    const uname = profile?.username || 'victor';
+    await logScaleWeight(uname, weightDate, val);
     setModalVisible(false);
     setWeightValue('');
-    await recalculateUserTdee('victor');
+    await recalculateUserTdee(uname);
     await loadData();
   };
 

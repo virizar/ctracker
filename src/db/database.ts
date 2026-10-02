@@ -168,6 +168,9 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
   try {
     await db.execAsync('ALTER TABLE food_catalog ADD COLUMN last_used_unit TEXT;');
   } catch {}
+  try {
+    await db.execAsync('ALTER TABLE user_profiles ADD COLUMN name TEXT;');
+  } catch {}
 
   // Seed default user profile if none exists
   const existingUser = await db.getFirstAsync<UserProfile>(

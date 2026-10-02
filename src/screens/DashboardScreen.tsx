@@ -60,16 +60,17 @@ export function DashboardScreen({
 
   const loadData = useCallback(async () => {
     try {
-      const user = await getUserProfile('victor');
+      const user = await getUserProfile();
       setProfile(user);
+      const uname = user?.username || 'victor';
 
-      let daySummary = await getDailySummary('victor', currentDate);
+      let daySummary = await getDailySummary(uname, currentDate);
       if (!daySummary) {
-        daySummary = await getLatestDailySummary('victor', currentDate);
+        daySummary = await getLatestDailySummary(uname, currentDate);
       }
       setSummary(daySummary);
 
-      const dayMeals = await getMealsByDate('victor', currentDate);
+      const dayMeals = await getMealsByDate(uname, currentDate);
       setMeals(dayMeals);
     } catch (e: any) {
       console.error('Error loading dashboard data:', e);
@@ -82,7 +83,8 @@ export function DashboardScreen({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await recalculateUserTdee('victor');
+    const uname = profile?.username || 'victor';
+    await recalculateUserTdee(uname);
     await loadData();
     setRefreshing(false);
   };
@@ -124,10 +126,11 @@ export function DashboardScreen({
       Alert.alert('Invalid Weight', 'Please enter a valid weight in kg (e.g. 84.5)');
       return;
     }
-    await logScaleWeight('victor', currentDate, val);
+    const uname = profile?.username || 'victor';
+    await logScaleWeight(uname, currentDate, val);
     setIsWeightModalVisible(false);
     setWeightInput('');
-    await recalculateUserTdee('victor');
+    await recalculateUserTdee(uname);
     await loadData();
   };
 
@@ -150,9 +153,98 @@ export function DashboardScreen({
   const targetCals = summary?.target_calories ?? (profile?.min_daily_calories ? profile.min_daily_calories + 300 : 2000);
   const remainingCals = Math.round(targetCals - consumedCals);
 
+  // Identify trajectory
+  const isWeightLossJourney =
+    (profile?.target_monthly_rate_kg ?? 0) < 0 ||
+    (maintenanceTdee !== null && targetCals < maintenanceTdee);
+
+  const isWeightGainJourney =
+    (profile?.target_monthly_rate_kg ?? 0) > 0 ||
+    (maintenanceTdee !== null && targetCals > maintenanceTdee);
+
+  // Status Calculation
+  let statusTier:
+    | 'target_pace'
+    | 'deficit_buffer'
+    | 'surplus'
+    | 'gain_under_burn'
+    | 'gain_steady_surplus'
+    | 'gain_target_reached'
+    | 'over_target' = 'target_pace';
+  let circleValue = Math.abs(remainingCals);
+  let circleLabel = remainingCals >= 0 ? 'Remaining' : 'Over Target';
+
+  const deficitBelowTdee = maintenanceTdee !== null ? Math.round(maintenanceTdee - consumedCals) : null;
+  const surplusOverTdee = maintenanceTdee !== null ? Math.round(consumedCals - maintenanceTdee) : null;
+
+  if (isWeightLossJourney && maintenanceTdee !== null) {
+    if (consumedCals <= targetCals) {
+      statusTier = 'target_pace';
+      circleValue = Math.max(0, remainingCals);
+      circleLabel = 'Remaining';
+    } else if (consumedCals <= maintenanceTdee) {
+      statusTier = 'deficit_buffer';
+      circleValue = Math.round(consumedCals - targetCals);
+      circleLabel = 'Over Budget';
+    } else {
+      statusTier = 'surplus';
+      circleValue = Math.round(consumedCals - maintenanceTdee);
+      circleLabel = 'Surplus';
+    }
+  } else if (isWeightGainJourney && maintenanceTdee !== null) {
+    if (consumedCals < maintenanceTdee) {
+      statusTier = 'gain_under_burn';
+      circleValue = Math.max(0, Math.round(targetCals - consumedCals));
+      circleLabel = 'To Target';
+    } else if (consumedCals <= targetCals) {
+      statusTier = 'gain_steady_surplus';
+      circleValue = Math.max(0, Math.round(targetCals - consumedCals));
+      circleLabel = 'To Target';
+    } else {
+      statusTier = 'gain_target_reached';
+      circleValue = Math.round(consumedCals - targetCals);
+      circleLabel = 'Above Goal';
+    }
+  } else {
+    if (consumedCals <= targetCals) {
+      statusTier = 'target_pace';
+      circleValue = Math.max(0, remainingCals);
+      circleLabel = 'Remaining';
+    } else {
+      statusTier = 'over_target';
+      circleValue = Math.round(consumedCals - targetCals);
+      circleLabel = 'Over Target';
+    }
+  }
+
+  // Energy Balance Gauge calculations
+  const maxBenchmark = Math.max(
+    targetCals,
+    maintenanceTdee ?? targetCals,
+    consumedCals,
+    1500
+  );
+  const gaugeMax = Math.round(maxBenchmark * 1.15);
+  const gaugeFillPct = Math.min(100, Math.max(0, (consumedCals / gaugeMax) * 100));
+  const targetPct = Math.min(95, Math.max(5, (targetCals / gaugeMax) * 100));
+  const tdeePct = maintenanceTdee
+    ? Math.min(95, Math.max(5, (maintenanceTdee / gaugeMax) * 100))
+    : null;
+
+  let gaugeColor = '#3b82f6';
+  if (statusTier === 'deficit_buffer' || statusTier === 'gain_steady_surplus') {
+    gaugeColor = '#f59e0b';
+  } else if (statusTier === 'surplus' || statusTier === 'over_target') {
+    gaugeColor = '#ef4444';
+  } else if (statusTier === 'gain_target_reached') {
+    gaugeColor = '#10b981';
+  }
+
   const proteinTargetG = profile ? Math.round((targetCals * profile.protein_ratio) / 4) : 150;
   const carbsTargetG = profile ? Math.round((targetCals * profile.carbs_ratio) / 4) : 200;
   const fatTargetG = profile ? Math.round((targetCals * profile.fat_ratio) / 9) : 65;
+
+  const displayName = profile?.name || profile?.username || 'Victor';
 
   return (
     <View style={styles.container}>
@@ -186,6 +278,34 @@ export function DashboardScreen({
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {/* Personalized Greeting & Goal Mode */}
+        <View style={styles.welcomeRow}>
+          <Text style={styles.welcomeText}>
+            Hello, <Text style={{ fontWeight: '800', color: '#0f172a' }}>{displayName}</Text>
+          </Text>
+          <View
+            style={[
+              styles.goalModeChip,
+              isWeightLossJourney && styles.goalModeChipLoss,
+              isWeightGainJourney && styles.goalModeChipGain,
+            ]}
+          >
+            <Text
+              style={[
+                styles.goalModeChipText,
+                isWeightLossJourney && { color: '#065f46' },
+                isWeightGainJourney && { color: '#1d4ed8' },
+              ]}
+            >
+              {isWeightLossJourney
+                ? '📉 Loss Goal'
+                : isWeightGainJourney
+                ? '📈 Gain Goal'
+                : '⚖️ Maintenance'}
+            </Text>
+          </View>
+        </View>
+
         {/* Calorie Ring / Budget Card */}
         <View style={styles.calorieCard}>
           <View style={styles.calorieRow}>
@@ -194,18 +314,158 @@ export function DashboardScreen({
               <Text style={styles.calorieValue}>{Math.round(consumedCals)}</Text>
               <Text style={styles.calorieUnit}>kcal</Text>
             </View>
-            <View style={[styles.remainingCircle, remainingCals < 0 && styles.overTargetCircle]}>
-              <Text style={[styles.remainingVal, remainingCals < 0 && styles.overTargetVal]}>
-                {Math.abs(remainingCals)}
+            <View
+              style={[
+                styles.remainingCircle,
+                statusTier === 'deficit_buffer' && styles.amberCircle,
+                statusTier === 'surplus' && styles.surplusCircle,
+                statusTier === 'over_target' && styles.overTargetCircle,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.remainingVal,
+                  statusTier === 'deficit_buffer' && styles.amberVal,
+                  statusTier === 'surplus' && styles.surplusVal,
+                  statusTier === 'over_target' && styles.overTargetVal,
+                ]}
+              >
+                {circleValue}
               </Text>
-              <Text style={[styles.remainingLabel, remainingCals < 0 && styles.overTargetLabel]}>
-                {remainingCals >= 0 ? 'Remaining' : 'Over Target'}
+              <Text
+                style={[
+                  styles.remainingLabel,
+                  statusTier === 'deficit_buffer' && styles.amberLabel,
+                  statusTier === 'surplus' && styles.surplusLabel,
+                  statusTier === 'over_target' && styles.overTargetLabel,
+                ]}
+              >
+                {circleLabel}
               </Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               <Text style={styles.calorieLabel}>Daily Target</Text>
               <Text style={styles.calorieValue}>{Math.round(targetCals)}</Text>
               <Text style={styles.calorieUnit}>kcal</Text>
+            </View>
+          </View>
+
+          {/* Energy Balance Status Banner */}
+          {statusTier === 'deficit_buffer' ? (
+            <View style={styles.deficitBufferBanner}>
+              <Ionicons name="trending-down" size={18} color="#d97706" style={{ marginTop: 1 }} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.deficitBufferTitle}>
+                  Still in Deficit: -{deficitBelowTdee} kcal below TDEE
+                </Text>
+                <Text style={styles.deficitBufferSub}>
+                  Over target budget by {Math.round(consumedCals - targetCals)} kcal, but still losing weight today!
+                </Text>
+              </View>
+            </View>
+          ) : statusTier === 'surplus' ? (
+            <View style={styles.surplusBanner}>
+              <Ionicons name="alert-circle" size={18} color="#dc2626" style={{ marginTop: 1 }} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.surplusTitle}>
+                  Caloric Surplus: +{surplusOverTdee} kcal
+                </Text>
+                <Text style={styles.surplusSub}>
+                  Exceeded maintenance burn ({maintenanceTdee} kcal) for today.
+                </Text>
+              </View>
+            </View>
+          ) : statusTier === 'gain_under_burn' && consumedCals > 0 ? (
+            <View style={styles.deficitBufferBanner}>
+              <Ionicons name="flame" size={18} color="#d97706" style={{ marginTop: 1 }} />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.deficitBufferTitle}>
+                  Below Maintenance: {Math.round(maintenanceTdee! - consumedCals)} kcal to burn line
+                </Text>
+                <Text style={styles.deficitBufferSub}>
+                  Eat past your {maintenanceTdee} kcal burn line to achieve caloric surplus and fuel weight gain.
+                </Text>
+              </View>
+            </View>
+          ) : statusTier === 'gain_steady_surplus' ? (
+            <View style={styles.targetPaceBanner}>
+              <Ionicons name="trending-up" size={18} color="#059669" />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={styles.targetPaceText}>
+                  In Surplus: +{Math.round(consumedCals - maintenanceTdee!)} kcal above TDEE (Gaining weight)
+                </Text>
+              </View>
+            </View>
+          ) : statusTier === 'gain_target_reached' ? (
+            <View style={styles.targetPaceBanner}>
+              <Ionicons name="checkmark-circle" size={18} color="#059669" />
+              <View style={{ flex: 1, marginLeft: 8 }}>
+                <Text style={styles.targetPaceText}>
+                  Bulk Target Achieved! (+{Math.round(consumedCals - maintenanceTdee!)} kcal surplus)
+                </Text>
+              </View>
+            </View>
+          ) : statusTier === 'target_pace' && consumedCals > 0 ? (
+            <View style={styles.targetPaceBanner}>
+              <Ionicons name="checkmark-circle" size={16} color="#059669" />
+              <Text style={styles.targetPaceText}>
+                On Track: {remainingCals} kcal remaining to hit your target deficit.
+              </Text>
+            </View>
+          ) : null}
+
+          {/* Energy Balance Visual Gauge (Option B) */}
+          <View style={styles.gaugeContainer}>
+            <View style={styles.gaugeHeader}>
+              <Text style={styles.gaugeTitle}>Energy Balance</Text>
+              <Text style={styles.gaugeSubtitle}>
+                {maintenanceTdee
+                  ? `${Math.round(consumedCals)} / ${maintenanceTdee} kcal burn`
+                  : `${Math.round(consumedCals)} / ${Math.round(targetCals)} kcal target`}
+              </Text>
+            </View>
+            <View style={styles.gaugeTrack}>
+              <View
+                style={[
+                  styles.gaugeFill,
+                  {
+                    width: `${gaugeFillPct}%`,
+                    backgroundColor: gaugeColor,
+                  },
+                ]}
+              />
+              {/* Target Milestone Marker */}
+              <View
+                style={[
+                  styles.gaugeMilestone,
+                  { left: `${targetPct}%` },
+                ]}
+              >
+                <View style={styles.milestoneIndicator} />
+              </View>
+              {/* TDEE Milestone Marker */}
+              {tdeePct !== null && (
+                <View
+                  style={[
+                    styles.gaugeMilestone,
+                    { left: `${tdeePct}%` },
+                  ]}
+                >
+                  <View style={[styles.milestoneIndicator, { backgroundColor: '#475569' }]} />
+                </View>
+              )}
+            </View>
+            {/* Gauge Milestones Text Row */}
+            <View style={styles.gaugeLabelsRow}>
+              <Text style={styles.gaugeLabelText}>0</Text>
+              <Text style={[styles.gaugeLabelText, { color: '#2563eb', fontWeight: '700' }]}>
+                Target: {Math.round(targetCals)}
+              </Text>
+              {maintenanceTdee && (
+                <Text style={[styles.gaugeLabelText, { color: '#475569', fontWeight: '700' }]}>
+                  Burn: {maintenanceTdee}
+                </Text>
+              )}
             </View>
           </View>
 
@@ -219,11 +479,13 @@ export function DashboardScreen({
             </View>
             <View style={styles.targetBreakdownDivider} />
             <View style={styles.targetBreakdownItem}>
-              <Text style={styles.targetBreakdownLabel}>Goal Deficit</Text>
+              <Text style={styles.targetBreakdownLabel}>
+                {deficitKcal < 0 ? 'Goal Deficit' : deficitKcal > 0 ? 'Goal Surplus' : 'Goal Delta'}
+              </Text>
               <Text
                 style={[
                   styles.targetBreakdownVal,
-                  { color: deficitKcal < 0 ? '#10b981' : deficitKcal > 0 ? '#ef4444' : '#0f172a' },
+                  { color: deficitKcal < 0 ? '#10b981' : deficitKcal > 0 ? '#2563eb' : '#0f172a' },
                 ]}
               >
                 {deficitKcal !== 0
@@ -444,6 +706,34 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
+  welcomeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  welcomeText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  goalModeChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  goalModeChipLoss: {
+    backgroundColor: '#ecfdf5',
+  },
+  goalModeChipGain: {
+    backgroundColor: '#eff6ff',
+  },
+  goalModeChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
   calorieCard: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -506,6 +796,144 @@ const styles = StyleSheet.create({
   },
   overTargetLabel: {
     color: '#ea580c',
+  },
+  amberCircle: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#f59e0b',
+  },
+  amberVal: {
+    color: '#d97706',
+  },
+  amberLabel: {
+    color: '#d97706',
+  },
+  surplusCircle: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#ef4444',
+  },
+  surplusVal: {
+    color: '#dc2626',
+  },
+  surplusLabel: {
+    color: '#dc2626',
+  },
+  deficitBufferBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#fffbeb',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  deficitBufferTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#92400e',
+  },
+  deficitBufferSub: {
+    fontSize: 11.5,
+    color: '#b45309',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  surplusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#fef2f2',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  surplusTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#991b1b',
+  },
+  surplusSub: {
+    fontSize: 11.5,
+    color: '#b91c1c',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  targetPaceBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+    gap: 6,
+  },
+  targetPaceText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#065f46',
+  },
+  gaugeContainer: {
+    marginTop: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  gaugeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  gaugeTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  gaugeSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  gaugeTrack: {
+    height: 10,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 5,
+    overflow: 'hidden',
+    position: 'relative',
+    marginVertical: 4,
+  },
+  gaugeFill: {
+    height: '100%',
+    borderRadius: 5,
+  },
+  gaugeMilestone: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 2,
+    marginLeft: -1,
+  },
+  milestoneIndicator: {
+    width: 2,
+    height: '100%',
+    backgroundColor: '#1d4ed8',
+  },
+  gaugeLabelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  gaugeLabelText: {
+    fontSize: 10.5,
+    color: '#64748b',
+    fontWeight: '500',
   },
   targetBreakdownRow: {
     flexDirection: 'row',

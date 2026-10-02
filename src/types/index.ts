@@ -1,6 +1,7 @@
 export interface UserProfile {
   id?: number;
   username: string;
+  name?: string | null;
   dob: string; // YYYY-MM-DD
   height_cm: float;
   sex: 'male' | 'female';
