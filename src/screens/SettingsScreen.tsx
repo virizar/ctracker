@@ -28,6 +28,7 @@ import {
   formatDate,
 } from '../services/tdee';
 import { pickAndInspectFile, ImportPreview } from '../services/importer';
+import { runFoodCatalogOptimization } from '../services/catalogOptimizer';
 import { UserProfile } from '../types';
 
 interface SettingsScreenProps {
@@ -57,6 +58,11 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
   const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+
+  // AI Catalog Optimizer State
+  const [isOptimizingCatalog, setIsOptimizingCatalog] = useState(false);
+  const [optimizationProgress, setOptimizationProgress] = useState({ current: 0, total: 0 });
+  const optimizerAbortRef = React.useRef<AbortController | null>(null);
 
   useEffect(() => {
     loadSettings();
@@ -196,7 +202,14 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
       setImportPreview(null);
       Alert.alert(
         'Import Successful! 🎉',
-        `Imported ${result.mealsImported} new meals and ${result.weightsImported} weigh-ins. TDEE curves and historical trends have been updated.`
+        `Imported ${result.mealsImported} new meals and ${result.weightsImported} weigh-ins. TDEE curves and historical trends have been updated.\n\nWould you like AI to clean and standardize your food library now?`,
+        [
+          { text: 'Later', style: 'cancel' },
+          {
+            text: 'Optimize Library (AI)',
+            onPress: () => handleRunCatalogOptimization(),
+          },
+        ]
       );
     } catch (err: any) {
       Alert.alert('Import Failed', err?.message || 'An error occurred while saving the imported data.');
@@ -205,8 +218,52 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
     }
   };
 
+  const handleRunCatalogOptimization = async () => {
+    const uname = profile?.username || 'victor';
+    const controller = new AbortController();
+    optimizerAbortRef.current = controller;
+    setIsOptimizingCatalog(true);
+    setOptimizationProgress({ current: 0, total: 0 });
+
+    try {
+      const result = await runFoodCatalogOptimization(
+        uname,
+        (current, total) => {
+          setOptimizationProgress({ current, total });
+        },
+        controller.signal
+      );
+
+      if (result.aborted) {
+        Alert.alert(
+          'Optimization Stopped ⏸️',
+          `Stopped as requested. Progress safely saved:\n\n• ${result.updatedCount} foods standardized\n• ${result.mergedCount} duplicates merged\n• ${result.migratedMealsCount} historical meal logs updated.`
+        );
+      } else if (result.totalProcessed === 0) {
+        Alert.alert('Catalog Empty', 'There are no foods in your catalog to optimize yet.');
+      } else {
+        Alert.alert(
+          'Optimization Complete! ✨',
+          `Processed ${result.totalProcessed} food items:\n\n• ${result.updatedCount} foods standardized & normalized\n• ${result.mergedCount} duplicate items merged\n• ${result.migratedMealsCount} historical meal logs updated to clean names.\n\nAll historical daily calorie sums remain intact.`
+        );
+      }
+    } catch (err: any) {
+      Alert.alert('Optimization Error', err?.message || 'Failed to optimize food catalog.');
+    } finally {
+      setIsOptimizingCatalog(false);
+      optimizerAbortRef.current = null;
+    }
+  };
+
+  const handleStopCatalogOptimization = () => {
+    if (optimizerAbortRef.current) {
+      optimizerAbortRef.current.abort();
+    }
+  };
+
   const handleRecalculateAll = async () => {
-    await recalculateUserTdee('victor');
+    const uname = profile?.username || 'victor';
+    await recalculateUserTdee(uname);
     Alert.alert('Recalculated', 'Full TDEE and exponential weight trends updated.');
   };
 
@@ -279,6 +336,61 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
             </View>
           )}
         </TouchableOpacity>
+      </View>
+
+      {/* AI Food Library Optimizer Card */}
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Ionicons name="sparkles" size={20} color="#059669" />
+          <Text style={styles.cardTitle}>AI Food Library Optimizer</Text>
+        </View>
+        <Text style={styles.infoText}>
+          Standardize messy or verbose food names into clean generic titles, calculate 1-unit baseline portions, and merge duplicate catalog entries. Historical daily calorie totals are never altered.
+        </Text>
+
+        {isOptimizingCatalog ? (
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
+            <View
+              style={[
+                styles.saveBtn,
+                { backgroundColor: '#059669', flex: 1, opacity: 0.9, marginTop: 0 },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator color="#ffffff" style={{ marginRight: 8 }} size="small" />
+                <Text style={styles.saveBtnText}>
+                  {optimizationProgress.total > 0
+                    ? `Optimizing (${optimizationProgress.current}/${optimizationProgress.total})...`
+                    : 'Optimizing Library...'}
+                </Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.saveBtn,
+                { backgroundColor: '#ef4444', paddingHorizontal: 18, marginTop: 0 },
+              ]}
+              onPress={handleStopCatalogOptimization}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="stop-circle-outline" size={18} color="#fff" />
+                <Text style={[styles.saveBtnText, { marginLeft: 6 }]}>Stop</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.saveBtn, { backgroundColor: '#059669' }]}
+            onPress={handleRunCatalogOptimization}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="sparkles-outline" size={18} color="#fff" />
+              <Text style={[styles.saveBtnText, { marginLeft: 8 }]}>Clean & Optimize Library</Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Gemini AI Card */}

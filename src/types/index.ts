@@ -111,3 +111,21 @@ export interface ParsedFoodItem {
   base_carbs?: number | null;
   base_fat?: number | null;
 }
+
+export interface OptimizedFoodMapping {
+  original_name: string;
+  clean_name: string;
+  base_serving: string;
+  base_calories: number;
+  base_protein: number;
+  base_carbs: number;
+  base_fat: number;
+  base_weight_g?: number | null;
+}
+
+export interface FoodOptimizationResult {
+  totalProcessed: number;
+  updatedCount: number;
+  mergedCount: number;
+  migratedMealsCount: number;
+}

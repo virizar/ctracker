@@ -1,4 +1,5 @@
-import { extractFoodItemsFromJson } from '../src/services/gemini';
+import { extractFoodItemsFromJson, extractJsonArray } from '../src/services/gemini';
+import { OptimizedFoodMapping } from '../src/types';
 
 describe('Gemini AI Response Parsing Tests', () => {
   it('parses valid JSON food array correctly', () => {
@@ -75,5 +76,95 @@ describe('Gemini AI Response Parsing Tests', () => {
     expect(() => extractFoodItemsFromJson('not-json')).toThrow(
       'Could not parse nutrition data returned by Gemini.'
     );
+  });
+
+  it('parses catalog optimizer response correctly', () => {
+    const raw = JSON.stringify([
+      {
+        original_name: '2 slices of torta di mele italian (relatively thin)',
+        clean_name: 'Torta di Mele',
+        base_serving: '1 slice (80g)',
+        base_weight_g: 80,
+        base_calories: 204,
+        base_protein: 3,
+        base_carbs: 28,
+        base_fat: 9,
+      },
+      {
+        original_name: '3 knaeckebroed crackers',
+        clean_name: 'Knækbrød',
+        base_serving: '1 cracker (10g)',
+        base_weight_g: 10,
+        base_calories: 35,
+        base_protein: 1,
+        base_carbs: 6,
+        base_fat: 0.5,
+      },
+    ]);
+
+    const result = extractJsonArray<OptimizedFoodMapping>(raw);
+    expect(result).toHaveLength(2);
+    expect(result[0].clean_name).toBe('Torta di Mele');
+    expect(result[0].base_calories).toBe(204);
+    expect(result[1].clean_name).toBe('Knækbrød');
+    expect(result[1].base_serving).toBe('1 cracker (10g)');
+  });
+
+  it('parses full multi-item decomposed meal list correctly', () => {
+    const raw = JSON.stringify([
+      {
+        food_name: 'Knækbrød',
+        canonical_name: 'Knækbrød',
+        serving_size: '3 crackers (30g)',
+        calories: 105,
+        protein: 3,
+        carbs: 18,
+        fat: 1.5,
+      },
+      {
+        food_name: 'Butter',
+        canonical_name: 'Butter',
+        serving_size: '2 tbsp (28g)',
+        calories: 204,
+        protein: 0.2,
+        carbs: 0,
+        fat: 23,
+      },
+      {
+        food_name: 'Sourdough Bread',
+        canonical_name: 'Sourdough Bread',
+        serving_size: '4 slices (160g)',
+        calories: 380,
+        protein: 12,
+        carbs: 76,
+        fat: 2,
+      },
+      {
+        food_name: 'Torta di Mele',
+        canonical_name: 'Torta di Mele',
+        serving_size: '3 slices (240g)',
+        calories: 612,
+        protein: 9,
+        carbs: 84,
+        fat: 27,
+      },
+      {
+        food_name: 'Milk Chocolate with Hazelnut',
+        canonical_name: 'Milk Chocolate with Hazelnut',
+        serving_size: '1 square (20g)',
+        calories: 110,
+        protein: 2,
+        carbs: 11,
+        fat: 7,
+      },
+    ]);
+
+    const result = extractFoodItemsFromJson(raw);
+    expect(result).toHaveLength(5);
+    expect(result[0].canonical_name).toBe('Knækbrød');
+    expect(result[1].canonical_name).toBe('Butter');
+    expect(result[2].canonical_name).toBe('Sourdough Bread');
+    expect(result[3].canonical_name).toBe('Torta di Mele');
+    expect(result[4].canonical_name).toBe('Milk Chocolate with Hazelnut');
   });
 });

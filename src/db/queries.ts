@@ -5,6 +5,7 @@ import {
   MealLog,
   DailySummary,
   FoodCatalogItem,
+  OptimizedFoodMapping,
 } from '../types';
 
 export async function getUserProfile(username = 'victor'): Promise<UserProfile | null> {
@@ -113,6 +114,30 @@ export async function logMeal(
 export async function deleteMeal(mealId: number): Promise<void> {
   const db = await getDatabase();
   await db.runAsync('DELETE FROM meal_logs WHERE id = ?', [mealId]);
+}
+
+export async function updateMealLog(
+  mealId: number,
+  updates: Partial<Omit<MealLog, 'id' | 'created_at'>>
+): Promise<void> {
+  const db = await getDatabase();
+  const fields: string[] = [];
+  const values: any[] = [];
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined && key !== 'id') {
+      fields.push(`${key} = ?`);
+      values.push(value);
+    }
+  }
+
+  if (fields.length === 0) return;
+
+  values.push(mealId);
+  await db.runAsync(
+    `UPDATE meal_logs SET ${fields.join(', ')} WHERE id = ?`,
+    values
+  );
 }
 
 export async function getMealsByDate(
@@ -246,6 +271,27 @@ export async function searchFoodCatalog(
   }
 }
 
+export async function getFoodCatalogItem(
+  username = 'victor',
+  canonicalName: string
+): Promise<FoodCatalogItem | null> {
+  const db = await getDatabase();
+  return await db.getFirstAsync<FoodCatalogItem>(
+    'SELECT * FROM food_catalog WHERE username = ? AND canonical_name = ?',
+    [username, canonicalName.trim()]
+  );
+}
+
+export async function getAllFoodCatalogItems(
+  username = 'victor'
+): Promise<FoodCatalogItem[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<FoodCatalogItem>(
+    'SELECT * FROM food_catalog WHERE username = ? ORDER BY usage_count DESC',
+    [username]
+  );
+}
+
 export async function upsertFoodCatalog(
   item: Omit<FoodCatalogItem, 'id' | 'last_used_at' | 'created_at'>
 ): Promise<void> {
@@ -256,15 +302,9 @@ export async function upsertFoodCatalog(
       base_weight_g, last_used_qty, last_used_unit, usage_count
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     ON CONFLICT(username, canonical_name) DO UPDATE SET
-      default_serving = COALESCE(excluded.default_serving, food_catalog.default_serving),
-      calories = excluded.calories,
-      protein = excluded.protein,
-      carbs = excluded.carbs,
-      fat = excluded.fat,
-      base_weight_g = COALESCE(excluded.base_weight_g, food_catalog.base_weight_g),
+      usage_count = food_catalog.usage_count + 1,
       last_used_qty = COALESCE(excluded.last_used_qty, food_catalog.last_used_qty),
       last_used_unit = COALESCE(excluded.last_used_unit, food_catalog.last_used_unit),
-      usage_count = food_catalog.usage_count + 1,
       last_used_at = datetime('now')`,
     [
       item.username,
@@ -277,6 +317,42 @@ export async function upsertFoodCatalog(
       item.base_weight_g ?? null,
       item.last_used_qty ?? null,
       item.last_used_unit ?? null,
+    ]
+  );
+}
+
+export async function updateFoodCatalogNutrition(
+  username = 'victor',
+  canonicalName: string,
+  nutrition: {
+    default_serving?: string | null;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    base_weight_g?: number | null;
+  }
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE food_catalog
+     SET default_serving = COALESCE(?, default_serving),
+         calories = ?,
+         protein = ?,
+         carbs = ?,
+         fat = ?,
+         base_weight_g = COALESCE(?, base_weight_g),
+         last_used_at = datetime('now')
+     WHERE username = ? AND canonical_name = ?`,
+    [
+      nutrition.default_serving || null,
+      nutrition.calories,
+      nutrition.protein,
+      nutrition.carbs,
+      nutrition.fat,
+      nutrition.base_weight_g ?? null,
+      username,
+      canonicalName.trim(),
     ]
   );
 }
@@ -313,6 +389,100 @@ export async function renameFoodCatalogItem(
       [newName, username, oldName]
     );
   }
+
+  // Cascade name change to meal_logs
+  await db.runAsync(
+    `UPDATE meal_logs
+     SET canonical_name = ?, food_name = ?
+     WHERE username = ? AND (canonical_name = ? OR (canonical_name IS NULL AND food_name = ?))`,
+    [newName, newName, username, oldName, oldName]
+  );
+}
+
+export async function applyFoodCatalogOptimizations(
+  username = 'victor',
+  optimizations: OptimizedFoodMapping[]
+): Promise<{ updatedCount: number; mergedCount: number; migratedMealsCount: number }> {
+  const db = await getDatabase();
+  let updatedCount = 0;
+  let mergedCount = 0;
+  let migratedMealsCount = 0;
+
+  await db.withTransactionAsync(async () => {
+    for (const opt of optimizations) {
+      const originalName = opt.original_name?.trim();
+      const cleanName = opt.clean_name?.trim();
+      if (!originalName || !cleanName) continue;
+
+      const baseServing = opt.base_serving || '1 serving';
+      const baseCals = Math.round(opt.base_calories);
+      const baseP = Math.round(opt.base_protein * 10) / 10;
+      const baseC = Math.round(opt.base_carbs * 10) / 10;
+      const baseF = Math.round(opt.base_fat * 10) / 10;
+      const baseWeight = opt.base_weight_g ?? null;
+
+      // 1. Migrate historical meal_logs:
+      // Update canonical_name and food_name to cleanName, PRESERVING existing serving_size and macros!
+      if (originalName !== cleanName) {
+        const mealUpdateResult = await db.runAsync(
+          `UPDATE meal_logs
+           SET canonical_name = ?, food_name = ?
+           WHERE username = ? AND (canonical_name = ? OR (canonical_name IS NULL AND food_name = ?))`,
+          [cleanName, cleanName, username, originalName, originalName]
+        );
+        migratedMealsCount += mealUpdateResult.changes;
+      }
+
+      // 2. Update or merge in food_catalog
+      const existingClean = await db.getFirstAsync<{ id: number; usage_count: number }>(
+        `SELECT id, usage_count FROM food_catalog WHERE username = ? AND canonical_name = ?`,
+        [username, cleanName]
+      );
+
+      const oldItem = await db.getFirstAsync<{ id: number; usage_count: number }>(
+        `SELECT id, usage_count FROM food_catalog WHERE username = ? AND canonical_name = ?`,
+        [username, originalName]
+      );
+
+      if (existingClean && oldItem && existingClean.id !== oldItem.id) {
+        // Merge / Deduplication
+        await db.runAsync(
+          `UPDATE food_catalog
+           SET usage_count = usage_count + ?,
+               default_serving = COALESCE(?, default_serving),
+               calories = ?,
+               protein = ?,
+               carbs = ?,
+               fat = ?,
+               base_weight_g = COALESCE(?, base_weight_g)
+           WHERE id = ?`,
+          [oldItem.usage_count, baseServing, baseCals, baseP, baseC, baseF, baseWeight, existingClean.id]
+        );
+        await db.runAsync(
+          `DELETE FROM food_catalog WHERE id = ?`,
+          [oldItem.id]
+        );
+        mergedCount++;
+      } else {
+        // Single item update or rename
+        await db.runAsync(
+          `UPDATE food_catalog
+           SET canonical_name = ?,
+               default_serving = ?,
+               calories = ?,
+               protein = ?,
+               carbs = ?,
+               fat = ?,
+               base_weight_g = COALESCE(?, base_weight_g)
+           WHERE username = ? AND canonical_name = ?`,
+          [cleanName, baseServing, baseCals, baseP, baseC, baseF, baseWeight, username, originalName]
+        );
+        updatedCount++;
+      }
+    }
+  });
+
+  return { updatedCount, mergedCount, migratedMealsCount };
 }
 
 

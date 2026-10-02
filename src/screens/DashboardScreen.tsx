@@ -18,9 +18,14 @@ import {
   getMealsByDate,
   deleteMeal,
   logScaleWeight,
+  getFoodCatalogItem,
+  updateMealLog,
+  upsertFoodCatalog,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate, parseDate } from '../services/tdee';
-import { UserProfile, DailySummary, MealLog } from '../types';
+import { UserProfile, DailySummary, MealLog, FoodCatalogItem } from '../types';
+import { FoodServingModal } from '../components/FoodServingModal';
+import { parseServingString } from '../services/serving';
 
 interface DashboardScreenProps {
   onOpenQuickLog: () => void;
@@ -57,6 +62,13 @@ export function DashboardScreen({
   // Weight Logging Modal State
   const [isWeightModalVisible, setIsWeightModalVisible] = useState(false);
   const [weightInput, setWeightInput] = useState('');
+
+  // Meal Editing Modal State
+  const [editingMeal, setEditingMeal] = useState<MealLog | null>(null);
+  const [editingCatalogItem, setEditingCatalogItem] = useState<FoodCatalogItem | null>(null);
+  const [editingInitialServing, setEditingInitialServing] = useState<
+    { quantity?: number; unit?: string } | undefined
+  >(undefined);
 
   const loadData = useCallback(async () => {
     try {
@@ -112,12 +124,88 @@ export function DashboardScreen({
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
+          const uname = profile?.username || 'victor';
           await deleteMeal(mealId);
-          await recalculateUserTdee('victor');
+          await recalculateUserTdee(uname);
           await loadData();
         },
       },
     ]);
+  };
+
+  const handleOpenEditMeal = async (m: MealLog) => {
+    const uname = profile?.username || 'victor';
+    const canonical = m.canonical_name || m.food_name;
+    let catalogItem = await getFoodCatalogItem(uname, canonical);
+
+    if (!catalogItem) {
+      catalogItem = {
+        username: uname,
+        canonical_name: m.food_name,
+        default_serving: m.serving_size || '1 serving',
+        calories: m.calories,
+        protein: m.protein,
+        carbs: m.carbs,
+        fat: m.fat,
+        usage_count: 1,
+      };
+    }
+
+    const parsed = parseServingString(m.serving_size);
+    setEditingInitialServing({
+      quantity: parsed.initialQty,
+      unit: parsed.initialUnit,
+    });
+    setEditingMeal(m);
+    setEditingCatalogItem(catalogItem);
+  };
+
+  const handleConfirmEditMeal = async (result: {
+    foodName: string;
+    originalCanonicalName: string;
+    servingSizeStr: string;
+    quantity: number;
+    unit: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }) => {
+    if (!editingMeal?.id) return;
+    const uname = profile?.username || 'victor';
+
+    try {
+      await updateMealLog(editingMeal.id, {
+        food_name: result.foodName,
+        canonical_name: result.foodName,
+        serving_size: result.servingSizeStr,
+        calories: result.calories,
+        protein: result.protein,
+        carbs: result.carbs,
+        fat: result.fat,
+      });
+
+      // Keep catalog synced with the food
+      await upsertFoodCatalog({
+        username: uname,
+        canonical_name: result.foodName,
+        default_serving: result.servingSizeStr,
+        calories: result.calories,
+        protein: result.protein,
+        carbs: result.carbs,
+        fat: result.fat,
+        usage_count: 1,
+        last_used_qty: result.quantity,
+        last_used_unit: result.unit,
+      });
+
+      await recalculateUserTdee(uname);
+      setEditingMeal(null);
+      setEditingCatalogItem(null);
+      await loadData();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to update meal.');
+    }
   };
 
   const handleSaveWeight = async () => {
@@ -582,18 +670,28 @@ export function DashboardScreen({
           ) : (
             meals.map((m) => (
               <View key={m.id} style={styles.mealItem}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.mealName}>{m.food_name}</Text>
-                  <Text style={styles.mealDetails}>
-                    {m.serving_size ? `${m.serving_size} • ` : ''}
-                    P: {Math.round(m.protein)}g | C: {Math.round(m.carbs)}g | F: {Math.round(m.fat)}g
-                  </Text>
-                </View>
-                <View style={{ alignItems: 'flex-end', marginRight: 12 }}>
-                  <Text style={styles.mealCalories}>{Math.round(m.calories)}</Text>
-                  <Text style={styles.mealCalSub}>kcal</Text>
-                </View>
-                <TouchableOpacity onPress={() => m.id && handleDeleteMeal(m.id)}>
+                <TouchableOpacity
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
+                  onPress={() => handleOpenEditMeal(m)}
+                  activeOpacity={0.7}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.mealName}>{m.food_name}</Text>
+                    <Text style={styles.mealDetails}>
+                      {m.serving_size ? `${m.serving_size} • ` : ''}
+                      P: {Math.round(m.protein)}g | C: {Math.round(m.carbs)}g | F: {Math.round(m.fat)}g
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', marginRight: 12 }}>
+                    <Text style={styles.mealCalories}>{Math.round(m.calories)}</Text>
+                    <Text style={styles.mealCalSub}>kcal</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => m.id && handleDeleteMeal(m.id)}
+                  style={{ padding: 6 }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
                   <Ionicons name="trash-outline" size={20} color="#94a3b8" />
                 </TouchableOpacity>
               </View>
@@ -601,6 +699,20 @@ export function DashboardScreen({
           )}
         </View>
       </ScrollView>
+
+      {/* Edit Logged Meal Modal */}
+      <FoodServingModal
+        visible={editingMeal !== null && editingCatalogItem !== null}
+        item={editingCatalogItem}
+        initialServing={editingInitialServing}
+        title="Edit Logged Meal"
+        submitLabel="Update Meal"
+        onClose={() => {
+          setEditingMeal(null);
+          setEditingCatalogItem(null);
+        }}
+        onConfirm={handleConfirmEditMeal}
+      />
 
       {/* Weight Modal */}
       <Modal visible={isWeightModalVisible} transparent animationType="fade">

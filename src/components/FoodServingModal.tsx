@@ -17,6 +17,13 @@ import { parseServingString, scaleNutrition } from '../services/serving';
 interface FoodServingModalProps {
   visible: boolean;
   item: FoodCatalogItem | null;
+  initialServing?: {
+    quantity?: number;
+    unit?: string;
+  };
+  initialManualMacros?: boolean;
+  title?: string;
+  submitLabel?: string;
   onClose: () => void;
   onConfirm: (result: {
     foodName: string;
@@ -34,6 +41,10 @@ interface FoodServingModalProps {
 export function FoodServingModal({
   visible,
   item,
+  initialServing,
+  initialManualMacros,
+  title,
+  submitLabel,
   onClose,
   onConfirm,
 }: FoodServingModalProps) {
@@ -41,6 +52,13 @@ export function FoodServingModal({
   const [quantityStr, setQuantityStr] = useState('1');
   const [selectedUnit, setSelectedUnit] = useState('g');
   const [availableUnits, setAvailableUnits] = useState<string[]>(['g', 'oz', 'serving']);
+
+  // Manual Macro overrides
+  const [isManualMacros, setIsManualMacros] = useState(false);
+  const [manualCalories, setManualCalories] = useState('');
+  const [manualProtein, setManualProtein] = useState('');
+  const [manualCarbs, setManualCarbs] = useState('');
+  const [manualFat, setManualFat] = useState('');
 
   // Base nutrition reference
   const [baseNutrition, setBaseNutrition] = useState<{
@@ -77,15 +95,36 @@ export function FoodServingModal({
       baseWeightG: initialBaseWeight,
     });
 
-    // Check if food already has a remembered measurement
-    const initialUnit = item.last_used_unit || parsed.initialUnit || 'g';
-    const initialQty = item.last_used_qty ? item.last_used_qty.toString() : initialBaseQty.toString();
+    // Check if food already has a remembered measurement or custom initial serving
+    const initialUnit = initialServing?.unit || item.last_used_unit || parsed.initialUnit || 'g';
+    const initialQty = initialServing?.quantity !== undefined
+      ? initialServing.quantity.toString()
+      : item.last_used_qty
+      ? item.last_used_qty.toString()
+      : initialBaseQty.toString();
 
     setQuantityStr(initialQty);
     setSelectedUnit(initialUnit);
 
+    if (initialManualMacros) {
+      setIsManualMacros(true);
+      setManualCalories(item.calories !== undefined ? item.calories.toString() : '');
+      setManualProtein(item.protein !== undefined ? item.protein.toString() : '');
+      setManualCarbs(item.carbs !== undefined ? item.carbs.toString() : '');
+      setManualFat(item.fat !== undefined ? item.fat.toString() : '');
+    } else {
+      setIsManualMacros(false);
+      setManualCalories('');
+      setManualProtein('');
+      setManualCarbs('');
+      setManualFat('');
+    }
+
     // Build available units list
     const units = new Set<string>(['g', 'oz', 'serving']);
+    if (initialServing?.unit) {
+      units.add(initialServing.unit);
+    }
     if (parsed.initialUnit && parsed.initialUnit !== 'g' && parsed.initialUnit !== 'oz') {
       units.add(parsed.initialUnit);
     }
@@ -105,12 +144,33 @@ export function FoodServingModal({
       units.add('cup');
     }
     setAvailableUnits(Array.from(units));
-  }, [item]);
+  }, [item, initialServing]);
 
   if (!item) return null;
 
   const currentQty = parseFloat(quantityStr) || 0;
   const scaled = scaleNutrition(baseNutrition, currentQty, selectedUnit);
+
+  const displayCalories =
+    isManualMacros && manualCalories !== '' ? parseFloat(manualCalories) || 0 : scaled.calories;
+  const displayProtein =
+    isManualMacros && manualProtein !== '' ? parseFloat(manualProtein) || 0 : scaled.protein;
+  const displayCarbs =
+    isManualMacros && manualCarbs !== '' ? parseFloat(manualCarbs) || 0 : scaled.carbs;
+  const displayFat =
+    isManualMacros && manualFat !== '' ? parseFloat(manualFat) || 0 : scaled.fat;
+
+  const handleToggleManualMacros = () => {
+    if (!isManualMacros) {
+      setManualCalories(scaled.calories.toString());
+      setManualProtein(scaled.protein.toString());
+      setManualCarbs(scaled.carbs.toString());
+      setManualFat(scaled.fat.toString());
+      setIsManualMacros(true);
+    } else {
+      setIsManualMacros(false);
+    }
+  };
 
   const handleApplyMultiplier = (multiplier: number) => {
     const val = (parseFloat(quantityStr) || 1) * multiplier;
@@ -136,10 +196,10 @@ export function FoodServingModal({
       servingSizeStr: scaled.servingSizeStr,
       quantity: finalQty,
       unit: selectedUnit,
-      calories: scaled.calories,
-      protein: scaled.protein,
-      carbs: scaled.carbs,
-      fat: scaled.fat,
+      calories: displayCalories,
+      protein: displayProtein,
+      carbs: displayCarbs,
+      fat: displayFat,
     });
   };
 
@@ -152,7 +212,7 @@ export function FoodServingModal({
         <View style={styles.modalContainer}>
           {/* Header */}
           <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Serving & Quantity</Text>
+            <Text style={styles.headerTitle}>{title || 'Serving & Quantity'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={22} color="#64748b" />
             </TouchableOpacity>
@@ -176,22 +236,81 @@ export function FoodServingModal({
 
             {/* Live Macros Display Card */}
             <View style={styles.macroCard}>
-              <View style={styles.calorieBox}>
-                <Text style={styles.calorieVal}>{scaled.calories}</Text>
-                <Text style={styles.calorieLabel}>kcal</Text>
+              <View style={styles.macroHeaderRow}>
+                <View style={styles.calorieBox}>
+                  {isManualMacros ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <TextInput
+                        style={[styles.calorieVal, { minWidth: 80, borderBottomWidth: 1, borderColor: '#cbd5e1' }]}
+                        value={manualCalories}
+                        onChangeText={setManualCalories}
+                        keyboardType="decimal-pad"
+                        textAlign="center"
+                      />
+                      <Text style={[styles.calorieLabel, { marginLeft: 6 }]}>kcal</Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={styles.calorieVal}>{displayCalories}</Text>
+                      <Text style={styles.calorieLabel}>kcal</Text>
+                    </>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.macroToggleBtn}
+                  onPress={handleToggleManualMacros}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={isManualMacros ? 'checkmark-circle-outline' : 'options-outline'}
+                    size={14}
+                    color="#2563eb"
+                  />
+                  <Text style={styles.macroToggleText}>
+                    {isManualMacros ? 'Auto Scale' : 'Edit Macros'}
+                  </Text>
+                </TouchableOpacity>
               </View>
 
               <View style={styles.macroPillsRow}>
                 <View style={[styles.macroPill, { backgroundColor: '#eff6ff' }]}>
-                  <Text style={[styles.macroPillVal, { color: '#2563eb' }]}>{scaled.protein}g</Text>
+                  {isManualMacros ? (
+                    <TextInput
+                      style={[styles.macroPillVal, { color: '#2563eb', minWidth: 40, textAlign: 'center' }]}
+                      value={manualProtein}
+                      onChangeText={setManualProtein}
+                      keyboardType="decimal-pad"
+                    />
+                  ) : (
+                    <Text style={[styles.macroPillVal, { color: '#2563eb' }]}>{displayProtein}g</Text>
+                  )}
                   <Text style={styles.macroPillLabel}>Protein</Text>
                 </View>
                 <View style={[styles.macroPill, { backgroundColor: '#fffbeb' }]}>
-                  <Text style={[styles.macroPillVal, { color: '#d97706' }]}>{scaled.carbs}g</Text>
+                  {isManualMacros ? (
+                    <TextInput
+                      style={[styles.macroPillVal, { color: '#d97706', minWidth: 40, textAlign: 'center' }]}
+                      value={manualCarbs}
+                      onChangeText={setManualCarbs}
+                      keyboardType="decimal-pad"
+                    />
+                  ) : (
+                    <Text style={[styles.macroPillVal, { color: '#d97706' }]}>{displayCarbs}g</Text>
+                  )}
                   <Text style={styles.macroPillLabel}>Carbs</Text>
                 </View>
                 <View style={[styles.macroPill, { backgroundColor: '#f0fdf4' }]}>
-                  <Text style={[styles.macroPillVal, { color: '#16a34a' }]}>{scaled.fat}g</Text>
+                  {isManualMacros ? (
+                    <TextInput
+                      style={[styles.macroPillVal, { color: '#16a34a', minWidth: 40, textAlign: 'center' }]}
+                      value={manualFat}
+                      onChangeText={setManualFat}
+                      keyboardType="decimal-pad"
+                    />
+                  ) : (
+                    <Text style={[styles.macroPillVal, { color: '#16a34a' }]}>{displayFat}g</Text>
+                  )}
                   <Text style={styles.macroPillLabel}>Fat</Text>
                 </View>
               </View>
@@ -264,7 +383,9 @@ export function FoodServingModal({
             {/* Confirm Log Button */}
             <TouchableOpacity style={styles.confirmBtn} onPress={handleSave} activeOpacity={0.85}>
               <Text style={styles.confirmBtnText}>
-                Log {scaled.servingSizeStr} ({scaled.calories} kcal)
+                {submitLabel
+                  ? `${submitLabel} (${displayCalories} kcal)`
+                  : `Log ${scaled.servingSizeStr} (${displayCalories} kcal)`}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -340,9 +461,33 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     alignItems: 'center',
   },
+  macroHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    position: 'relative',
+    marginBottom: 12,
+  },
+  macroToggleBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#eff6ff',
+  },
+  macroToggleText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
   calorieBox: {
     alignItems: 'center',
-    marginBottom: 12,
   },
   calorieVal: {
     fontSize: 34,

@@ -19,6 +19,7 @@ import {
   renameFoodCatalogItem,
   updateCatalogLastUsedMeasurement,
   upsertFoodCatalog,
+  getFoodCatalogItem,
   getUserProfile,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
@@ -53,6 +54,7 @@ export function QuickLogModal({
 
   // Serving & Portion Modal State
   const [servingModalItem, setServingModalItem] = useState<FoodCatalogItem | null>(null);
+  const [isCreatingCustomFood, setIsCreatingCustomFood] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -104,7 +106,7 @@ export function QuickLogModal({
     for (const item of parsedItems) {
       const cleanName = item.food_name.trim() || item.canonical_name.trim();
 
-      // 1. Log the meal entry for today
+      // 1. Log the meal entry for today (logMeal automatically upserts into food_catalog)
       await logMeal(profileUsername, {
         date: targetDate,
         food_name: cleanName,
@@ -115,32 +117,6 @@ export function QuickLogModal({
         carbs: item.carbs,
         fat: item.fat,
       });
-
-      // 2. Automatically upsert clean food into Food Catalog with normalized unit
-      try {
-        const defaultServing = item.base_serving || item.serving_size;
-        const baseCalories = item.base_calories ?? item.calories;
-        const baseProtein = item.base_protein ?? item.protein;
-        const baseCarbs = item.base_carbs ?? item.carbs;
-        const baseFat = item.base_fat ?? item.fat;
-        const baseWeightG = item.base_weight_g ?? null;
-
-        await upsertFoodCatalog({
-          username: profileUsername,
-          canonical_name: cleanName,
-          default_serving: defaultServing,
-          calories: baseCalories,
-          protein: baseProtein,
-          carbs: baseCarbs,
-          fat: baseFat,
-          base_weight_g: baseWeightG,
-          last_used_qty: 1,
-          last_used_unit: defaultServing,
-          usage_count: 1,
-        });
-      } catch (catErr) {
-        console.warn('Could not auto-add AI meal to catalog:', catErr);
-      }
     }
 
     await recalculateUserTdee(profileUsername);
@@ -148,23 +124,33 @@ export function QuickLogModal({
     onSuccess();
   };
 
-  const handleOpenAiItemServing = (aiItem: ParsedFoodItem, idx: number) => {
-    setServingModalItem({
-      id: -1 * (idx + 1),
-      username: profileUsername,
-      canonical_name: aiItem.food_name,
-      default_serving: aiItem.serving_size,
-      base_weight_g: aiItem.base_weight_g ?? null,
-      calories: aiItem.calories,
-      protein: aiItem.protein,
-      carbs: aiItem.carbs,
-      fat: aiItem.fat,
-      usage_count: 1,
-      last_used_qty: null,
-      last_used_unit: null,
-      last_used_at: undefined,
-      created_at: '',
-    });
+  const handleOpenAiItemServing = async (aiItem: ParsedFoodItem, idx: number) => {
+    const cleanName = aiItem.food_name.trim() || aiItem.canonical_name.trim();
+    const existing = await getFoodCatalogItem(profileUsername, cleanName);
+
+    if (existing) {
+      setServingModalItem({
+        ...existing,
+        id: -1 * (idx + 1),
+      });
+    } else {
+      setServingModalItem({
+        id: -1 * (idx + 1),
+        username: profileUsername,
+        canonical_name: cleanName,
+        default_serving: aiItem.serving_size,
+        base_weight_g: aiItem.base_weight_g ?? null,
+        calories: aiItem.calories,
+        protein: aiItem.protein,
+        carbs: aiItem.carbs,
+        fat: aiItem.fat,
+        usage_count: 1,
+        last_used_qty: null,
+        last_used_unit: null,
+        last_used_at: undefined,
+        created_at: '',
+      });
+    }
   };
 
   const handleConfirmServing = async (result: {
@@ -237,11 +223,27 @@ export function QuickLogModal({
     }
   };
 
+  const handleOpenCreateCustomFood = () => {
+    const newItem: FoodCatalogItem = {
+      username: profileUsername,
+      canonical_name: searchQuery.trim() || 'Custom Food',
+      default_serving: '1 serving',
+      calories: 100,
+      protein: 10,
+      carbs: 10,
+      fat: 2,
+      usage_count: 1,
+    };
+    setIsCreatingCustomFood(true);
+    setServingModalItem(newItem);
+  };
+
   const resetAndClose = () => {
     setInputQuery('');
     setParsedItems([]);
     setSearchQuery('');
     setServingModalItem(null);
+    setIsCreatingCustomFood(false);
     onClose();
   };
 
@@ -378,9 +380,27 @@ export function QuickLogModal({
               />
             </View>
 
+            <TouchableOpacity
+              style={styles.createCustomFoodBtn}
+              onPress={handleOpenCreateCustomFood}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="add-circle" size={18} color="#2563eb" />
+              <Text style={styles.createCustomFoodBtnText}>
+                {searchQuery.trim()
+                  ? `+ Create "${searchQuery.trim()}" in Library`
+                  : '+ Create Custom Food'}
+              </Text>
+            </TouchableOpacity>
+
             <ScrollView style={{ flex: 1 }}>
               {searchResults.length === 0 ? (
-                <Text style={styles.noResultsText}>No foods found in your catalog.</Text>
+                <View style={{ alignItems: 'center', marginTop: 24 }}>
+                  <Text style={styles.noResultsText}>No foods found in your catalog.</Text>
+                  <Text style={{ fontSize: 13, color: '#64748b', marginTop: 6 }}>
+                    Tap the button above to add this food to your library.
+                  </Text>
+                </View>
               ) : (
                 searchResults.map((item) => {
                   const hasLastUsed = Boolean(item.last_used_qty && item.last_used_unit);
@@ -430,7 +450,13 @@ export function QuickLogModal({
         <FoodServingModal
           visible={servingModalItem !== null}
           item={servingModalItem}
-          onClose={() => setServingModalItem(null)}
+          initialManualMacros={isCreatingCustomFood}
+          title={isCreatingCustomFood ? 'Create Custom Food' : 'Serving & Quantity'}
+          submitLabel={isCreatingCustomFood ? 'Save & Log Food' : undefined}
+          onClose={() => {
+            setServingModalItem(null);
+            setIsCreatingCustomFood(false);
+          }}
           onConfirm={handleConfirmServing}
         />
       </View>
@@ -577,6 +603,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     marginLeft: 8,
+  },
+  createCustomFoodBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 8,
+  },
+  createCustomFoodBtnText: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '700',
   },
   searchBar: {
     flexDirection: 'row',
