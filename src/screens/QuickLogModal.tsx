@@ -60,20 +60,24 @@ export function QuickLogModal({
   useEffect(() => {
     if (visible) {
       getUserProfile().then((u) => {
-        if (u?.username) setProfileUsername(u.username);
+        const uname = u?.username || 'victor';
+        setProfileUsername(uname);
+        if (activeTab === 'search') {
+          loadSearchResults(searchQuery, uname);
+        }
       });
     }
   }, [visible]);
 
   useEffect(() => {
-    if (activeTab === 'search') {
+    if (visible && activeTab === 'search') {
       loadSearchResults(searchQuery);
     }
-  }, [activeTab, searchQuery, profileUsername]);
+  }, [visible, activeTab, searchQuery, profileUsername]);
 
-  const loadSearchResults = async (q: string) => {
+  const loadSearchResults = async (q: string, uname = profileUsername) => {
     try {
-      const results = await searchFoodCatalog(profileUsername, q);
+      const results = await searchFoodCatalog(uname, q);
       setSearchResults(results);
     } catch (err) {
       console.error('Error searching food catalog:', err);
