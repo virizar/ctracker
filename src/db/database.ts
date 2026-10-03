@@ -78,6 +78,8 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
       date TEXT NOT NULL,
       food_name TEXT NOT NULL,
       canonical_name TEXT,
+      brand TEXT,
+      variant TEXT,
       serving_size TEXT,
       calories REAL NOT NULL,
       protein REAL NOT NULL,
@@ -108,6 +110,9 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL,
       canonical_name TEXT NOT NULL,
+      brand TEXT,
+      variant TEXT,
+      barcode TEXT,
       default_serving TEXT,
       calories REAL NOT NULL,
       protein REAL NOT NULL,
@@ -169,7 +174,32 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
     await db.execAsync('ALTER TABLE food_catalog ADD COLUMN last_used_unit TEXT;');
   } catch {}
   try {
+    await db.execAsync('ALTER TABLE food_catalog ADD COLUMN brand TEXT;');
+  } catch {}
+  try {
+    await db.execAsync('ALTER TABLE food_catalog ADD COLUMN variant TEXT;');
+  } catch {}
+  try {
+    await db.execAsync('ALTER TABLE food_catalog ADD COLUMN barcode TEXT;');
+  } catch {}
+  try {
+    await db.execAsync('ALTER TABLE meal_logs ADD COLUMN brand TEXT;');
+  } catch {}
+  try {
+    await db.execAsync('ALTER TABLE meal_logs ADD COLUMN variant TEXT;');
+  } catch {}
+  try {
     await db.execAsync('ALTER TABLE user_profiles ADD COLUMN name TEXT;');
+  } catch {}
+
+  // Clean up any literal 'null', 'undefined', 'none' placeholder strings from brand or variant
+  try {
+    await db.execAsync(`
+      UPDATE food_catalog SET brand = NULL WHERE LOWER(TRIM(brand)) IN ('null', 'undefined', 'none', 'n/a', 'generic', '');
+      UPDATE food_catalog SET variant = NULL WHERE LOWER(TRIM(variant)) IN ('null', 'undefined', 'none', 'n/a', 'generic', '');
+      UPDATE meal_logs SET brand = NULL WHERE LOWER(TRIM(brand)) IN ('null', 'undefined', 'none', 'n/a', 'generic', '');
+      UPDATE meal_logs SET variant = NULL WHERE LOWER(TRIM(variant)) IN ('null', 'undefined', 'none', 'n/a', 'generic', '');
+    `);
   } catch {}
 
   // Seed default user profile if none exists

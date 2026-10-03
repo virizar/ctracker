@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FoodCatalogItem } from '../types';
-import { parseServingString, scaleNutrition } from '../services/serving';
+import { parseServingString, scaleNutrition, isValidTag, cleanTag } from '../services/serving';
 
 interface FoodServingModalProps {
   visible: boolean;
@@ -28,6 +28,8 @@ interface FoodServingModalProps {
   onConfirm: (result: {
     foodName: string;
     originalCanonicalName: string;
+    brand?: string | null;
+    variant?: string | null;
     servingSizeStr: string;
     quantity: number;
     unit: string;
@@ -49,6 +51,8 @@ export function FoodServingModal({
   onConfirm,
 }: FoodServingModalProps) {
   const [foodName, setFoodName] = useState('');
+  const [brand, setBrand] = useState<string | null>(null);
+  const [variant, setVariant] = useState<string | null>(null);
   const [quantityStr, setQuantityStr] = useState('1');
   const [selectedUnit, setSelectedUnit] = useState('g');
   const [availableUnits, setAvailableUnits] = useState<string[]>(['g', 'oz', 'serving']);
@@ -81,6 +85,8 @@ export function FoodServingModal({
     if (!item) return;
 
     setFoodName(item.canonical_name);
+    setBrand(cleanTag(item.brand));
+    setVariant(cleanTag(item.variant));
 
     const parsed = parseServingString(item.default_serving, item.base_weight_g);
     const initialBaseQty = parsed.initialQty || 1;
@@ -204,6 +210,8 @@ export function FoodServingModal({
     await onConfirm({
       foodName: foodName.trim() || item.canonical_name,
       originalCanonicalName: item.canonical_name,
+      brand: cleanTag(brand),
+      variant: cleanTag(variant),
       servingSizeStr: scaled.servingSizeStr,
       quantity: finalQty,
       unit: selectedUnit,
@@ -235,6 +243,21 @@ export function FoodServingModal({
               <View style={styles.nameHeaderRow}>
                 <Ionicons name="pencil-outline" size={14} color="#64748b" />
                 <Text style={styles.nameLabel}>Food Name (Tap to edit)</Text>
+                {(isValidTag(brand) || isValidTag(variant)) && (
+                  <View style={styles.tagRow}>
+                    {isValidTag(brand) ? (
+                      <View style={styles.brandTag}>
+                        <Ionicons name="business-outline" size={10} color="#475569" />
+                        <Text style={styles.brandTagText}>{brand}</Text>
+                      </View>
+                    ) : null}
+                    {isValidTag(variant) ? (
+                      <View style={styles.variantTag}>
+                        <Text style={styles.variantTagText}>{variant}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                )}
               </View>
               <TextInput
                 style={styles.nameInput}
@@ -448,7 +471,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
-    gap: 4,
+    gap: 6,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 'auto',
+  },
+  brandTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#e2e8f0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  brandTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#334155',
+  },
+  variantTag: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  variantTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400e',
   },
   nameLabel: {
     fontSize: 11,

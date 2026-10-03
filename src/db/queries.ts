@@ -7,6 +7,7 @@ import {
   FoodCatalogItem,
   OptimizedFoodMapping,
 } from '../types';
+import { cleanTag } from '../services/serving';
 
 export async function getUserProfile(username = 'victor'): Promise<UserProfile | null> {
   const db = await getDatabase();
@@ -75,17 +76,22 @@ export async function logMeal(
   username: string,
   meal: Omit<MealLog, 'id' | 'created_at' | 'username'>
 ): Promise<number> {
+  const cleanBrand = cleanTag(meal.brand);
+  const cleanVariant = cleanTag(meal.variant);
+
   const db = await getDatabase();
   const result = await db.runAsync(
     `INSERT INTO meal_logs (
-      username, date, food_name, canonical_name, serving_size,
+      username, date, food_name, canonical_name, brand, variant, serving_size,
       calories, protein, carbs, fat, client_event_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       username,
       meal.date,
       meal.food_name,
       meal.canonical_name || null,
+      cleanBrand,
+      cleanVariant,
       meal.serving_size || null,
       meal.calories,
       meal.protein,
@@ -105,6 +111,8 @@ export async function logMeal(
     await upsertFoodCatalog({
       username,
       canonical_name: canonical,
+      brand: cleanBrand,
+      variant: cleanVariant,
       default_serving: meal.serving_size || null,
       calories: meal.calories,
       protein: meal.protein,
@@ -132,8 +140,12 @@ export async function updateMealLog(
 
   for (const [key, value] of Object.entries(updates)) {
     if (value !== undefined && key !== 'id') {
+      let finalVal = value;
+      if (key === 'brand' || key === 'variant') {
+        finalVal = cleanTag(value as string);
+      }
       fields.push(`${key} = ?`);
-      values.push(value);
+      values.push(finalVal);
     }
   }
 
@@ -260,7 +272,7 @@ export async function searchFoodCatalog(
     .join(' ');
 
   try {
-    return await db.getAllAsync<FoodCatalogItem>(
+    const ftsResults = await db.getAllAsync<FoodCatalogItem>(
       `SELECT fc.* FROM food_catalog fc
        JOIN food_catalog_fts fts ON fc.id = fts.rowid
        WHERE food_catalog_fts MATCH ? AND fts.username = ?
@@ -268,16 +280,24 @@ export async function searchFoodCatalog(
        LIMIT ?`,
       [tokens, username, limit]
     );
+    if (ftsResults.length > 0) {
+      return ftsResults;
+    }
   } catch {
-    // Fallback to LIKE if FTS expression has syntax error
-    return await db.getAllAsync<FoodCatalogItem>(
-      `SELECT * FROM food_catalog
-       WHERE username = ? AND canonical_name LIKE ?
-       ORDER BY usage_count DESC
-       LIMIT ?`,
-      [username, `%${trimmed}%`, limit]
-    );
+    // Fallback to LIKE if FTS fails or is unsupported
   }
+
+  return await db.getAllAsync<FoodCatalogItem>(
+    `SELECT * FROM food_catalog
+     WHERE username = ? AND (
+       canonical_name LIKE ? OR
+       (brand IS NOT NULL AND brand LIKE ?) OR
+       (variant IS NOT NULL AND variant LIKE ?)
+     )
+     ORDER BY usage_count DESC, last_used_at DESC
+     LIMIT ?`,
+    [username, `%${trimmed}%`, `%${trimmed}%`, `%${trimmed}%`, limit]
+  );
 }
 
 export async function getFoodCatalogItem(
@@ -304,13 +324,19 @@ export async function getAllFoodCatalogItems(
 export async function upsertFoodCatalog(
   item: Omit<FoodCatalogItem, 'id' | 'last_used_at' | 'created_at'>
 ): Promise<void> {
+  const cleanBrand = cleanTag(item.brand);
+  const cleanVariant = cleanTag(item.variant);
+
   const db = await getDatabase();
   await db.runAsync(
     `INSERT INTO food_catalog (
-      username, canonical_name, default_serving, calories, protein, carbs, fat,
+      username, canonical_name, brand, variant, barcode, default_serving, calories, protein, carbs, fat,
       base_weight_g, last_used_qty, last_used_unit, usage_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
     ON CONFLICT(username, canonical_name) DO UPDATE SET
+      brand = COALESCE(excluded.brand, food_catalog.brand),
+      variant = COALESCE(excluded.variant, food_catalog.variant),
+      barcode = COALESCE(excluded.barcode, food_catalog.barcode),
       usage_count = food_catalog.usage_count + 1,
       last_used_qty = COALESCE(excluded.last_used_qty, food_catalog.last_used_qty),
       last_used_unit = COALESCE(excluded.last_used_unit, food_catalog.last_used_unit),
@@ -318,6 +344,9 @@ export async function upsertFoodCatalog(
     [
       item.username,
       item.canonical_name,
+      cleanBrand,
+      cleanVariant,
+      item.barcode || null,
       item.default_serving || null,
       item.calories,
       item.protein,
@@ -429,15 +458,19 @@ export async function applyFoodCatalogOptimizations(
       const baseC = Math.round(opt.base_carbs * 10) / 10;
       const baseF = Math.round(opt.base_fat * 10) / 10;
       const baseWeight = opt.base_weight_g ?? null;
+      const cleanBrand = cleanTag(opt.brand);
+      const cleanVariant = cleanTag(opt.variant);
 
       // 1. Migrate historical meal_logs:
-      // Update canonical_name and food_name to cleanName, PRESERVING existing serving_size and macros!
-      if (originalName !== cleanName) {
+      // Update canonical_name, food_name, brand, and variant, PRESERVING existing serving_size and macros!
+      if (originalName !== cleanName || opt.brand !== undefined || opt.variant !== undefined) {
         const mealUpdateResult = await db.runAsync(
           `UPDATE meal_logs
-           SET canonical_name = ?, food_name = ?
+           SET canonical_name = ?, food_name = ?,
+               brand = COALESCE(?, brand),
+               variant = COALESCE(?, variant)
            WHERE username = ? AND (canonical_name = ? OR (canonical_name IS NULL AND food_name = ?))`,
-          [cleanName, cleanName, username, originalName, originalName]
+          [cleanName, cleanName, cleanBrand, cleanVariant, username, originalName, originalName]
         );
         migratedMealsCount += mealUpdateResult.changes;
       }
@@ -458,14 +491,16 @@ export async function applyFoodCatalogOptimizations(
         await db.runAsync(
           `UPDATE food_catalog
            SET usage_count = usage_count + ?,
+               brand = COALESCE(?, brand),
+               variant = COALESCE(?, variant),
                default_serving = COALESCE(?, default_serving),
                calories = ?,
                protein = ?,
                carbs = ?,
                fat = ?,
                base_weight_g = COALESCE(?, base_weight_g)
-           WHERE id = ?`,
-          [oldItem.usage_count, baseServing, baseCals, baseP, baseC, baseF, baseWeight, existingClean.id]
+            WHERE id = ?`,
+          [oldItem.usage_count, cleanBrand, cleanVariant, baseServing, baseCals, baseP, baseC, baseF, baseWeight, existingClean.id]
         );
         await db.runAsync(
           `DELETE FROM food_catalog WHERE id = ?`,
@@ -477,6 +512,8 @@ export async function applyFoodCatalogOptimizations(
         await db.runAsync(
           `UPDATE food_catalog
            SET canonical_name = ?,
+               brand = COALESCE(?, brand),
+               variant = COALESCE(?, variant),
                default_serving = ?,
                calories = ?,
                protein = ?,
@@ -484,7 +521,7 @@ export async function applyFoodCatalogOptimizations(
                fat = ?,
                base_weight_g = COALESCE(?, base_weight_g)
            WHERE username = ? AND canonical_name = ?`,
-          [cleanName, baseServing, baseCals, baseP, baseC, baseF, baseWeight, username, originalName]
+          [cleanName, cleanBrand, cleanVariant, baseServing, baseCals, baseP, baseC, baseF, baseWeight, username, originalName]
         );
         updatedCount++;
       }

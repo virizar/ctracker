@@ -1,16 +1,19 @@
 import { FoodCatalogItem, ParsedFoodItem, OptimizedFoodMapping } from '../types';
 import { getGeminiApiKey, getGeminiModel } from './keychain';
 import { searchFoodCatalog } from '../db/queries';
+import { cleanTag } from './serving';
 
 const FOOD_PARSER_SYSTEM_PROMPT = `You are an intelligent nutrition and calorie tracking assistant.
 Your task is to analyze user text or transcripts describing what they ate or drank and extract structured meal logs with realistic calorie and macronutrient estimates (protein, carbs, fat in grams).
 
 Guidelines:
-- Decompose complex meal descriptions into individual recognizable food items. Every food or beverage mentioned must be extracted as its own entry in the array (e.g. if the user lists 6 foods, return all 6 foods).
-- food_name: Clean, concise, standardized food name without quantities, preparation notes, or adjectives (e.g. 'Torta di Mele', 'Knækbrød', 'Sourdough Bread', 'Butter', 'Banana', 'Milk Chocolate with Hazelnut'). NEVER echo raw user descriptions or full sentences in food_name.
-- canonical_name: The clean standardized food name suitable for catalog indexing.
-- serving_size: The specific portion consumed by the user, including estimated weight in grams if possible (e.g. '2 thin slices (approx. 160g)', '3 crackers (30g)', '1 medium (118g)', '2 tbsp (28g)').
-- calories must equal approx (protein * 4) + (carbs * 4) + (fat * 9) for the consumed portion.
+- Decompose complex meal descriptions, combos, or bundles into individual recognizable food items (e.g. "Big Mac combo from McDonald's" must be decomposed into "Big Mac", "French Fries", and drink). Every food or beverage mentioned must be extracted as its own entry in the array.
+- brand: If the food is from a specific brand, restaurant chain, or manufacturer (e.g. "McDonald's", "Philadelphia", "Chobani", "Coca-Cola", "Starbucks", "Barilla", "Subway"), extract the brand name in the 'brand' field. For generic, homemade, or whole foods (e.g. "Banana", "Eggs", "Chicken Breast", "Olive Oil"), set brand to null.
+- variant: If the food has a specific formulation or variant that affects nutritional values (e.g. "Light", "Original", "Zero Sugar", "Fat Free", "Low Fat", "Medium", "Large"), extract it in 'variant'. Otherwise set to null.
+- food_name: Clean product or dish name (e.g. 'Big Mac', 'French Fries', 'Cream Cheese', 'Greek Yogurt', 'Chicken Breast'). NEVER echo raw user descriptions or full sentences in food_name.
+- canonical_name: The complete distinct searchable food name preserving brand and variant when present (e.g. 'McDonald\'s Big Mac', 'Philadelphia Cream Cheese (Light)', 'Chicken Breast').
+- serving_size: The specific portion consumed by the user, including estimated weight in grams if possible (e.g. '1 burger (215g)', '1 medium order (117g)', '2 thin slices (approx. 160g)', '2 tbsp (30g)').
+- calories and macronutrients: Use official published manufacturer/restaurant values whenever a specific brand or restaurant is identified (e.g. McDonald's Big Mac has approx 590 kcal, 25g protein, 46g carbs, 34g fat). Calories must equal approx (protein * 4) + (carbs * 4) + (fat * 9) for the consumed portion.
 - Return a JSON array matching the required schema. If the input does not describe any food or beverage, return an empty array [].`;
 
 const FOOD_PARSER_SCHEMA = {
@@ -20,15 +23,23 @@ const FOOD_PARSER_SCHEMA = {
     properties: {
       food_name: {
         type: 'STRING',
-        description: 'Clean generic food title, e.g. "Torta di Mele", "Knækbrød", "Butter", "Sourdough Bread"',
+        description: 'Clean product or dish title, e.g. "Big Mac", "French Fries", "Cream Cheese", "Sourdough Bread"',
       },
       canonical_name: {
         type: 'STRING',
-        description: 'Standardized generic food name for catalog indexing',
+        description: 'Standardized distinct food name for catalog indexing (e.g. "McDonald\'s Big Mac", "Philadelphia Cream Cheese (Light)")',
+      },
+      brand: {
+        type: 'STRING',
+        description: 'Manufacturer, restaurant chain, or brand name if applicable (e.g. "McDonald\'s", "Philadelphia", "Chobani"), or null for generic foods',
+      },
+      variant: {
+        type: 'STRING',
+        description: 'Product formulation or variant if applicable (e.g. "Light", "Original", "Zero Sugar", "Medium"), or null',
       },
       serving_size: {
         type: 'STRING',
-        description: 'Specific portion consumed by user, e.g. "2 slices (160g)", "3 crackers (30g)"',
+        description: 'Specific portion consumed by user, e.g. "1 burger (215g)", "2 slices (160g)", "3 crackers (30g)"',
       },
       calories: {
         type: 'NUMBER',
@@ -75,7 +86,12 @@ export function extractJsonArray<T = any>(candidateText: string): T[] {
 }
 
 export function extractFoodItemsFromJson(candidateText: string): ParsedFoodItem[] {
-  return extractJsonArray<ParsedFoodItem>(candidateText);
+  const items = extractJsonArray<ParsedFoodItem>(candidateText);
+  return items.map((item) => ({
+    ...item,
+    brand: cleanTag(item.brand),
+    variant: cleanTag(item.variant),
+  }));
 }
 
 
@@ -189,9 +205,11 @@ const CATALOG_OPTIMIZER_SYSTEM_PROMPT = `You are an expert nutrition database cu
 Your task is to review a batch of existing food items from a user's food catalog and standardize/normalize them for a reusable, clean personal food library.
 
 Guidelines:
-- Clean and simplify messy, verbose, or conversational names (e.g., "2 slices of torta di mele italian (relatively thin)" -> "Torta di Mele"; "3 knaeckebroed crackers" -> "Knækbrød"; "Fresh organic honey crisp apple" -> "Apple").
+- Clean and simplify messy, verbose, or conversational names (e.g., "2 slices of torta di mele italian (relatively thin)" -> "Torta di Mele"; "3 knaeckebroed crackers" -> "Knækbrød"). Strip pure marketing buzzwords (e.g. "Artisanal", "Farm Fresh", "Delicious").
+- PRESERVE BRANDS & RESTAURANTS: If a food is from a specific brand, manufacturer, or restaurant (e.g. "Philadelphia", "McDonald's", "Chobani", "Kirkland", "Barilla", "Oreo"), preserve the brand in 'clean_name' and extract it into 'brand' (e.g. clean_name: "Philadelphia Cream Cheese", brand: "Philadelphia"). NEVER convert branded foods into generic foods (e.g. DO NOT turn "Philadelphia Cream Cheese" into "Cream cheese" or "Big Mac" into "Hamburger").
+- PRESERVE NUTRITIONAL FORMULATIONS & VARIANTS: NEVER strip words that fundamentally alter calories or macronutrients (e.g. "Light", "Zero", "Low Fat", "Fat Free", "Original", "Diet", "Whole Milk" vs "Skim Milk"). Extract them in 'variant'. Different variants of a product must remain distinct catalog foods.
 - Deduplicate and normalize capitalization (e.g. Title Case: "Whole Milk", "Greek Yogurt 0%").
-- Extract a clean 1-unit baseline serving for the food library (e.g. "1 slice (80g)", "1 cracker (10g)", "1 egg (50g)", "100g", "1 tbsp (15ml)").
+- Extract a clean 1-unit baseline serving for the food library (e.g. "1 slice (80g)", "1 cracker (10g)", "1 egg (50g)", "100g", "1 tbsp (15g)").
 - Scale or determine the base_calories, base_protein, base_carbs, and base_fat accurately for this single 1-unit baseline.
 - For foods that are already clean, standardized, and have a good 1-unit serving, keep them as-is.
 - original_name must EXACTLY match the input item's name so we can map it back to the database.
@@ -208,7 +226,15 @@ const CATALOG_OPTIMIZER_SCHEMA = {
       },
       clean_name: {
         type: 'STRING',
-        description: 'Clean, standardized generic food name, e.g. "Torta di Mele"',
+        description: 'Clean, standardized distinctive food name (e.g. "Philadelphia Cream Cheese (Light)", "Big Mac", "Torta di Mele")',
+      },
+      brand: {
+        type: 'STRING',
+        description: 'Brand, restaurant chain, or manufacturer if applicable (e.g. "Philadelphia", "McDonald\'s"), or null',
+      },
+      variant: {
+        type: 'STRING',
+        description: 'Nutritional variant if applicable (e.g. "Light", "Zero Sugar", "Fat Free"), or null',
       },
       base_serving: {
         type: 'STRING',
@@ -322,5 +348,10 @@ export async function optimizeFoodCatalogBatch(
     return [];
   }
 
-  return extractJsonArray<OptimizedFoodMapping>(candidateText);
+  const rawMappings = extractJsonArray<OptimizedFoodMapping>(candidateText);
+  return rawMappings.map((m) => ({
+    ...m,
+    brand: cleanTag(m.brand),
+    variant: cleanTag(m.variant),
+  }));
 }

@@ -189,3 +189,27 @@ export function formatCatalogServing(
   }
   return defaultServing || '1 serving';
 }
+
+/**
+ * Checks if a brand or variant string is valid (i.e. not empty, and not "null", "undefined", "none", etc.)
+ */
+export function isValidTag(tag?: string | null): boolean {
+  if (!tag) return false;
+  const trimmed = tag.trim().toLowerCase();
+  return (
+    trimmed.length > 0 &&
+    trimmed !== 'null' &&
+    trimmed !== 'undefined' &&
+    trimmed !== 'none' &&
+    trimmed !== 'n/a' &&
+    trimmed !== 'generic'
+  );
+}
+
+/**
+ * Normalizes a brand or variant tag to a trimmed string or null.
+ */
+export function cleanTag(tag?: string | null): string | null {
+  if (!isValidTag(tag)) return null;
+  return tag!.trim();
+}

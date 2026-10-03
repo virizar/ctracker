@@ -32,6 +32,8 @@ export interface MealLog {
   date: string; // YYYY-MM-DD
   food_name: string;
   canonical_name?: string | null;
+  brand?: string | null;
+  variant?: string | null;
   serving_size?: string | null;
   calories: number;
   protein: number;
@@ -63,6 +65,9 @@ export interface FoodCatalogItem {
   id?: number;
   username: string;
   canonical_name: string;
+  brand?: string | null;
+  variant?: string | null;
+  barcode?: string | null;
   default_serving?: string | null;
   calories: number;
   protein: number;
@@ -101,6 +106,8 @@ export interface DashboardSummaryResponse {
 export interface ParsedFoodItem {
   food_name: string;
   canonical_name: string;
+  brand?: string | null;
+  variant?: string | null;
   serving_size: string;
   calories: number;
   protein: number;
@@ -117,6 +124,8 @@ export interface ParsedFoodItem {
 export interface OptimizedFoodMapping {
   original_name: string;
   clean_name: string;
+  brand?: string | null;
+  variant?: string | null;
   base_serving: string;
   base_calories: number;
   base_protein: number;

@@ -167,4 +167,98 @@ describe('Gemini AI Response Parsing Tests', () => {
     expect(result[3].canonical_name).toBe('Torta di Mele');
     expect(result[4].canonical_name).toBe('Milk Chocolate with Hazelnut');
   });
+
+  it('parses brand and variant fields correctly for branded foods', () => {
+    const raw = JSON.stringify([
+      {
+        food_name: 'Big Mac',
+        canonical_name: "McDonald's Big Mac",
+        brand: "McDonald's",
+        variant: 'Original',
+        serving_size: '1 burger (215g)',
+        calories: 563,
+        protein: 26,
+        carbs: 44,
+        fat: 33,
+      },
+      {
+        food_name: 'Cream Cheese Light',
+        canonical_name: 'Philadelphia Cream Cheese (Light)',
+        brand: 'Philadelphia',
+        variant: 'Light',
+        serving_size: '30g',
+        calories: 45,
+        protein: 2.5,
+        carbs: 1.5,
+        fat: 3.3,
+      },
+    ]);
+
+    const result = extractFoodItemsFromJson(raw);
+    expect(result).toHaveLength(2);
+    expect(result[0].brand).toBe("McDonald's");
+    expect(result[0].variant).toBe('Original');
+    expect(result[0].canonical_name).toBe("McDonald's Big Mac");
+
+    expect(result[1].brand).toBe('Philadelphia');
+    expect(result[1].variant).toBe('Light');
+    expect(result[1].canonical_name).toBe('Philadelphia Cream Cheese (Light)');
+  });
+
+  it('parses catalog optimizer response with brand and variant preserved', () => {
+    const raw = JSON.stringify([
+      {
+        original_name: 'philadelphia light spread 30 grams',
+        clean_name: 'Philadelphia Cream Cheese (Light)',
+        brand: 'Philadelphia',
+        variant: 'Light',
+        base_serving: '30g (1 serving)',
+        base_weight_g: 30,
+        base_calories: 45,
+        base_protein: 2.5,
+        base_carbs: 1.5,
+        base_fat: 3.3,
+      },
+    ]);
+
+    const result = extractJsonArray<OptimizedFoodMapping>(raw);
+    expect(result).toHaveLength(1);
+    expect(result[0].clean_name).toBe('Philadelphia Cream Cheese (Light)');
+    expect(result[0].brand).toBe('Philadelphia');
+    expect(result[0].variant).toBe('Light');
+  });
+
+  it('normalizes string literals like "null", "undefined", or "none" in brand and variant to null', () => {
+    const raw = JSON.stringify([
+      {
+        food_name: 'Apple',
+        canonical_name: 'Apple',
+        brand: 'null',
+        variant: 'none',
+        serving_size: '1 medium (182g)',
+        calories: 95,
+        protein: 0.5,
+        carbs: 25,
+        fat: 0.3,
+      },
+      {
+        food_name: 'Boiled Egg',
+        canonical_name: 'Boiled Egg',
+        brand: 'None',
+        variant: 'null',
+        serving_size: '1 large',
+        calories: 78,
+        protein: 6,
+        carbs: 0.6,
+        fat: 5,
+      },
+    ]);
+
+    const result = extractFoodItemsFromJson(raw);
+    expect(result).toHaveLength(2);
+    expect(result[0].brand).toBeNull();
+    expect(result[0].variant).toBeNull();
+    expect(result[1].brand).toBeNull();
+    expect(result[1].variant).toBeNull();
+  });
 });

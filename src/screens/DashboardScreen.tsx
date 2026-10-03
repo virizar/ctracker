@@ -26,7 +26,7 @@ import {
 import { recalculateUserTdee, formatDate, parseDate } from '../services/tdee';
 import { UserProfile, DailySummary, MealLog, FoodCatalogItem } from '../types';
 import { FoodServingModal } from '../components/FoodServingModal';
-import { parseServingString } from '../services/serving';
+import { parseServingString, isValidTag, cleanTag } from '../services/serving';
 import { DateCalendarModal } from '../components/DateCalendarModal';
 
 interface DashboardScreenProps {
@@ -185,6 +185,8 @@ export function DashboardScreen({
       catalogItem = {
         username: uname,
         canonical_name: m.food_name,
+        brand: cleanTag(m.brand),
+        variant: cleanTag(m.variant),
         default_serving: m.serving_size || '1 serving',
         calories: m.calories,
         protein: m.protein,
@@ -192,6 +194,9 @@ export function DashboardScreen({
         fat: m.fat,
         usage_count: 1,
       };
+    } else {
+      if (!isValidTag(catalogItem.brand) && isValidTag(m.brand)) catalogItem.brand = cleanTag(m.brand);
+      if (!isValidTag(catalogItem.variant) && isValidTag(m.variant)) catalogItem.variant = cleanTag(m.variant);
     }
 
     const parsed = parseServingString(m.serving_size);
@@ -206,6 +211,8 @@ export function DashboardScreen({
   const handleConfirmEditMeal = async (result: {
     foodName: string;
     originalCanonicalName: string;
+    brand?: string | null;
+    variant?: string | null;
     servingSizeStr: string;
     quantity: number;
     unit: string;
@@ -216,11 +223,15 @@ export function DashboardScreen({
   }) => {
     if (!editingMeal?.id) return;
     const uname = profile?.username || 'victor';
+    const brandToSave = cleanTag(result.brand !== undefined ? result.brand : (editingMeal.brand ?? null));
+    const variantToSave = cleanTag(result.variant !== undefined ? result.variant : (editingMeal.variant ?? null));
 
     try {
       await updateMealLog(editingMeal.id, {
         food_name: result.foodName,
         canonical_name: result.foodName,
+        brand: brandToSave,
+        variant: variantToSave,
         serving_size: result.servingSizeStr,
         calories: result.calories,
         protein: result.protein,
@@ -232,6 +243,8 @@ export function DashboardScreen({
       await upsertFoodCatalog({
         username: uname,
         canonical_name: result.foodName,
+        brand: brandToSave,
+        variant: variantToSave,
         default_serving: result.servingSizeStr,
         calories: result.calories,
         protein: result.protein,
@@ -792,7 +805,20 @@ export function DashboardScreen({
                   activeOpacity={0.7}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.mealName}>{m.food_name}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                      <Text style={styles.mealName}>{m.food_name}</Text>
+                      {isValidTag(m.brand) ? (
+                        <View style={styles.brandBadge}>
+                          <Ionicons name="business-outline" size={10} color="#475569" />
+                          <Text style={styles.brandBadgeText}>{m.brand}</Text>
+                        </View>
+                      ) : null}
+                      {isValidTag(m.variant) ? (
+                        <View style={styles.variantBadge}>
+                          <Text style={styles.variantBadgeText}>{m.variant}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     <Text style={styles.mealDetails}>
                       {m.serving_size ? `${m.serving_size} • ` : ''}
                       P: {Math.round(m.protein)}g | C: {Math.round(m.carbs)}g | F: {Math.round(m.fat)}g
@@ -1396,6 +1422,35 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#1e293b',
+  },
+  brandBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  brandBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  variantBadge: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  variantBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400e',
   },
   mealDetails: {
     fontSize: 12,

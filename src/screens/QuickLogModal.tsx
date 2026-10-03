@@ -23,7 +23,7 @@ import {
   getUserProfile,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
-import { formatCatalogServing } from '../services/serving';
+import { formatCatalogServing, isValidTag, cleanTag } from '../services/serving';
 import { ParsedFoodItem, FoodCatalogItem } from '../types';
 import { FoodServingModal } from '../components/FoodServingModal';
 
@@ -122,6 +122,8 @@ export function QuickLogModal({
         date: targetDate,
         food_name: cleanName,
         canonical_name: cleanName,
+        brand: cleanTag(item.brand),
+        variant: cleanTag(item.variant),
         serving_size: item.serving_size,
         calories: item.calories,
         protein: item.protein,
@@ -151,6 +153,8 @@ export function QuickLogModal({
     if (existing) {
       setServingModalItem({
         ...existing,
+        brand: cleanTag(aiItem.brand ?? existing.brand),
+        variant: cleanTag(aiItem.variant ?? existing.variant),
         id: -1 * (idx + 1),
       });
     } else {
@@ -158,6 +162,8 @@ export function QuickLogModal({
         id: -1 * (idx + 1),
         username: profileUsername,
         canonical_name: cleanName,
+        brand: cleanTag(aiItem.brand),
+        variant: cleanTag(aiItem.variant),
         default_serving: aiItem.serving_size,
         base_weight_g: aiItem.base_weight_g ?? null,
         calories: aiItem.calories,
@@ -176,6 +182,8 @@ export function QuickLogModal({
   const handleConfirmServing = async (result: {
     foodName: string;
     originalCanonicalName: string;
+    brand?: string | null;
+    variant?: string | null;
     servingSizeStr: string;
     quantity: number;
     unit: string;
@@ -186,6 +194,8 @@ export function QuickLogModal({
   }) => {
     try {
       const finalName = result.foodName.trim() || result.originalCanonicalName;
+      const finalBrand = cleanTag(result.brand !== undefined ? result.brand : (servingModalItem?.brand ?? null));
+      const finalVariant = cleanTag(result.variant !== undefined ? result.variant : (servingModalItem?.variant ?? null));
 
       // Case 1: Editing a temporary item from the AI preview list
       if (servingModalItem && servingModalItem.id !== undefined && servingModalItem.id < 0) {
@@ -193,8 +203,11 @@ export function QuickLogModal({
         setParsedItems((prev) => {
           const updated = [...prev];
           updated[itemIdx] = {
+            ...updated[itemIdx],
             food_name: finalName,
             canonical_name: finalName,
+            brand: finalBrand,
+            variant: finalVariant,
             serving_size: result.servingSizeStr,
             calories: result.calories,
             protein: result.protein,
@@ -227,6 +240,8 @@ export function QuickLogModal({
         date: targetDate,
         food_name: finalName,
         canonical_name: finalName,
+        brand: finalBrand,
+        variant: finalVariant,
         serving_size: result.servingSizeStr,
         calories: result.calories,
         protein: result.protein,
@@ -393,7 +408,20 @@ export function QuickLogModal({
                     activeOpacity={0.7}
                   >
                     <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={styles.previewFoodName}>{item.food_name}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
+                        <Text style={styles.previewFoodName}>{item.food_name}</Text>
+                        {isValidTag(item.brand) ? (
+                          <View style={styles.brandBadge}>
+                            <Ionicons name="business-outline" size={10} color="#475569" />
+                            <Text style={styles.brandBadgeText}>{item.brand}</Text>
+                          </View>
+                        ) : null}
+                        {isValidTag(item.variant) ? (
+                          <View style={styles.variantBadge}>
+                            <Text style={styles.variantBadgeText}>{item.variant}</Text>
+                          </View>
+                        ) : null}
+                      </View>
                       <Text style={styles.previewDetails}>
                         {item.serving_size} • P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
                       </Text>
@@ -499,7 +527,20 @@ export function QuickLogModal({
                       activeOpacity={0.7}
                     >
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.searchItemTitle}>{item.canonical_name}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                          <Text style={styles.searchItemTitle}>{item.canonical_name}</Text>
+                          {isValidTag(item.brand) ? (
+                            <View style={styles.brandBadge}>
+                              <Ionicons name="business-outline" size={10} color="#475569" />
+                              <Text style={styles.brandBadgeText}>{item.brand}</Text>
+                            </View>
+                          ) : null}
+                          {isValidTag(item.variant) ? (
+                            <View style={styles.variantBadge}>
+                              <Text style={styles.variantBadgeText}>{item.variant}</Text>
+                            </View>
+                          ) : null}
+                        </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 4 }}>
                           {hasLastUsed ? (
                             <Ionicons name="time-outline" size={12} color="#2563eb" />
@@ -851,5 +892,34 @@ const styles = StyleSheet.create({
   searchItemUsage: {
     fontSize: 11,
     color: '#94a3b8',
+  },
+  brandBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  brandBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  variantBadge: {
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  variantBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#92400e',
   },
 });

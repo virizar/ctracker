@@ -1,4 +1,10 @@
-import { parseServingString, scaleNutrition, formatCatalogServing } from '../src/services/serving';
+import {
+  parseServingString,
+  scaleNutrition,
+  formatCatalogServing,
+  isValidTag,
+  cleanTag,
+} from '../src/services/serving';
 
 describe('Food Serving & Unit Conversion Engine Tests', () => {
   describe('parseServingString', () => {
@@ -110,6 +116,43 @@ describe('Food Serving & Unit Conversion Engine Tests', () => {
     it('falls back to default serving when last used is not present', () => {
       expect(formatCatalogServing(null, null, '1 slice (43g)')).toBe('1 slice (43g)');
       expect(formatCatalogServing(null, null, null)).toBe('1 serving');
+    });
+  });
+
+  describe('isValidTag & cleanTag', () => {
+    it('rejects falsy, empty, whitespace, and placeholder strings', () => {
+      expect(isValidTag(null)).toBe(false);
+      expect(isValidTag(undefined)).toBe(false);
+      expect(isValidTag('')).toBe(false);
+      expect(isValidTag('   ')).toBe(false);
+      expect(isValidTag('null')).toBe(false);
+      expect(isValidTag('NULL')).toBe(false);
+      expect(isValidTag('Null')).toBe(false);
+      expect(isValidTag('undefined')).toBe(false);
+      expect(isValidTag('none')).toBe(false);
+      expect(isValidTag('None')).toBe(false);
+      expect(isValidTag('n/a')).toBe(false);
+      expect(isValidTag('N/A')).toBe(false);
+      expect(isValidTag('generic')).toBe(false);
+    });
+
+    it('accepts legitimate brand or variant strings', () => {
+      expect(isValidTag("McDonald's")).toBe(true);
+      expect(isValidTag('Philadelphia')).toBe(true);
+      expect(isValidTag('Light')).toBe(true);
+      expect(isValidTag('Zero Sugar')).toBe(true);
+      expect(isValidTag('Original')).toBe(true);
+    });
+
+    it('cleanTag normalizes invalid strings to null and trims valid strings', () => {
+      expect(cleanTag('null')).toBe(null);
+      expect(cleanTag('NULL')).toBe(null);
+      expect(cleanTag(' undefined ')).toBe(null);
+      expect(cleanTag('none')).toBe(null);
+      expect(cleanTag('')).toBe(null);
+      expect(cleanTag(null)).toBe(null);
+      expect(cleanTag("  McDonald's  ")).toBe("McDonald's");
+      expect(cleanTag(' Light ')).toBe('Light');
     });
   });
 });
