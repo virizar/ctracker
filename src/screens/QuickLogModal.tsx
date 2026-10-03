@@ -280,7 +280,15 @@ export function QuickLogModal({
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Log Food for {targetDate}</Text>
+          <View>
+            <Text style={styles.title}>Log Food</Text>
+            <View style={styles.dateSubRow}>
+              <Ionicons name="calendar-outline" size={13} color="#2563eb" />
+              <Text style={styles.dateSubText}>
+                {targetDate === formatDate(new Date()) ? `Today (${targetDate})` : targetDate}
+              </Text>
+            </View>
+          </View>
           <TouchableOpacity onPress={resetAndClose} style={styles.closeBtn}>
             <Ionicons name="close" size={24} color="#64748b" />
           </TouchableOpacity>
@@ -558,6 +566,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#0f172a',
+  },
+  dateSubRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 3,
+  },
+  dateSubText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563eb',
   },
   closeBtn: {
     padding: 4,

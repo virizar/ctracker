@@ -121,6 +121,7 @@ function MainApp() {
       {/* Quick Log AI Modal */}
       <QuickLogModal
         visible={isQuickLogVisible}
+        targetDate={activeDate}
         onClose={() => setIsQuickLogVisible(false)}
         onSuccess={() => {
           setRefreshKey((k) => k + 1);
