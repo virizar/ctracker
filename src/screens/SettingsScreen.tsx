@@ -27,6 +27,7 @@ import {
   mifflinStJeor,
   calculateAgeYears,
   formatDate,
+  calculatePhysiologicalDailyTarget,
 } from '../services/tdee';
 import { pickAndInspectFile, ImportPreview } from '../services/importer';
 import { runFoodCatalogOptimization } from '../services/catalogOptimizer';
@@ -52,7 +53,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
 
   // Goal & Strategy Form States
   const [targetWeight, setTargetWeight] = useState('85.0');
-  const [targetRate, setTargetRate] = useState('2.0');
+  const [lossPace, setLossPace] = useState<'gentle' | 'balanced' | 'ambitious'>('balanced');
   const [minCalories, setMinCalories] = useState('1500');
 
   // Import State
@@ -85,9 +86,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
       setHeight(u.height_cm ? u.height_cm.toString() : '185');
       setActivity(u.activity_multiplier || 1.2);
       setTargetWeight(u.target_weight_kg ? u.target_weight_kg.toString() : '85.0');
-      setTargetRate(
-        u.target_monthly_rate_kg ? Math.abs(u.target_monthly_rate_kg).toString() : '2.0'
-      );
+      setLossPace((u.loss_pace as any) || 'balanced');
       setMinCalories(u.min_daily_calories ? u.min_daily_calories.toString() : '1500');
 
       const weights = await getScaleWeights(u.username || 'victor', 1);
@@ -117,30 +116,18 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
   const baselineBmr = Math.round(mifflinStJeor(parsedWeight, parsedHeight, ageYears, sex));
   const startingTdee = Math.round(baselineBmr * activity);
 
-  // Smart Goal Inference
+  // Context-Aware Physiological Target Inference
   const parsedTw = parseFloat(targetWeight);
-  const parsedRate = Math.abs(parseFloat(targetRate) || 0);
-  const referenceWeight = currentWeight ?? (profile?.target_weight_kg ?? 80);
-
-  let goalMode: 'loss' | 'gain' | 'maintain' = 'maintain';
-  let dailyDeltaCals = 0;
-  let smartRateSigned = 0;
-
-  if (!isNaN(parsedTw) && referenceWeight) {
-    if (parsedTw < referenceWeight - 0.2) {
-      goalMode = 'loss';
-      smartRateSigned = -parsedRate;
-      dailyDeltaCals = Math.round((parsedRate * 7700) / 30.4375);
-    } else if (parsedTw > referenceWeight + 0.2) {
-      goalMode = 'gain';
-      smartRateSigned = parsedRate;
-      dailyDeltaCals = Math.round((parsedRate * 7700) / 30.4375);
-    } else {
-      goalMode = 'maintain';
-      smartRateSigned = 0;
-      dailyDeltaCals = 0;
-    }
-  }
+  const targetResult = calculatePhysiologicalDailyTarget({
+    tdee: startingTdee,
+    currentWeightKg: parsedWeight,
+    targetWeightKg: isNaN(parsedTw) ? parsedWeight : parsedTw,
+    heightCm: parsedHeight,
+    ageYears,
+    sex,
+    pace: lossPace,
+    userMinCalories: parseFloat(minCalories) || null,
+  });
 
   const handleSaveProfile = async () => {
     const tw = parseFloat(targetWeight);
@@ -169,7 +156,11 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
       height_cm: h,
       activity_multiplier: activity,
       target_weight_kg: tw,
-      target_monthly_rate_kg: smartRateSigned,
+      target_monthly_rate_kg:
+        targetResult.mode === 'loss'
+          ? -targetResult.weeklyRateKg * 4.345
+          : targetResult.weeklyRateKg * 4.345,
+      loss_pace: lossPace,
       min_daily_calories: mc,
     });
 
@@ -560,76 +551,115 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
           <Text style={styles.cardTitle}>Goals & Strategy</Text>
         </View>
 
-        <View style={styles.twoColRow}>
-          <View style={{ flex: 1, marginRight: 8 }}>
-            <Text style={styles.label}>Target Weight (kg)</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="decimal-pad"
-              value={targetWeight}
-              onChangeText={setTargetWeight}
-            />
-          </View>
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text style={styles.label}>Desired Pace (kg/mo)</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="decimal-pad"
-              placeholder="1.5"
-              value={targetRate}
-              onChangeText={setTargetRate}
-            />
-          </View>
+        <Text style={styles.label}>Target Goal Weight (kg)</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="decimal-pad"
+          placeholder="85.0"
+          value={targetWeight}
+          onChangeText={setTargetWeight}
+        />
+
+        <Text style={[styles.label, { marginTop: 12 }]}>Strategy Pace</Text>
+        <View style={styles.paceSelectorRow}>
+          {([
+            { id: 'gentle', label: 'Gentle', sub: 'Easy & Steady' },
+            { id: 'balanced', label: 'Balanced', sub: 'Optimal (Rec.)' },
+            { id: 'ambitious', label: 'Ambitious', sub: 'Fast Progress' },
+          ] as const).map((p) => {
+            const isSelected = lossPace === p.id;
+            return (
+              <TouchableOpacity
+                key={p.id}
+                style={[styles.paceCard, isSelected && styles.paceCardActive]}
+                onPress={() => setLossPace(p.id)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.paceLabel, isSelected && styles.paceLabelActive]}>
+                  {p.label}
+                </Text>
+                <Text style={[styles.paceSub, isSelected && styles.paceSubActive]}>
+                  {p.sub}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Smart Inferred Goal Badge */}
         <View
           style={[
             styles.smartGoalBadge,
-            goalMode === 'loss' && styles.smartGoalLoss,
-            goalMode === 'gain' && styles.smartGoalGain,
-            goalMode === 'maintain' && styles.smartGoalMaintain,
+            targetResult.mode === 'loss' && styles.smartGoalLoss,
+            targetResult.mode === 'gain' && styles.smartGoalGain,
+            targetResult.mode === 'maintain' && styles.smartGoalMaintain,
           ]}
         >
           <Ionicons
             name={
-              goalMode === 'loss'
+              targetResult.mode === 'loss'
                 ? 'trending-down'
-                : goalMode === 'gain'
+                : targetResult.mode === 'gain'
                 ? 'trending-up'
                 : 'reorder-two'
             }
-            size={18}
+            size={20}
             color={
-              goalMode === 'loss'
+              targetResult.mode === 'loss'
                 ? '#059669'
-                : goalMode === 'gain'
+                : targetResult.mode === 'gain'
                 ? '#2563eb'
                 : '#475569'
             }
           />
-          <View style={{ flex: 1, marginLeft: 8 }}>
-            <Text
-              style={[
-                styles.smartGoalTitle,
-                goalMode === 'loss' && { color: '#065f46' },
-                goalMode === 'gain' && { color: '#1d4ed8' },
-                goalMode === 'maintain' && { color: '#334155' },
-              ]}
-            >
-              {goalMode === 'loss'
-                ? `Weight Loss Target (-${parsedRate} kg/mo)`
-                : goalMode === 'gain'
-                ? `Weight Gain / Bulk Target (+${parsedRate} kg/mo)`
-                : 'Weight Maintenance'}
-            </Text>
+          <View style={{ flex: 1, marginLeft: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text
+                style={[
+                  styles.smartGoalTitle,
+                  targetResult.mode === 'loss' && { color: '#065f46' },
+                  targetResult.mode === 'gain' && { color: '#1d4ed8' },
+                  targetResult.mode === 'maintain' && { color: '#334155' },
+                ]}
+              >
+                {targetResult.mode === 'loss'
+                  ? `Fat Loss Pace (~${targetResult.weeklyRateKg.toFixed(2)} kg/wk • ${targetResult.weeklyRatePercent.toFixed(2)}% BW)`
+                  : targetResult.mode === 'gain'
+                  ? `Muscle Gain Pace (~${targetResult.weeklyRateKg.toFixed(2)} kg/wk • ${targetResult.weeklyRatePercent.toFixed(2)}% BW)`
+                  : 'Weight Maintenance Landing'}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: '800',
+                  color:
+                    targetResult.mode === 'loss'
+                      ? '#059669'
+                      : targetResult.mode === 'gain'
+                      ? '#2563eb'
+                      : '#475569',
+                }}
+              >
+                {targetResult.targetCalories} kcal
+              </Text>
+            </View>
+
             <Text style={styles.smartGoalSub}>
-              {goalMode === 'loss'
-                ? `~${dailyDeltaCals} kcal/day deficit below TDEE (${currentWeight ? currentWeight.toFixed(1) : '--'} → ${parsedTw.toFixed(1)} kg)`
-                : goalMode === 'gain'
-                ? `~${dailyDeltaCals} kcal/day surplus above TDEE (${currentWeight ? currentWeight.toFixed(1) : '--'} → ${parsedTw.toFixed(1)} kg)`
-                : `Target matches current weight (${parsedTw.toFixed(1)} kg)`}
+              {targetResult.mode === 'loss'
+                ? `Daily deficit of ~${targetResult.dailyDeficit} kcal from ${startingTdee} kcal TDEE (BMI ${targetResult.bmi.toFixed(1)}).`
+                : targetResult.mode === 'gain'
+                ? `Daily controlled surplus of ~${-targetResult.dailyDeficit} kcal above ${startingTdee} kcal TDEE.`
+                : `Target within 0.35 kg of current weight (${parsedWeight} kg). Calories match full TDEE.`}
             </Text>
+
+            {targetResult.isCapped && (
+              <View style={styles.cappedWarningRow}>
+                <Ionicons name="information-circle" size={14} color="#d97706" />
+                <Text style={styles.cappedWarningText}>
+                  Target protected by metabolic safety floor ({targetResult.minFloor} kcal/day).
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -1144,9 +1174,48 @@ const styles = StyleSheet.create({
     marginTop: 8,
     lineHeight: 15,
   },
+  paceSelectorRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  paceCard: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paceCardActive: {
+    borderColor: '#10b981',
+    backgroundColor: '#ecfdf5',
+  },
+  paceLabel: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  paceLabelActive: {
+    color: '#065f46',
+  },
+  paceSub: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  paceSubActive: {
+    color: '#047857',
+    fontWeight: '600',
+  },
   smartGoalBadge: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     borderRadius: 10,
     padding: 12,
     marginTop: 12,
@@ -1172,6 +1241,17 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: '#64748b',
     marginTop: 2,
+  },
+  cappedWarningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 4,
+  },
+  cappedWarningText: {
+    fontSize: 11,
+    color: '#b45309',
+    fontWeight: '600',
   },
   appBrandCard: {
     flexDirection: 'row',

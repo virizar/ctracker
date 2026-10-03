@@ -8,6 +8,7 @@ export interface UserProfile {
   activity_multiplier: number;
   target_weight_kg: number | null;
   target_monthly_rate_kg: number;
+  loss_pace?: 'gentle' | 'balanced' | 'ambitious';
   min_daily_calories: number;
   protein_ratio: number;
   carbs_ratio: number;

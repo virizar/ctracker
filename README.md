@@ -17,6 +17,13 @@ CTracker runs 100% locally on your phone using an embedded SQLite database (`exp
   * **Adherence-Neutral Metabolic Burn Rate**: Automatically adapts your daily expenditure based on logged intake vs. weight trend.
   * **Gap Resilience**: Gracefully handles missed days or vacations with time-decay factors ($\Delta t$).
 
+* **🎯 Context-Aware Physiological Target Engine**:
+  * **Target Weight Only (No Fake Dates)**: Focuses purely on target weight flow without artificial deadline pressure.
+  * **Realistic Tissue Mix ($6,500\text{ kcal/kg}$)**: Moves past the rigid 3,500 kcal/lb Wishnofsky rule with Kevin Hall NIH dynamic metabolic findings.
+  * **Leanness & Age Guardrails**: Scales weekly deficit rate based on BMI, height, and age (>50 sarcopenia protection) to prevent muscle catabolism.
+  * **Dynamic Safety Floors**: Protects metabolic baseline based on sex and BMR ($\ge 0.85\times\text{BMR}$).
+  * **Automatic Maintenance Landing**: Automatically smoothly transitions to maintenance (100% TDEE) within 0.35 kg of your target.
+
 * **📊 Interactive Metabolic & Trend Charts**:
   * **Weight Trend**: Scale weight dots, smooth trend line, under-curve gradient, and dashed goal reference line.
   * **Expenditure vs. Intake**: Daily calorie intake columns alongside a continuous flowing TDEE curve.

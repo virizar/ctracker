@@ -8,6 +8,7 @@ import {
   calculateTrendWeightStep,
   calculateTdeeStep,
   calculateDailyTarget,
+  calculatePhysiologicalDailyTarget,
   CONSTANTS,
 } from '../src/services/tdee';
 
@@ -136,6 +137,173 @@ describe('TDEE & Metabolic Engine Tests', () => {
 
       expect(targetCalories).toBe(1500);
       expect(isCapped).toBe(true);
+    });
+  });
+
+  describe('calculatePhysiologicalDailyTarget', () => {
+    it('automatically transitions to maintenance when within 0.35kg of target', () => {
+      const result = calculatePhysiologicalDailyTarget({
+        tdee: 2400,
+        currentWeightKg: 80.2,
+        targetWeightKg: 80.0,
+        heightCm: 180,
+        ageYears: 30,
+        sex: 'male',
+        pace: 'balanced',
+      });
+
+      expect(result.mode).toBe('maintain');
+      expect(result.targetCalories).toBe(2400);
+      expect(result.dailyDeficit).toBe(0);
+      expect(result.weeklyRateKg).toBe(0);
+    });
+
+    it('calculates controlled surplus for muscle gain when target is above current weight', () => {
+      const result = calculatePhysiologicalDailyTarget({
+        tdee: 2200,
+        currentWeightKg: 75.0,
+        targetWeightKg: 80.0,
+        heightCm: 180,
+        ageYears: 25,
+        sex: 'male',
+        pace: 'balanced',
+      });
+
+      expect(result.mode).toBe('gain');
+      expect(result.targetCalories).toBeGreaterThan(2200);
+      expect(result.dailyDeficit).toBeLessThan(0); // negative deficit = surplus
+      expect(result.weeklyRateKg).toBeGreaterThan(0);
+    });
+
+    it('protects lean individuals by scaling deficit with BMI and leanness', () => {
+      // Very lean male: 68kg at 185cm (BMI ~19.9)
+      const lean = calculatePhysiologicalDailyTarget({
+        tdee: 2400,
+        currentWeightKg: 68.0,
+        targetWeightKg: 64.0,
+        heightCm: 185,
+        ageYears: 30,
+        sex: 'male',
+        pace: 'balanced',
+      });
+
+      // Higher adipose male: 95kg at 185cm (BMI ~27.8)
+      const higherAdipose = calculatePhysiologicalDailyTarget({
+        tdee: 2400,
+        currentWeightKg: 95.0,
+        targetWeightKg: 85.0,
+        heightCm: 185,
+        ageYears: 30,
+        sex: 'male',
+        pace: 'balanced',
+      });
+
+      // The lean individual must have a lower % BW rate of loss to protect muscle
+      expect(lean.weeklyRatePercent).toBeLessThan(higherAdipose.weeklyRatePercent);
+      expect(lean.dailyDeficit).toBeLessThan(higherAdipose.dailyDeficit);
+    });
+
+    it('differentiates height for identical weight (85kg at 155cm vs 85kg at 218cm)', () => {
+      // Short person (BMI ~35.4 - high adipose reserves)
+      const shortPerson = calculatePhysiologicalDailyTarget({
+        tdee: 2400,
+        currentWeightKg: 85.0,
+        targetWeightKg: 75.0,
+        heightCm: 155,
+        ageYears: 30,
+        sex: 'male',
+        pace: 'balanced',
+      });
+
+      // Tall person (BMI ~17.9 - severely lean/underweight)
+      const tallPerson = calculatePhysiologicalDailyTarget({
+        tdee: 2400,
+        currentWeightKg: 85.0,
+        targetWeightKg: 75.0,
+        heightCm: 218,
+        ageYears: 30,
+        sex: 'male',
+        pace: 'balanced',
+      });
+
+      // Tall lean individual gets a safer, smaller deficit to prevent organ/muscle loss
+      expect(tallPerson.weeklyRatePercent).toBeLessThan(shortPerson.weeklyRatePercent);
+      expect(tallPerson.dailyDeficit).toBeLessThan(shortPerson.dailyDeficit);
+    });
+
+    it('applies age sarcopenia guardrails for older adults (>50yo)', () => {
+      const youngAdult = calculatePhysiologicalDailyTarget({
+        tdee: 2500,
+        currentWeightKg: 85.0,
+        targetWeightKg: 75.0,
+        heightCm: 180,
+        ageYears: 28,
+        sex: 'male',
+        pace: 'balanced',
+      });
+
+      const olderAdult = calculatePhysiologicalDailyTarget({
+        tdee: 2500,
+        currentWeightKg: 85.0,
+        targetWeightKg: 75.0,
+        heightCm: 180,
+        ageYears: 65,
+        sex: 'male',
+        pace: 'balanced',
+      });
+
+      expect(olderAdult.dailyDeficit).toBeLessThan(youngAdult.dailyDeficit);
+    });
+
+    it('enforces sex-specific metabolic safety floors', () => {
+      // Female with low TDEE
+      const femaleResult = calculatePhysiologicalDailyTarget({
+        tdee: 1350,
+        currentWeightKg: 60.0,
+        targetWeightKg: 52.0,
+        heightCm: 160,
+        ageYears: 30,
+        sex: 'female',
+        pace: 'ambitious',
+      });
+
+      // Target should never drop below physiological floor
+      expect(femaleResult.targetCalories).toBeGreaterThanOrEqual(femaleResult.minFloor);
+      expect(femaleResult.isCapped).toBe(true);
+
+      // Male with low TDEE
+      const maleResult = calculatePhysiologicalDailyTarget({
+        tdee: 1600,
+        currentWeightKg: 80.0,
+        targetWeightKg: 70.0,
+        heightCm: 175,
+        ageYears: 30,
+        sex: 'male',
+        pace: 'ambitious',
+      });
+
+      expect(maleResult.targetCalories).toBeGreaterThanOrEqual(1500);
+      expect(maleResult.isCapped).toBe(true);
+    });
+
+    it('scales deficit appropriately across gentle, balanced, and ambitious paces', () => {
+      const baseParams = {
+        tdee: 2500,
+        currentWeightKg: 85.0,
+        targetWeightKg: 75.0,
+        heightCm: 180,
+        ageYears: 30,
+        sex: 'male' as const,
+      };
+
+      const gentle = calculatePhysiologicalDailyTarget({ ...baseParams, pace: 'gentle' });
+      const balanced = calculatePhysiologicalDailyTarget({ ...baseParams, pace: 'balanced' });
+      const ambitious = calculatePhysiologicalDailyTarget({ ...baseParams, pace: 'ambitious' });
+
+      expect(gentle.dailyDeficit).toBeLessThan(balanced.dailyDeficit);
+      expect(balanced.dailyDeficit).toBeLessThan(ambitious.dailyDeficit);
+      expect(gentle.targetCalories).toBeGreaterThan(balanced.targetCalories);
+      expect(balanced.targetCalories).toBeGreaterThan(ambitious.targetCalories);
     });
   });
 });

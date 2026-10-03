@@ -59,6 +59,8 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
       protein_ratio REAL NOT NULL DEFAULT 0.30,
       carbs_ratio REAL NOT NULL DEFAULT 0.40,
       fat_ratio REAL NOT NULL DEFAULT 0.30,
+      name TEXT,
+      loss_pace TEXT DEFAULT 'balanced',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -190,6 +192,9 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
   } catch {}
   try {
     await db.execAsync('ALTER TABLE user_profiles ADD COLUMN name TEXT;');
+  } catch {}
+  try {
+    await db.execAsync("ALTER TABLE user_profiles ADD COLUMN loss_pace TEXT DEFAULT 'balanced';");
   } catch {}
 
   // Clean up any literal 'null', 'undefined', 'none' placeholder strings from brand or variant

@@ -12,10 +12,159 @@ export const CONSTANTS = {
   TAU_E: 28.0, // Expenditure trend time constant (days)
   WINDOW_DAYS: 14, // Rolling window size (days)
   MIN_FOOD_LOGGED_DAYS: 5, // Data density requirement
-  FAT_KCAL_PER_KG: 7700.0, // Energy content of fat tissue (kcal/kg)
+  FAT_KCAL_PER_KG: 7700.0, // Energy content of pure fat tissue (kcal/kg) - used for expenditure estimation
+  REALISTIC_TISSUE_KCAL_PER_KG: 6500.0, // Realistic tissue loss mix (fat + glycogen + water) - used for deficit calibration
   DAYS_PER_MONTH: 30.4375, // Average days in a month
   DEFAULT_MIN_DAILY_CALORIES: 1500.0,
 };
+
+export interface PhysiologicalTargetResult {
+  targetCalories: number;
+  dailyDeficit: number; // positive for deficit, negative for surplus, 0 for maintenance
+  isCapped: boolean;
+  mode: 'loss' | 'gain' | 'maintain';
+  bmi: number;
+  weeklyRateKg: number;
+  weeklyRatePercent: number;
+  minFloor: number;
+}
+
+/**
+ * Context-aware physiological daily target calculation.
+ * Accounts for current weight, target weight, height, age, sex, BMI, and TDEE.
+ * Replaces the rigid 3,500 kcal (7,700 kcal/kg) linear model with an adaptive,
+ * muscle-sparing energy density and leanness-scaled pace.
+ */
+export function calculatePhysiologicalDailyTarget(options: {
+  tdee: number;
+  currentWeightKg: number;
+  targetWeightKg?: number | null;
+  heightCm: number;
+  ageYears: number;
+  sex?: 'male' | 'female';
+  pace?: 'gentle' | 'balanced' | 'ambitious';
+  userMinCalories?: number | null;
+}): PhysiologicalTargetResult {
+  const {
+    tdee,
+    currentWeightKg,
+    targetWeightKg,
+    heightCm,
+    ageYears,
+    sex = 'male',
+    pace = 'balanced',
+    userMinCalories,
+  } = options;
+
+  const heightM = Math.max(1.0, heightCm / 100);
+  const bmi = currentWeightKg / (heightM * heightM);
+  const targetW = targetWeightKg ?? currentWeightKg;
+  const weightDelta = targetW - currentWeightKg;
+
+  // Physiological Minimum Calorie Floor (Protects endocrine health and basal metabolic function)
+  const bmr = mifflinStJeor(currentWeightKg, heightCm, ageYears, sex);
+  const physiologicalFloor =
+    sex === 'female'
+      ? Math.max(1200, Math.round(bmr * 0.85))
+      : Math.max(1500, Math.round(bmr * 0.85));
+  const minFloor = Math.max(physiologicalFloor, userMinCalories || 0);
+
+  // Case 1: Maintenance (Within 0.35 kg of goal weight)
+  if (Math.abs(weightDelta) <= 0.35) {
+    const targetCalories = Math.max(minFloor, Math.round(tdee));
+    return {
+      targetCalories,
+      dailyDeficit: 0,
+      isCapped: targetCalories === minFloor && tdee < minFloor,
+      mode: 'maintain',
+      bmi: Math.round(bmi * 10) / 10,
+      weeklyRateKg: 0,
+      weeklyRatePercent: 0,
+      minFloor,
+    };
+  }
+
+  // Case 2: Controlled Muscle Gain / Bulking
+  if (weightDelta > 0.35) {
+    const surplusRatio = pace === 'gentle' ? 0.05 : pace === 'ambitious' ? 0.12 : 0.08;
+    // Surplus capped between 100 kcal and 350 kcal/day to prevent excessive adipose accumulation
+    const dailySurplus = Math.round(Math.min(350, Math.max(100, tdee * surplusRatio)));
+    const targetCalories = Math.round(tdee + dailySurplus);
+    const weeklyRateKg = (dailySurplus * 7) / CONSTANTS.REALISTIC_TISSUE_KCAL_PER_KG;
+    const weeklyRatePercent = (weeklyRateKg / currentWeightKg) * 100;
+
+    return {
+      targetCalories,
+      dailyDeficit: -dailySurplus,
+      isCapped: false,
+      mode: 'gain',
+      bmi: Math.round(bmi * 10) / 10,
+      weeklyRateKg: Math.round(weeklyRateKg * 100) / 100,
+      weeklyRatePercent: Math.round(weeklyRatePercent * 100) / 100,
+      minFloor,
+    };
+  }
+
+  // Case 3: Adaptive Fat Loss
+  // Leanness & Reserve Factor (Alpert's Law: energy transfer from fat depends on fat mass)
+  // Higher BMI bodies carry more adipose reserves and can comfortably support a higher % loss rate.
+  // Leaner bodies have fewer fat stores and must reduce the deficit to prevent muscle catabolism.
+  let baseWeeklyRatePercent = 0.55;
+  let maxTdeeDeficitPercent = 0.18;
+
+  if (sex === 'male') {
+    // Men: healthy BMI baseline ~20 to ~32
+    const norm = Math.max(0, Math.min(1, (bmi - 20) / 12));
+    baseWeeklyRatePercent = 0.35 + norm * (0.80 - 0.35); // 0.35% (lean) to 0.80% (high adipose)
+    maxTdeeDeficitPercent = 0.12 + norm * (0.23 - 0.12); // 12% to 23% of TDEE
+  } else {
+    // Women: essential fat is ~8-10% higher; healthy BMI baseline ~22 to ~34
+    const norm = Math.max(0, Math.min(1, (bmi - 22) / 12));
+    baseWeeklyRatePercent = 0.35 + norm * (0.80 - 0.35);
+    maxTdeeDeficitPercent = 0.12 + norm * (0.23 - 0.12);
+  }
+
+  // Age Guardrail: Anabolic resistance above age 50 increases sarcopenia risk during steep cuts
+  if (ageYears > 50) {
+    const ageFactor = Math.max(0.85, 1.0 - (ageYears - 50) * 0.005);
+    baseWeeklyRatePercent *= ageFactor;
+    maxTdeeDeficitPercent *= ageFactor;
+  }
+
+  // Pace Multiplier
+  const paceMult = pace === 'gentle' ? 0.75 : pace === 'ambitious' ? 1.25 : 1.0;
+  const effectiveWeeklyRatePercent = baseWeeklyRatePercent * paceMult;
+
+  // Calculate required weekly loss in kg
+  const weeklyRateKg = currentWeightKg * (effectiveWeeklyRatePercent / 100);
+
+  // Convert to daily calorie deficit using realistic tissue mix (6,500 kcal/kg)
+  const rawDailyDeficit = (weeklyRateKg * CONSTANTS.REALISTIC_TISSUE_KCAL_PER_KG) / 7;
+
+  // TDEE Guardrail: Never exceed the safe fraction of total daily expenditure
+  const maxDeficitKcal = tdee * maxTdeeDeficitPercent * (pace === 'ambitious' ? 1.15 : pace === 'gentle' ? 0.85 : 1.0);
+  const dailyDeficit = Math.round(Math.min(rawDailyDeficit, maxDeficitKcal));
+
+  // Compute final target
+  let rawTarget = Math.round(tdee - dailyDeficit);
+  let isCapped = false;
+
+  if (rawTarget < minFloor) {
+    rawTarget = minFloor;
+    isCapped = true;
+  }
+
+  return {
+    targetCalories: rawTarget,
+    dailyDeficit,
+    isCapped,
+    mode: 'loss',
+    bmi: Math.round(bmi * 10) / 10,
+    weeklyRateKg: Math.round(weeklyRateKg * 100) / 100,
+    weeklyRatePercent: Math.round(effectiveWeeklyRatePercent * 100) / 100,
+    minFloor,
+  };
+}
 
 export function mifflinStJeor(
   weightKg: number,
@@ -190,9 +339,6 @@ export async function recalculateUserTdee(username = 'victor'): Promise<void> {
   }
 
   // Pass 2: Compute Rolling TDEE and Daily Summaries
-  const dailyDeficit =
-    (profile.target_monthly_rate_kg * CONSTANTS.FAT_KCAL_PER_KG) / CONSTANTS.DAYS_PER_MONTH;
-
   await db.withTransactionAsync(async () => {
     for (let i = 0; i < datesContiguous.length; i++) {
       const d = datesContiguous[i];
@@ -224,16 +370,21 @@ export async function recalculateUserTdee(username = 'victor'): Promise<void> {
         // If validIntakes < 5, currTdee retains its previous converged value!
       }
 
-      // Daily Calorie Target
-      const rawTarget = currTdee + dailyDeficit;
-      const minFloor = profile.min_daily_calories || CONSTANTS.DEFAULT_MIN_DAILY_CALORIES;
-      let targetCalories = Math.round(rawTarget);
-      let isCapped = false;
+      // Daily Calorie Target computed via physiological context-aware engine
+      const ageYr = calculateAgeYears(profile.dob, d);
+      const targetResult = calculatePhysiologicalDailyTarget({
+        tdee: currTdee,
+        currentWeightKg: trendW,
+        targetWeightKg: profile.target_weight_kg,
+        heightCm: profile.height_cm,
+        ageYears: ageYr,
+        sex: profile.sex,
+        pace: profile.loss_pace || 'balanced',
+        userMinCalories: profile.min_daily_calories,
+      });
 
-      if (targetCalories < minFloor) {
-        targetCalories = minFloor;
-        isCapped = true;
-      }
+      const targetCalories = targetResult.targetCalories;
+      const isCapped = targetResult.isCapped;
 
       const dayFood = foodDays.get(d);
 

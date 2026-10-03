@@ -68,6 +68,45 @@ Over a rolling window $k = 14$ days:
 
 ---
 
+### D. Physiological Adaptive Target Engine (Beyond the 3,500 kcal/lb Rule)
+
+Classical calorie tracking apps rely on the 1958 **Wishnofsky Rule** (a static deficit of $3,500\text{ kcal} = 1\text{ lb}$ or $7,700\text{ kcal} = 1\text{ kg}$). As demonstrated by Dr. Kevin Hall's landmark NIH research (*The Lancet*, 2011), the 3,500 kcal rule assumes 100% lipid oxidation, zero metabolic adaptation, and linear infinite weight loss—often leading to punitive, unviable starvation targets.
+
+CTracker implements a **Context-Aware Physiological Target Engine** in [`src/services/tdee.ts`](file:///home/victor/Personal/ctracker_api/src/services/tdee.ts) built on modern metabolic principles:
+
+#### 1. Realistic Tissue Loss Density ($6,500\text{ kcal/kg}$)
+Real-world human weight loss is never 100% pure anhydrous lipid. It comprises a mixture of adipose triglycerides, intracellular water, glycogen, and minor lean tissue:
+$$\text{Tissue Energy Density} \approx 6,500\text{ kcal/kg}$$
+Using $6,500\text{ kcal/kg}$ yields realistic calorie targets that match empirical physiological changes rather than punitive theoretical extremes.
+
+#### 2. Body Leanness & Adipose Reserve Scaling (Alpert's Law)
+According to Alpert’s Law of fat energy transfer, the maximum energy transfer rate from fat stores is proportional to fat mass. Lean bodies cannot sustain large deficits without catabolizing lean muscle and downregulating thyroid/leptin.
+* Rates of loss are computed as a **percentage of Body Weight (% BW/week)**, not arbitrary fixed kilograms:
+  * Normalized BMI scale: $\text{norm} = \text{clamp}\left(\frac{\text{BMI} - \text{BMI}_{\text{baseline}}}{12}, 0, 1\right)$
+  * Base weekly loss rate: $0.35\% + \text{norm} \cdot (0.80\% - 0.35\%)$ of BW/week.
+  * An 85 kg person at 155 cm (BMI 35.4) can comfortably lose at a faster rate than an 85 kg person at 218 cm (BMI 17.9).
+
+#### 3. Metabolic Deficit Guardrails
+* **TDEE Fraction Cap**: The daily deficit is hard-capped between $12\%$ and $23\%$ of total daily energy expenditure ($\text{TDEE} \times \text{maxDeficitPercent}$), preventing metabolic crashes.
+* **Age Sarcopenia Guardrail**: For users $> 50$ years old, anabolic resistance increases muscle catabolism risk. Deficit caps are scaled down by $0.5\%$ per year past 50:
+  $$\text{AgeFactor} = \max\left(0.85, 1.0 - (\text{age} - 50) \cdot 0.005\right)$$
+
+#### 4. Dynamic Physiological Safety Floors
+Static 1,500 kcal floors ignore sexual dimorphism and body size:
+$$\text{Safety Floor} = \max\left(\text{SexBaseline}, 0.85 \times \text{BMR}, \text{UserMinimum}\right)$$
+* $\text{SexBaseline}$: $1,200\text{ kcal}$ for females, $1,500\text{ kcal}$ for males.
+* Prevents hypothalamic amenorrhea in women and hypogonadism / thyroid suppression in men.
+
+#### 5. Smooth Maintenance Landing
+When current trend weight is within $\pm 0.35\text{ kg}$ of `target_weight_kg`, the engine automatically transitions to `maintain` mode ($100\%$ of TDEE, $0\text{ kcal}$ deficit), ensuring a calm landing without bounce-back stress.
+
+#### 6. Strategy Paces
+* **Gentle** ($0.75\times$ base): Mild deficit, maximum muscle retention and high psychological adherence.
+* **Balanced** ($1.0\times$ base, recommended): Optimal sustainable fat loss matched to expenditure.
+* **Ambitious** ($1.25\times$ base): Faster progress for individuals with ample adipose reserves.
+
+---
+
 ## 3. Data Density & Edge Case Handling Rules
 
 ### Rule 1: Fasted Days vs. Unlogged / Missing Days
