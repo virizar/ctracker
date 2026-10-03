@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import appConfig from '../../app.json';
@@ -312,6 +313,18 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content}>
+      {/* App Branding Card */}
+      <View style={styles.appBrandCard}>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={styles.appBrandIcon}
+        />
+        <View style={{ marginLeft: 14 }}>
+          <Text style={styles.appBrandTitle}>ctracker</Text>
+          <Text style={styles.appBrandVersion}>Version {appConfig.expo.version || '1.4.0'}</Text>
+        </View>
+      </View>
+
       {/* Smart Import Card */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
@@ -1157,6 +1170,39 @@ const styles = StyleSheet.create({
   },
   smartGoalSub: {
     fontSize: 11.5,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  appBrandCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  appBrandIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  appBrandTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  appBrandVersion: {
+    fontSize: 12.5,
+    fontWeight: '500',
     color: '#64748b',
     marginTop: 2,
   },
