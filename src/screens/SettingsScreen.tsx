@@ -11,15 +11,23 @@ import {
   Modal,
   Platform,
   Image,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import appConfig from '../../app.json';
 import {
-  getGeminiApiKey,
-  setGeminiApiKey,
-  getGeminiModel,
-  setGeminiModel,
+  getActiveAIProvider,
+  setActiveAIProvider,
+  getAIProviderApiKey,
+  setAIProviderApiKey,
+  getAIProviderModel,
+  setAIProviderModel,
+  getCustomAIBaseUrl,
+  setCustomAIBaseUrl,
 } from '../services/keychain';
+import { AI_PROVIDERS, DEFAULT_AI_PROVIDER } from '../services/ai/constants';
+import { AIProviderType, AIConnectionTestResult } from '../services/ai/types';
+import { createAIClient } from '../services/ai/clientFactory';
 import { getUserProfile, updateUserProfile, getScaleWeights } from '../db/queries';
 import { wipeAllUserData } from '../db/database';
 import {
@@ -40,8 +48,16 @@ interface SettingsScreenProps {
 }
 
 export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProps) {
+  // AI Multi-Provider States
+  const [activeProvider, setActiveProvider] = useState<AIProviderType>('gemini');
   const [apiKey, setApiKey] = useState('');
-  const [model, setModel] = useState('gemini-2.5-flash');
+  const [model, setModel] = useState(AI_PROVIDERS.gemini.defaultModel);
+  const [customBaseUrl, setCustomBaseUrl] = useState(AI_PROVIDERS.custom.defaultBaseUrl);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [testResult, setTestResult] = useState<AIConnectionTestResult | null>(null);
+  const [showProviderDropdown, setShowProviderDropdown] = useState(false);
+
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
 
@@ -76,11 +92,17 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
   }, []);
 
   const loadSettings = async () => {
-    const key = await getGeminiApiKey();
+    const provider = await getActiveAIProvider();
+    setActiveProvider(provider);
+
+    const key = await getAIProviderApiKey(provider);
     if (key) setApiKey(key);
 
-    const m = await getGeminiModel();
+    const m = await getAIProviderModel(provider);
     if (m) setModel(m);
+
+    const customUrl = await getCustomAIBaseUrl();
+    if (customUrl) setCustomBaseUrl(customUrl);
 
     const u = await getUserProfile();
     if (u) {
@@ -101,14 +123,68 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
     }
   };
 
-  const handleSaveApiKey = async () => {
-    if (!apiKey.trim()) {
-      Alert.alert('Empty Key', 'Please enter a valid Gemini API key.');
+  const handleSelectProvider = async (provider: AIProviderType) => {
+    setActiveProvider(provider);
+    setTestResult(null);
+    const key = (await getAIProviderApiKey(provider)) || '';
+    const m = (await getAIProviderModel(provider)) || AI_PROVIDERS[provider].defaultModel;
+    setApiKey(key);
+    setModel(m);
+    if (provider === 'custom') {
+      const url = await getCustomAIBaseUrl();
+      setCustomBaseUrl(url || AI_PROVIDERS.custom.defaultBaseUrl);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    const meta = AI_PROVIDERS[activeProvider];
+    if (meta.requiresApiKey && !apiKey.trim()) {
+      Alert.alert('Missing API Key', `Please enter your ${meta.name} API key before testing connection.`);
       return;
     }
-    await setGeminiApiKey(apiKey.trim());
-    await setGeminiModel(model.trim());
-    Alert.alert('Success', 'Gemini API settings saved securely.');
+
+    setTestingConnection(true);
+    setTestResult(null);
+
+    try {
+      const client = createAIClient({
+        provider: activeProvider,
+        apiKey: apiKey.trim() || null,
+        model: model.trim() || meta.defaultModel,
+        customBaseUrl: activeProvider === 'custom' ? customBaseUrl.trim() : null,
+      });
+
+      const result = await client.testConnection();
+      setTestResult(result);
+    } catch (err: any) {
+      setTestResult({
+        success: false,
+        error: err.message || 'Connection test failed',
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleSaveAiSettings = async () => {
+    const meta = AI_PROVIDERS[activeProvider];
+    if (meta.requiresApiKey && !apiKey.trim()) {
+      Alert.alert('Empty Key', `Please enter a valid ${meta.name} API key.`);
+      return;
+    }
+    if (!model.trim()) {
+      Alert.alert('Empty Model', 'Please specify a valid model name.');
+      return;
+    }
+
+    await setActiveAIProvider(activeProvider);
+    await setAIProviderApiKey(activeProvider, apiKey.trim());
+    await setAIProviderModel(activeProvider, model.trim());
+    if (activeProvider === 'custom') {
+      await setCustomAIBaseUrl(customBaseUrl.trim());
+    }
+
+    Alert.alert('Success', `${meta.name} settings saved securely.`);
   };
 
   // Live calculations for BMR, Age, and Baseline TDEE
@@ -336,7 +412,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
           <Text style={styles.cardTitle}>Smart Data Import</Text>
         </View>
         <Text style={styles.infoText}>
-          Import historical data from multi-sheet spreadsheets (.xlsx), MyFitnessPal, Cronometer (.csv), or JSON. If the format is unknown, Gemini AI will automatically detect the columns and units.
+          Import historical data from multi-sheet spreadsheets (.xlsx), MyFitnessPal, Cronometer (.csv), or JSON. If the format is unknown, AI will automatically detect the columns and units.
         </Text>
 
         <TouchableOpacity
@@ -419,35 +495,220 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
         )}
       </View>
 
-      {/* Gemini AI Card */}
+      {/* AI Engine & Providers Card */}
       <View style={styles.card}>
         <View style={styles.cardHeaderRow}>
           <Ionicons name="sparkles" size={20} color="#2563eb" />
-          <Text style={styles.cardTitle}>Gemini AI Integration</Text>
+          <Text style={styles.cardTitle}>AI Engine & Model Provider</Text>
         </View>
 
-        <Text style={styles.label}>Google Gemini API Key</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="AIzaSy..."
-          secureTextEntry
-          value={apiKey}
-          onChangeText={setApiKey}
-          placeholderTextColor="#94a3b8"
-        />
+        <Text style={styles.infoText}>
+          CTracker supports multi-provider "Bring Your Own Key" architecture. Choose your preferred AI provider or connect a local offline model.
+        </Text>
 
-        <Text style={styles.label}>Model Name</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="gemini-2.5-flash"
-          value={model}
-          onChangeText={setModel}
-          placeholderTextColor="#94a3b8"
-        />
-
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSaveApiKey}>
-          <Text style={styles.saveBtnText}>Save AI Settings</Text>
+        {/* Provider Dropdown Selector */}
+        <Text style={styles.label}>AI Provider</Text>
+        <TouchableOpacity
+          style={styles.dropdownSelector}
+          onPress={() => setShowProviderDropdown(!showProviderDropdown)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.dropdownSelectorText}>
+            {AI_PROVIDERS[activeProvider].name}
+          </Text>
+          <Ionicons
+            name={showProviderDropdown ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color="#64748b"
+          />
         </TouchableOpacity>
+
+        {showProviderDropdown && (
+          <View style={styles.dropdownMenu}>
+            {(Object.keys(AI_PROVIDERS) as AIProviderType[]).map((pKey) => {
+              const isSelected = activeProvider === pKey;
+              return (
+                <TouchableOpacity
+                  key={pKey}
+                  style={[
+                    styles.dropdownItem,
+                    isSelected && styles.dropdownItemActive,
+                  ]}
+                  onPress={() => {
+                    handleSelectProvider(pKey);
+                    setShowProviderDropdown(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      isSelected && styles.dropdownItemTextActive,
+                    ]}
+                  >
+                    {AI_PROVIDERS[pKey].name}
+                  </Text>
+                  {isSelected && (
+                    <Ionicons name="checkmark" size={18} color="#2563eb" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Provider Description & Console Link */}
+        <View style={styles.providerInfoRow}>
+          <Text style={styles.providerInfoText}>
+            {AI_PROVIDERS[activeProvider].description}
+          </Text>
+          {AI_PROVIDERS[activeProvider].consoleUrl && (
+            <TouchableOpacity
+              onPress={() => Linking.openURL(AI_PROVIDERS[activeProvider].consoleUrl)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.providerLinkText}>
+                {activeProvider === 'custom' ? 'Ollama setup ↗' : 'Get API key ↗'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Custom Server URL (only for custom provider) */}
+        {activeProvider === 'custom' && (
+          <View style={{ marginTop: 10 }}>
+            <Text style={styles.label}>Server Base URL</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="http://192.168.1.100:11434/v1"
+              value={customBaseUrl}
+              onChangeText={setCustomBaseUrl}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholderTextColor="#94a3b8"
+            />
+            <Text style={styles.fieldHint}>
+              Connect to local Ollama, LM Studio, or LocalAI on your local Wi-Fi.
+            </Text>
+          </View>
+        )}
+
+        {/* API Key Input */}
+        <View style={{ marginTop: 10 }}>
+          <Text style={styles.label}>
+            {AI_PROVIDERS[activeProvider].requiresApiKey
+              ? `${AI_PROVIDERS[activeProvider].name} API Key`
+              : 'API Key (Optional)'}
+          </Text>
+          <View style={styles.passwordInputContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder={
+                AI_PROVIDERS[activeProvider].requiresApiKey
+                  ? 'Enter your API key'
+                  : 'Leave blank if not required'
+              }
+              secureTextEntry={!showApiKey}
+              value={apiKey}
+              onChangeText={setApiKey}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholderTextColor="#94a3b8"
+            />
+            <TouchableOpacity
+              style={styles.passwordToggleBtn}
+              onPress={() => setShowApiKey(!showApiKey)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={showApiKey ? 'eye-off-outline' : 'eye-outline'}
+                size={20}
+                color="#64748b"
+              />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Model Selection (String field only) */}
+        <View style={{ marginTop: 10 }}>
+          <View style={styles.modelHeaderRow}>
+            <Text style={styles.label}>Model Name</Text>
+            {model !== AI_PROVIDERS[activeProvider].defaultModel && (
+              <TouchableOpacity
+                onPress={() => setModel(AI_PROVIDERS[activeProvider].defaultModel)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.resetModelLink}>Reset to default</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <TextInput
+            style={styles.input}
+            placeholder={AI_PROVIDERS[activeProvider].defaultModel}
+            value={model}
+            onChangeText={setModel}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholderTextColor="#94a3b8"
+          />
+          <Text style={styles.fieldHint}>
+            Default: {AI_PROVIDERS[activeProvider].defaultModel} • Enter any model name supported by your provider.
+          </Text>
+        </View>
+
+        {/* Connection Test Result Feedback */}
+        {testResult && (
+          <View
+            style={[
+              styles.testResultBox,
+              testResult.success ? styles.testResultSuccess : styles.testResultError,
+            ]}
+          >
+            <Ionicons
+              name={testResult.success ? 'checkmark-circle' : 'alert-circle'}
+              size={18}
+              color={testResult.success ? '#059669' : '#dc2626'}
+            />
+            <Text
+              style={[
+                styles.testResultText,
+                testResult.success ? styles.testResultTextSuccess : styles.testResultTextError,
+              ]}
+              numberOfLines={3}
+            >
+              {testResult.success
+                ? `Connection verified! Latency: ${testResult.latencyMs}ms`
+                : `Connection failed: ${testResult.error}`}
+            </Text>
+          </View>
+        )}
+
+        {/* Action Buttons Row */}
+        <View style={styles.aiActionRow}>
+          <TouchableOpacity
+            style={[styles.saveBtn, styles.testConnBtn]}
+            onPress={handleTestConnection}
+            disabled={testingConnection}
+            activeOpacity={0.7}
+          >
+            {testingConnection ? (
+              <ActivityIndicator size="small" color="#2563eb" />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="flash-outline" size={16} color="#2563eb" />
+                <Text style={styles.testConnBtnText}>Test Ping</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.saveBtn, styles.saveAiBtn]}
+            onPress={handleSaveAiSettings}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.saveBtnText}>Save AI Settings</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 1. Profile & Physiology Card */}
@@ -798,8 +1059,10 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
         </View>
 
         <View style={styles.aboutRow}>
-          <Text style={styles.aboutLabel}>Active AI Model</Text>
-          <Text style={styles.aboutValue}>{model || 'gemini-2.5-flash'}</Text>
+          <Text style={styles.aboutLabel}>Active AI Engine</Text>
+          <Text style={styles.aboutValue}>
+            {`${AI_PROVIDERS[activeProvider]?.name || 'AI'} (${model || 'default'})`}
+          </Text>
         </View>
 
         <View style={[styles.aboutRow, { borderBottomWidth: 0 }]}>
@@ -1356,5 +1619,153 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#64748b',
     marginTop: 2,
+  },
+  dropdownSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  dropdownSelectorText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  dropdownMenu: {
+    marginTop: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#ffffff',
+    overflow: 'hidden',
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  dropdownItemActive: {
+    backgroundColor: '#eff6ff',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#334155',
+  },
+  dropdownItemTextActive: {
+    color: '#1d4ed8',
+    fontWeight: '700',
+  },
+  providerInfoRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  providerInfoText: {
+    fontSize: 12,
+    color: '#64748b',
+    flex: 1,
+  },
+  providerLinkText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563eb',
+  },
+  modelHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  resetModelLink: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
+  fieldHint: {
+    fontSize: 11.5,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  passwordInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#0f172a',
+  },
+  passwordToggleBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  testResultBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  testResultSuccess: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  testResultError: {
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  testResultText: {
+    fontSize: 12.5,
+    flex: 1,
+  },
+  testResultTextSuccess: {
+    color: '#065f46',
+    fontWeight: '600',
+  },
+  testResultTextError: {
+    color: '#991b1b',
+    fontWeight: '600',
+  },
+  aiActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  testConnBtn: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#2563eb',
+    marginTop: 0,
+  },
+  testConnBtnText: {
+    color: '#2563eb',
+    fontWeight: '700',
+    fontSize: 13.5,
+    marginLeft: 4,
+  },
+  saveAiBtn: {
+    flex: 1.3,
+    marginTop: 0,
   },
 });

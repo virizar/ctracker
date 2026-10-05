@@ -2,6 +2,7 @@ import {
   normalizeDate,
   findRowDate,
   buildServingSize,
+  detectSpreadsheetColumnMapping,
   askGeminiForColumnMapping,
   pickAndInspectFile,
 } from '../src/services/importer';
@@ -117,15 +118,15 @@ describe('Data Importer Parsing & Normalization Tests', () => {
       global.fetch = originalFetch;
     });
 
-    it('throws if Gemini API key is not configured', async () => {
+    it('throws if AI API key is not configured', async () => {
       (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue(null);
 
-      await expect(askGeminiForColumnMapping(['Date', 'Food'], [{ Date: '2024-01-01' }])).rejects.toThrow(
-        'Gemini API key is required to detect custom spreadsheet formats.'
+      await expect(detectSpreadsheetColumnMapping(['Date', 'Food'], [{ Date: '2024-01-01' }])).rejects.toThrow(
+        'Gemini API key is not set. Please configure your API key in Settings.'
       );
     });
 
-    it('successfully calls Gemini and returns parsed ColumnMapping', async () => {
+    it('successfully calls AI and returns parsed ColumnMapping', async () => {
       (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('test-key');
 
       const mockMapping = {
@@ -144,19 +145,24 @@ describe('Data Importer Parsing & Normalization Tests', () => {
         }),
       } as any);
 
-      const res = await askGeminiForColumnMapping(['Date', 'Food', 'Cals'], [{ Date: '2024-01-01', Food: 'Apple', Cals: 95 }]);
+      const res = await detectSpreadsheetColumnMapping(['Date', 'Food', 'Cals'], [{ Date: '2024-01-01', Food: 'Apple', Cals: 95 }]);
       expect(res).toEqual(mockMapping);
     });
 
-    it('throws if Gemini API returns HTTP error', async () => {
+    it('throws if AI returns HTTP error', async () => {
       (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('test-key');
 
       global.fetch = jest.fn().mockResolvedValue({
         ok: false,
         status: 403,
+        text: async () => 'Forbidden',
       } as any);
 
-      await expect(askGeminiForColumnMapping(['Date'], [])).rejects.toThrow('Gemini mapping failed (403)');
+      await expect(detectSpreadsheetColumnMapping(['Date'], [])).rejects.toThrow('Gemini API error (403): Forbidden');
+    });
+
+    it('preserves backwards-compatible alias askGeminiForColumnMapping', () => {
+      expect(askGeminiForColumnMapping).toBe(detectSpreadsheetColumnMapping);
     });
   });
 

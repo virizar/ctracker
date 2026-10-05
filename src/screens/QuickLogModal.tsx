@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { parseFoodInput } from '../services/gemini';
+import { parseFoodInput } from '../services/nutritionAi';
 import {
   logMeal,
   searchFoodCatalog,
@@ -111,7 +111,7 @@ export function QuickLogModal({
   };
 
   // --- AI Tab Handlers ---
-  const handleParseWithGemini = async () => {
+  const handleParseWithAI = async () => {
     if (!inputQuery.trim()) {
       Alert.alert('Empty Input', 'Please describe what you ate or drank.');
       return;
@@ -121,12 +121,12 @@ export function QuickLogModal({
     try {
       const items = await parseFoodInput(inputQuery, profileUsername);
       if (items.length === 0) {
-        Alert.alert('No Food Detected', 'Gemini could not identify any food items in your description.');
+        Alert.alert('No Food Detected', 'AI could not identify any food items in your description.');
       } else {
         setAiDraftItems(items);
       }
     } catch (err: any) {
-      Alert.alert('AI Error', err?.message || 'Failed to parse food with Gemini.');
+      Alert.alert('AI Error', err?.message || 'Failed to parse meal with AI.');
     } finally {
       setLoadingAi(false);
     }
@@ -588,7 +588,7 @@ export function QuickLogModal({
               color={activeTab === 'ai' ? '#2563eb' : '#64748b'}
             />
             <Text style={[styles.tabText, activeTab === 'ai' && styles.tabTextActive]}>
-              Gemini AI
+              AI Assistant
             </Text>
           </TouchableOpacity>
 
@@ -616,7 +616,7 @@ export function QuickLogModal({
             ]}
           >
             <Text style={styles.instruction}>
-              Describe your meal in plain English or use voice dictation. Gemini will calculate the macros automatically:
+              Describe your meal in plain English or use voice dictation. AI will calculate the macros automatically:
             </Text>
 
             <TextInput
@@ -632,7 +632,7 @@ export function QuickLogModal({
             <View style={styles.actionRow}>
               <TouchableOpacity
                 style={[styles.parseBtn, loadingAi && { opacity: 0.7 }]}
-                onPress={handleParseWithGemini}
+                onPress={handleParseWithAI}
                 disabled={loadingAi}
               >
                 {loadingAi ? (

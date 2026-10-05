@@ -1,5 +1,5 @@
 import { getAllFoodCatalogItems, applyFoodCatalogOptimizations } from '../db/queries';
-import { optimizeFoodCatalogBatch } from './gemini';
+import { optimizeFoodCatalogBatch } from './nutritionAi';
 import { FoodOptimizationResult, DEFAULT_USERNAME } from '../types';
 import { recalculateUserTdee } from './tdee';
 

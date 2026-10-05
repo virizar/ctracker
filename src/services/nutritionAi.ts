@@ -1,7 +1,8 @@
 import { FoodCatalogItem, ParsedFoodItem, OptimizedFoodMapping, DEFAULT_USERNAME } from '../types';
-import { getGeminiApiKey, getGeminiModel } from './keychain';
 import { searchFoodCatalog } from '../db/queries';
 import { cleanTag } from './serving';
+import { getActiveAIClient } from './ai/clientFactory';
+import { parseJsonArray } from './ai/cleaner';
 
 const FOOD_PARSER_SYSTEM_PROMPT = `You are an intelligent nutrition and calorie tracking assistant.
 Your task is to analyze user text or transcripts describing what they ate or drank and extract structured meal logs with realistic calorie and macronutrient estimates (protein, carbs, fat in grams).
@@ -11,7 +12,7 @@ Guidelines:
 - brand: If the food is from a specific brand, restaurant chain, or manufacturer (e.g. "McDonald's", "Philadelphia", "Chobani", "Coca-Cola", "Starbucks", "Barilla", "Subway"), extract the brand name in the 'brand' field. For generic, homemade, or whole foods (e.g. "Banana", "Eggs", "Chicken Breast", "Olive Oil"), set brand to null.
 - variant: If the food has a specific formulation or variant that affects nutritional values (e.g. "Light", "Original", "Zero Sugar", "Fat Free", "Low Fat", "Medium", "Large"), extract it in 'variant'. Otherwise set to null.
 - food_name: Clean product or dish name (e.g. 'Big Mac', 'French Fries', 'Cream Cheese', 'Greek Yogurt', 'Chicken Breast'). NEVER echo raw user descriptions or full sentences in food_name.
-- canonical_name: The complete distinct searchable food name preserving brand and variant when present (e.g. 'McDonald\'s Big Mac', 'Philadelphia Cream Cheese (Light)', 'Chicken Breast').
+- canonical_name: The complete distinct searchable food name preserving brand and variant when present (e.g. 'McDonald\\'s Big Mac', 'Philadelphia Cream Cheese (Light)', 'Chicken Breast').
 - serving_size: The specific portion consumed by the user, including estimated weight in grams if possible (e.g. '1 burger (215g)', '1 medium order (117g)', '2 thin slices (approx. 160g)', '2 tbsp (30g)').
 - calories and macronutrients: Use official published manufacturer/restaurant values whenever a specific brand or restaurant is identified (e.g. McDonald's Big Mac has approx 590 kcal, 25g protein, 46g carbs, 34g fat). Calories must equal approx (protein * 4) + (carbs * 4) + (fat * 9) for the consumed portion.
 - Return a JSON array matching the required schema. If the input does not describe any food or beverage, return an empty array [].`;
@@ -63,26 +64,7 @@ const FOOD_PARSER_SCHEMA = {
 };
 
 export function extractJsonArray<T = any>(candidateText: string): T[] {
-  if (!candidateText || !candidateText.trim()) {
-    return [];
-  }
-  let clean = candidateText.trim();
-  if (clean.startsWith('```json')) {
-    clean = clean.slice(7);
-  } else if (clean.startsWith('```')) {
-    clean = clean.slice(3);
-  }
-  if (clean.endsWith('```')) {
-    clean = clean.slice(0, -3);
-  }
-  clean = clean.trim();
-
-  try {
-    const parsed = JSON.parse(clean);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    throw new Error('Could not parse nutrition data returned by Gemini.');
-  }
+  return parseJsonArray<T>(candidateText, 'Could not parse nutrition data returned by Gemini.');
 }
 
 export function extractFoodItemsFromJson(candidateText: string): ParsedFoodItem[] {
@@ -93,7 +75,6 @@ export function extractFoodItemsFromJson(candidateText: string): ParsedFoodItem[
     variant: cleanTag(item.variant),
   }));
 }
-
 
 export async function getRelevantCatalogContext(
   userInput: string,
@@ -150,49 +131,13 @@ export async function parseFoodInput(
   userInput: string,
   _username = DEFAULT_USERNAME
 ): Promise<ParsedFoodItem[]> {
-  const apiKey = await getGeminiApiKey();
-  if (!apiKey) {
-    throw new Error('Gemini API key is not set. Please configure your API key in Settings.');
-  }
-
-  const model = await getGeminiModel();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    model
-  )}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const payload = {
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: userInput }],
-      },
-    ],
-    systemInstruction: {
-      parts: [{ text: FOOD_PARSER_SYSTEM_PROMPT }],
-    },
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-      responseSchema: FOOD_PARSER_SCHEMA,
-    },
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+  const client = await getActiveAIClient();
+  const candidateText = await client.complete({
+    systemPrompt: FOOD_PARSER_SYSTEM_PROMPT,
+    userPrompt: userInput,
+    jsonSchema: FOOD_PARSER_SCHEMA,
+    temperature: 0.1,
   });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Gemini API error (${response.status}): ${errorBody}`);
-  }
-
-  const result = await response.json();
-  const candidateText =
-    result?.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (!candidateText) {
     return [];
@@ -285,16 +230,7 @@ export async function optimizeFoodCatalogBatch(
 ): Promise<OptimizedFoodMapping[]> {
   if (items.length === 0) return [];
 
-  const apiKey = await getGeminiApiKey();
-  if (!apiKey) {
-    throw new Error('Gemini API key is not set. Please configure your API key in Settings.');
-  }
-
-  const model = await getGeminiModel();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    model
-  )}:generateContent?key=${encodeURIComponent(apiKey)}`;
-
+  const client = await getActiveAIClient();
   const promptText =
     `Standardize and normalize the following food catalog items into clean 1-unit library foods:\n` +
     items
@@ -308,41 +244,12 @@ export async function optimizeFoodCatalogBatch(
       )
       .join('\n');
 
-  const payload = {
-    contents: [
-      {
-        role: 'user',
-        parts: [{ text: promptText }],
-      },
-    ],
-    systemInstruction: {
-      parts: [{ text: CATALOG_OPTIMIZER_SYSTEM_PROMPT }],
-    },
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-      responseSchema: CATALOG_OPTIMIZER_SCHEMA,
-      ...(model.includes('2.5')
-        ? { thinkingConfig: { thinkingBudget: 0 } }
-        : {}),
-    },
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+  const candidateText = await client.complete({
+    systemPrompt: CATALOG_OPTIMIZER_SYSTEM_PROMPT,
+    userPrompt: promptText,
+    jsonSchema: CATALOG_OPTIMIZER_SCHEMA,
+    temperature: 0.1,
   });
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throw new Error(`Gemini API error (${response.status}): ${errorBody}`);
-  }
-
-  const result = await response.json();
-  const candidateText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
 
   if (!candidateText) {
     return [];

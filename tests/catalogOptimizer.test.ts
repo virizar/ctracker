@@ -1,11 +1,11 @@
 import { runFoodCatalogOptimization } from '../src/services/catalogOptimizer';
 import * as queries from '../src/db/queries';
-import * as gemini from '../src/services/gemini';
+import * as nutritionAi from '../src/services/nutritionAi';
 import * as tdee from '../src/services/tdee';
 import { FoodCatalogItem, OptimizedFoodMapping } from '../src/types';
 
 jest.mock('../src/db/queries');
-jest.mock('../src/services/gemini');
+jest.mock('../src/services/nutritionAi');
 jest.mock('../src/services/tdee');
 
 describe('Catalog Optimizer Service', () => {
@@ -25,7 +25,7 @@ describe('Catalog Optimizer Service', () => {
       migratedMealsCount: 0,
       aborted: false,
     });
-    expect(gemini.optimizeFoodCatalogBatch).not.toHaveBeenCalled();
+    expect(nutritionAi.optimizeFoodCatalogBatch).not.toHaveBeenCalled();
     expect(tdee.recalculateUserTdee).not.toHaveBeenCalled();
   });
 
@@ -43,7 +43,7 @@ describe('Catalog Optimizer Service', () => {
     }));
 
     (queries.getAllFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
-    (gemini.optimizeFoodCatalogBatch as jest.Mock).mockImplementation((chunk) => {
+    (nutritionAi.optimizeFoodCatalogBatch as jest.Mock).mockImplementation((chunk) => {
       return chunk.map((item: FoodCatalogItem) => ({
         original_name: item.canonical_name,
         clean_name: item.canonical_name.trim(),
@@ -66,7 +66,7 @@ describe('Catalog Optimizer Service', () => {
 
     const result = await runFoodCatalogOptimization('user', onProgress);
 
-    expect(gemini.optimizeFoodCatalogBatch).toHaveBeenCalledTimes(2);
+    expect(nutritionAi.optimizeFoodCatalogBatch).toHaveBeenCalledTimes(2);
     expect(queries.applyFoodCatalogOptimizations).toHaveBeenCalledTimes(2);
     expect(tdee.recalculateUserTdee).toHaveBeenCalledWith('user');
 
@@ -99,7 +99,7 @@ describe('Catalog Optimizer Service', () => {
     }));
 
     (queries.getAllFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
-    (gemini.optimizeFoodCatalogBatch as jest.Mock)
+    (nutritionAi.optimizeFoodCatalogBatch as jest.Mock)
       .mockRejectedValueOnce(new Error('AI Rate Limit'))
       .mockResolvedValueOnce([
         {
@@ -151,7 +151,7 @@ describe('Catalog Optimizer Service', () => {
     const result = await runFoodCatalogOptimization('user', undefined, controller.signal);
 
     expect(result.aborted).toBe(true);
-    expect(gemini.optimizeFoodCatalogBatch).not.toHaveBeenCalled();
+    expect(nutritionAi.optimizeFoodCatalogBatch).not.toHaveBeenCalled();
   });
 
   it('aborts during processing when AbortSignal is aborted during batch execution', async () => {
@@ -170,7 +170,7 @@ describe('Catalog Optimizer Service', () => {
     }));
 
     (queries.getAllFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
-    (gemini.optimizeFoodCatalogBatch as jest.Mock).mockImplementation(async () => {
+    (nutritionAi.optimizeFoodCatalogBatch as jest.Mock).mockImplementation(async () => {
       controller.abort();
       return [];
     });
@@ -178,6 +178,6 @@ describe('Catalog Optimizer Service', () => {
     const result = await runFoodCatalogOptimization('user', undefined, controller.signal);
 
     expect(result.aborted).toBe(true);
-    expect(gemini.optimizeFoodCatalogBatch).toHaveBeenCalledTimes(1);
+    expect(nutritionAi.optimizeFoodCatalogBatch).toHaveBeenCalledTimes(1);
   });
 });

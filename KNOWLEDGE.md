@@ -138,7 +138,7 @@ CTracker is built as a **100% local-first mobile architecture** with zero server
 │                   CTracker Mobile App                  │
 │                                                        │
 │  ├── React Native / Expo UI (Tabs, Modals, SVG Charts) │
-│  ├── Gemini AI Client (Direct HTTPS to Google API)     │
+│  ├── Multi-Provider AI Engine (Gemini, Groq, Claude, etc.)│
 │  ├── TDEE & Smoothing Engine (Pure TypeScript)         │
 │  └── Universal Data Importer (CSV / XLSX / PapaParse)   │
 └──────────────────────────┬─────────────────────────────┘
@@ -325,4 +325,38 @@ Instead of running a resource-heavy 4 GB Android Studio emulator on the developm
 * **Adaptive Calendar Header**:
   * Abbreviated 3-letter month formatting (`Oct 2026`) and compact navigation controls prevent card boundary overflows across all mobile viewport widths.
 * **In-App Build Inspection**:
-  * The **About CTracker** card in Settings provides real-time verification of App Version, Build Profile (`Standalone Release` vs `Development Debug`), Platform, JS Engine (`Hermes`), and Package ID.
+  * The **About CTracker** card in Settings provides real-time verification of App Version, Build Profile (`Standalone Release` vs `Development Debug`), Platform, JS Engine (`Hermes`), Package ID, and active AI engine/model.
+
+---
+
+## 14. Multi-Provider "Bring Your Own AI" (BYO-AI) Architecture
+
+Implemented across [`src/services/ai/`](file:///home/victor/Personal/ctracker_api/src/services/ai/) and [`src/services/nutritionAi.ts`](file:///home/victor/Personal/ctracker_api/src/services/nutritionAi.ts):
+
+### A. Provider Abstraction & Adapters
+CTracker is completely AI provider-agnostic. The app does not route user prompts through any intermediate proxy server; all requests are dispatched directly from the device to the user's chosen inference endpoint.
+
+* **Supported Provider Matrix**:
+  1. **Google Gemini**: Native `generateContent` API with JSON schema enforcement. Free tier available.
+  2. **Groq**: Ultra-low latency LPU inference (300+ tok/s) via OpenAI-compatible `/chat/completions`.
+  3. **OpenAI**: Industry standard GPT-4o Mini and GPT-4o via `/chat/completions`.
+  4. **DeepSeek**: Cost-effective DeepSeek-V3 and DeepSeek-R1 reasoning.
+  5. **Anthropic Claude**: Claude 3.5 Haiku and Sonnet via native `/v1/messages` protocol with `anthropic-version: 2023-06-01` and direct browser access headers.
+  6. **OpenRouter**: Unified access to hundreds of open-source and proprietary models with a single API key.
+  7. **Custom / Local (Ollama, LM Studio, vLLM, LocalAI)**: Connects to any OpenAI-compatible API running locally on the user's Wi-Fi network (e.g. `http://192.168.x.x:11434/v1`).
+
+### B. Local Wi-Fi Network & Cleartext HTTP Support
+To allow unhindered connectivity to local Ollama and self-hosted model servers on home LANs without requiring SSL certificates:
+* Configured `android.usesCleartextTraffic: true` in `app.json`.
+* Android allows cleartext HTTP connections to local network IP addresses (`http://192.168.x.x`, `http://10.0.x.x`).
+
+### C. Output Sanitization & Thinking Tag Stripping (`cleaner.ts`)
+Reasoning models (such as DeepSeek-R1 or Qwen 2.5) emit internal reasoning tokens wrapped in `<think>...</think>` tags before emitting their structured JSON payload.
+* `stripThinking(text)` strips all `<think>...</think>` and unclosed `<think>` fragments.
+* `cleanJsonPayload(text)` strips markdown code fences (````json ... ````) and isolates clean JSON arrays/objects.
+
+### D. Hardware-Backed Per-Provider Credential Storage
+* Secure keys are stored per-provider in `expo-secure-store` using separate keys (`CTRACKER_AI_KEY_<PROVIDER>`).
+* Preserves 100% backwards compatibility and automatic transparent migration for existing Gemini API keys.
+* Switching between providers in Settings instantly restores that provider's saved API key and model preset.
+

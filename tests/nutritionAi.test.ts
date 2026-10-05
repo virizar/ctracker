@@ -4,7 +4,7 @@ import {
   getRelevantCatalogContext,
   parseFoodInput,
   optimizeFoodCatalogBatch,
-} from '../src/services/gemini';
+} from '../src/services/nutritionAi';
 import { OptimizedFoodMapping, FoodCatalogItem } from '../src/types';
 import * as keychain from '../src/services/keychain';
 import * as queries from '../src/db/queries';
@@ -12,7 +12,7 @@ import * as queries from '../src/db/queries';
 jest.mock('../src/services/keychain');
 jest.mock('../src/db/queries');
 
-describe('Gemini AI Response Parsing Tests', () => {
+describe('Nutrition AI Response Parsing Tests', () => {
   it('parses valid JSON food array correctly', () => {
     const raw = JSON.stringify([
       {

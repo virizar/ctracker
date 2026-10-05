@@ -4,8 +4,9 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { getDatabase } from '../db/database';
 import { logMeal, logScaleWeight } from '../db/queries';
+import { getActiveAIClient } from './ai/clientFactory';
+import { cleanJsonPayload } from './ai/cleaner';
 import { recalculateUserTdee } from './tdee';
-import { getGeminiApiKey, getGeminiModel } from './keychain';
 import { DEFAULT_USERNAME } from '../types';
 
 export interface ImportPreview {
@@ -136,19 +137,11 @@ export function buildServingSize(row: Record<string, any>, preferredUnitCol?: st
   return parts.length > 0 ? parts.join(' ') : '1 serving';
 }
 
-export async function askGeminiForColumnMapping(
+export async function detectSpreadsheetColumnMapping(
   headers: string[],
   sampleRows: Record<string, any>[]
 ): Promise<ColumnMapping> {
-  const apiKey = await getGeminiApiKey();
-  if (!apiKey) {
-    throw new Error('Gemini API key is required to detect custom spreadsheet formats.');
-  }
-
-  const model = await getGeminiModel();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    model
-  )}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const client = await getActiveAIClient();
 
   const prompt = `You are a data migration expert. Analyze the headers and sample rows from an exported fitness/health spreadsheet.
 Identify the semantic mapping to our internal data model.
@@ -165,28 +158,18 @@ Determine:
 
 Return ONLY a valid JSON object matching the ColumnMapping schema.`;
 
-  const payload = {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-    },
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+  const jsonText = await client.complete({
+    systemPrompt: prompt,
+    userPrompt: 'Extract column mapping JSON.',
+    temperature: 0.1,
   });
 
-  if (!response.ok) {
-    throw new Error(`Gemini mapping failed (${response.status})`);
-  }
-
-  const result = await response.json();
-  const jsonText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-  return JSON.parse(jsonText);
+  const cleaned = cleanJsonPayload(jsonText);
+  return JSON.parse(cleaned);
 }
+
+// Backwards-compatible alias for existing imports
+export const askGeminiForColumnMapping = detectSpreadsheetColumnMapping;
 
 async function readUriAsText(uri: string): Promise<string> {
   let text = '';
@@ -355,7 +338,7 @@ export async function pickAndInspectFile(
       const rows: any[] = XLSX.utils.sheet_to_json(firstSheet);
       if (rows.length > 0) {
         const headers = Object.keys(rows[0]);
-        const mapping = await askGeminiForColumnMapping(headers, rows.slice(0, 3));
+        const mapping = await detectSpreadsheetColumnMapping(headers, rows.slice(0, 3));
         sourceFormat = `Smart Excel (${mapping.dataType})`;
         processRowsWithMapping(rows, mapping, weightsToInsert, mealsToInsert);
       }
@@ -468,10 +451,10 @@ export async function pickAndInspectFile(
           }
         }
       }
-      // Unrecognized CSV -> Use Gemini AI Schema Detection
+      // Unrecognized CSV -> Use AI Schema Detection
       else {
         sourceFormat = 'Smart CSV (AI Detected)';
-        const mapping = await askGeminiForColumnMapping(headers, rows.slice(0, 3));
+        const mapping = await detectSpreadsheetColumnMapping(headers, rows.slice(0, 3));
         processRowsWithMapping(rows, mapping, weightsToInsert, mealsToInsert);
       }
     }

@@ -2,7 +2,7 @@
 
 A local-first, privacy-first mobile calorie and weight tracker built with **Expo (React Native)** and **TypeScript**. 
 
-CTracker runs 100% locally on your phone using an embedded SQLite database (`expo-sqlite`). It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation algorithm inspired by metabolic literature, continuous exponential trend smoothing, interactive SVG charts, direct Gemini AI food parsing, and high-speed CSV/Excel imports.
+CTracker runs 100% locally on your phone using an embedded SQLite database (`expo-sqlite`). It features an adherence-neutral dynamic Total Daily Energy Expenditure (TDEE) estimation algorithm inspired by metabolic literature, continuous exponential trend smoothing, interactive SVG charts, multi-provider AI meal logging (Gemini, Groq, OpenAI, DeepSeek, Claude, OpenRouter, or private local Ollama), and high-speed CSV/Excel imports.
 
 ---
 
@@ -29,14 +29,16 @@ CTracker runs 100% locally on your phone using an embedded SQLite database (`exp
   * **Expenditure vs. Intake**: Daily calorie intake columns alongside a continuous flowing TDEE curve.
   * **Timeframe Filters**: View periods across `30D`, `90D`, `180D`, and `All`.
 
-* **✨ Instant AI Meal Logging**:
-  * Powered by Google's **Gemini 2.5 Flash Free Tier** via direct client-side requests using your personal Gemini API key.
+* **✨ Multi-Provider AI Meal Logging (Bring Your Own AI)**:
+  * **7 Supported Backends**: **Google Gemini**, **Groq** (ultra-fast LPU inference), **OpenAI** (GPT-4o Mini / GPT-4o), **DeepSeek** (cost-effective V3 / R1 reasoning), **Anthropic Claude** (Claude 3.5 Haiku / Sonnet), **OpenRouter**, or **Custom / Local (Ollama, LM Studio)**.
+  * **100% Private Offline Inference**: Connect directly to your local Wi-Fi LLM server (`http://192.168.x.x:11434/v1`) with Android cleartext HTTP support—no cloud accounts required.
+  * **Live Latency Benchmark**: In-app "Test Ping" button with millisecond latency verification.
   * Speak or type natural language: *"Had 2 scrambled eggs, slice of sourdough toast with butter, and a flat white"*.
-  * Automatically parses foods, quantities, calories, and macronutrients.
+  * Automatically calculates foods, quantities, realistic calories, and macronutrient breakdowns.
 
 * **📥 Data Import & Migration**:
   * Full-fidelity import support for multi-sheet fitness exports, MyFitnessPal, Cronometer, and custom CSV/Excel spreadsheets.
-  * Auto-detects column schemas and calculates retroactive daily expenditure.
+  * AI-driven column schema detection and retroactive daily expenditure recalculation.
 
 ---
 
@@ -137,7 +139,7 @@ When installing an updated build over an existing installation, use the **`-r`**
 ```bash
 adb install -r dist/CTracker-v1.1.2.apk
 ```
-* **Preserves all app data**: Your local SQLite database (`ctracker.db`), logged foods, weigh-ins, and Gemini API keys are **not** touched or erased.
+* **Preserves all app data**: Your local SQLite database (`ctracker.db`), logged foods, weigh-ins, and configured AI provider API keys are **not** touched or erased.
 * Takes 2–3 seconds and completes silently.
 
 ### Testing Older Versions (Downgrade)
