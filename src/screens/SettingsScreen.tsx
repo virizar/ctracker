@@ -613,7 +613,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
             }
           />
           <View style={{ flex: 1, marginLeft: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={styles.smartGoalHeaderRow}>
               <Text
                 style={[
                   styles.smartGoalTitle,
@@ -623,26 +623,43 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
                 ]}
               >
                 {targetResult.mode === 'loss'
-                  ? `Fat Loss Pace (~${targetResult.weeklyRateKg.toFixed(2)} kg/wk • ${targetResult.weeklyRatePercent.toFixed(2)}% BW)`
+                  ? 'Fat Loss Pace'
                   : targetResult.mode === 'gain'
-                  ? `Muscle Gain Pace (~${targetResult.weeklyRateKg.toFixed(2)} kg/wk • ${targetResult.weeklyRatePercent.toFixed(2)}% BW)`
-                  : 'Weight Maintenance Landing'}
+                  ? 'Muscle Gain Pace'
+                  : 'Weight Maintenance'}
               </Text>
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '800',
-                  color:
-                    targetResult.mode === 'loss'
-                      ? '#059669'
-                      : targetResult.mode === 'gain'
-                      ? '#2563eb'
-                      : '#475569',
-                }}
+              <View
+                style={[
+                  styles.smartGoalKcalPill,
+                  targetResult.mode === 'loss' && styles.smartGoalKcalPillLoss,
+                  targetResult.mode === 'gain' && styles.smartGoalKcalPillGain,
+                  targetResult.mode === 'maintain' && styles.smartGoalKcalPillMaintain,
+                ]}
               >
-                {targetResult.targetCalories} kcal
-              </Text>
+                <Text
+                  style={[
+                    styles.smartGoalKcalText,
+                    targetResult.mode === 'loss' && { color: '#065f46' },
+                    targetResult.mode === 'gain' && { color: '#1d4ed8' },
+                    targetResult.mode === 'maintain' && { color: '#334155' },
+                  ]}
+                >
+                  {targetResult.targetCalories} kcal
+                </Text>
+              </View>
             </View>
+
+            {targetResult.mode !== 'maintain' && (
+              <Text
+                style={[
+                  styles.smartGoalRateText,
+                  targetResult.mode === 'loss' && { color: '#047857' },
+                  targetResult.mode === 'gain' && { color: '#1d4ed8' },
+                ]}
+              >
+                ~{targetResult.weeklyRateKg.toFixed(2)} kg/wk • {targetResult.weeklyRatePercent.toFixed(2)}% BW
+              </Text>
+            )}
 
             <Text style={styles.smartGoalSub}>
               {targetResult.mode === 'loss'
@@ -1233,14 +1250,46 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderColor: '#cbd5e1',
   },
+  smartGoalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   smartGoalTitle: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '700',
+    lineHeight: 18,
+  },
+  smartGoalKcalPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  smartGoalKcalPillLoss: {
+    backgroundColor: '#d1fae5',
+  },
+  smartGoalKcalPillGain: {
+    backgroundColor: '#dbeafe',
+  },
+  smartGoalKcalPillMaintain: {
+    backgroundColor: '#e2e8f0',
+  },
+  smartGoalKcalText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  smartGoalRateText: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
   },
   smartGoalSub: {
     fontSize: 11.5,
     color: '#64748b',
-    marginTop: 2,
+    marginTop: 3,
   },
   cappedWarningRow: {
     flexDirection: 'row',
