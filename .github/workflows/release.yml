@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Git tag to create release for (e.g. v1.7.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Tag Name
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "name=${{ github.event.inputs.tag_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Changelog from Commits
+        id: changelog
+        run: |
+          TAG="${{ steps.tag.outputs.name }}"
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || echo "")
+
+          RANGE="${PREV_TAG:+$PREV_TAG..}${TAG}"
+
+          FEATS=$(git log "$RANGE" --grep="^feat" --pretty=format:"* %s (%h)" --no-merges)
+          FIXES=$(git log "$RANGE" --grep="^fix" --pretty=format:"* %s (%h)" --no-merges)
+          PERFS=$(git log "$RANGE" --grep="^perf" --pretty=format:"* %s (%h)" --no-merges)
+          REFACTORS=$(git log "$RANGE" --grep="^refactor" --pretty=format:"* %s (%h)" --no-merges)
+          OTHERS=$(git log "$RANGE" --extended-regexp --invert-grep --grep="^(feat|fix|perf|refactor)" --pretty=format:"* %s (%h)" --no-merges)
+
+          {
+            [ -n "$FEATS" ] && echo -e "### 🚀 Features\n$FEATS\n"
+            [ -n "$FIXES" ] && echo -e "### 🐛 Bug Fixes\n$FIXES\n"
+            [ -n "$PERFS" ] && echo -e "### ⚡ Performance\n$PERFS\n"
+            [ -n "$REFACTORS" ] && echo -e "### ♻️ Refactoring\n$REFACTORS\n"
+            [ -n "$OTHERS" ] && echo -e "### 📦 Other Changes\n$OTHERS\n"
+            if [ -n "$PREV_TAG" ]; then
+              echo -e "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
+            fi
+          } > release_changelog.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: ${{ steps.tag.outputs.name }}
+          body_path: release_changelog.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
