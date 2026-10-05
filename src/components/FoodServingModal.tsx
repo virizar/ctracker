@@ -24,6 +24,7 @@ interface FoodServingModalProps {
   initialManualMacros?: boolean;
   title?: string;
   submitLabel?: string;
+  secondarySubmitLabel?: string;
   onClose: () => void;
   onConfirm: (result: {
     foodName: string;
@@ -37,7 +38,20 @@ interface FoodServingModalProps {
     protein: number;
     carbs: number;
     fat: number;
-  }) => Promise<void>;
+  }) => Promise<void> | void;
+  onSecondaryConfirm?: (result: {
+    foodName: string;
+    originalCanonicalName: string;
+    brand?: string | null;
+    variant?: string | null;
+    servingSizeStr: string;
+    quantity: number;
+    unit: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }) => Promise<void> | void;
 }
 
 export function FoodServingModal({
@@ -47,8 +61,10 @@ export function FoodServingModal({
   initialManualMacros,
   title,
   submitLabel,
+  secondarySubmitLabel,
   onClose,
   onConfirm,
+  onSecondaryConfirm,
 }: FoodServingModalProps) {
   const [foodName, setFoodName] = useState('');
   const [brand, setBrand] = useState<string | null>(null);
@@ -208,6 +224,28 @@ export function FoodServingModal({
     }
 
     await onConfirm({
+      foodName: foodName.trim() || item.canonical_name,
+      originalCanonicalName: item.canonical_name,
+      brand: cleanTag(brand),
+      variant: cleanTag(variant),
+      servingSizeStr: scaled.servingSizeStr,
+      quantity: finalQty,
+      unit: selectedUnit,
+      calories: displayCalories,
+      protein: displayProtein,
+      carbs: displayCarbs,
+      fat: displayFat,
+    });
+  };
+
+  const handleSecondarySave = async () => {
+    const finalQty = parseFloat(quantityStr);
+    if (isNaN(finalQty) || finalQty <= 0) {
+      return;
+    }
+    if (!onSecondaryConfirm) return;
+
+    await onSecondaryConfirm({
       foodName: foodName.trim() || item.canonical_name,
       originalCanonicalName: item.canonical_name,
       brand: cleanTag(brand),
@@ -414,14 +452,34 @@ export function FoodServingModal({
               )}
             </View>
 
-            {/* Confirm Log Button */}
-            <TouchableOpacity style={styles.confirmBtn} onPress={handleSave} activeOpacity={0.85}>
-              <Text style={styles.confirmBtnText}>
-                {submitLabel
-                  ? `${submitLabel} (${displayCalories} kcal)`
-                  : `Log ${scaled.servingSizeStr} (${displayCalories} kcal)`}
-              </Text>
-            </TouchableOpacity>
+            {/* Action Buttons */}
+            <View style={styles.buttonActionGroup}>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handleSave} activeOpacity={0.85}>
+                <Ionicons
+                  name={submitLabel?.includes('Add') ? 'cart-outline' : 'checkmark-circle-outline'}
+                  size={18}
+                  color="#ffffff"
+                />
+                <Text style={styles.confirmBtnText}>
+                  {submitLabel
+                    ? `${submitLabel} (${displayCalories} kcal)`
+                    : `Log ${scaled.servingSizeStr} (${displayCalories} kcal)`}
+                </Text>
+              </TouchableOpacity>
+
+              {secondarySubmitLabel && onSecondaryConfirm ? (
+                <TouchableOpacity
+                  style={styles.secondaryConfirmBtn}
+                  onPress={handleSecondarySave}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="flash-outline" size={16} color="#2563eb" />
+                  <Text style={styles.secondaryConfirmBtnText}>
+                    {`${secondarySubmitLabel} (${displayCalories} kcal)`}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -650,11 +708,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#475569',
   },
+  buttonActionGroup: {
+    gap: 10,
+  },
   confirmBtn: {
     backgroundColor: '#2563eb',
     borderRadius: 14,
-    paddingVertical: 15,
+    paddingVertical: 14,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     shadowColor: '#2563eb',
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 4 },
@@ -665,5 +729,21 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  secondaryConfirmBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 14,
+    paddingVertical: 13,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    gap: 6,
+  },
+  secondaryConfirmBtnText: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Alert,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,6 +28,12 @@ import { formatCatalogServing, isValidTag, cleanTag } from '../services/serving'
 import { ParsedFoodItem, FoodCatalogItem, DEFAULT_USERNAME } from '../types';
 import { FoodServingModal } from '../components/FoodServingModal';
 
+export interface StagedFoodItem extends ParsedFoodItem {
+  catalogItem?: FoodCatalogItem;
+  quantity?: number;
+  unit?: string;
+}
+
 interface QuickLogModalProps {
   visible: boolean;
   onClose: () => void;
@@ -44,16 +51,17 @@ export function QuickLogModal({
   const [activeTab, setActiveTab] = useState<'ai' | 'search'>('ai');
   const [profileUsername, setProfileUsername] = useState(DEFAULT_USERNAME);
 
-  // AI Tab State
-  const [inputQuery, setInputQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [parsedItems, setParsedItems] = useState<ParsedFoodItem[]>([]);
+  // Global Staged Meal Basket (Shared across both AI and Search tabs)
+  const [stagedItems, setStagedItems] = useState<StagedFoodItem[]>([]);
+  const [editingStagedIndex, setEditingStagedIndex] = useState<number | null>(null);
+  const [isBasketReviewVisible, setIsBasketReviewVisible] = useState(false);
+  const [logging, setLogging] = useState(false);
 
-  // Computed AI Totals
-  const totalAiCalories = Math.round(parsedItems.reduce((acc, it) => acc + (it.calories || 0), 0));
-  const totalAiProtein = Math.round(parsedItems.reduce((acc, it) => acc + (it.protein || 0), 0) * 10) / 10;
-  const totalAiCarbs = Math.round(parsedItems.reduce((acc, it) => acc + (it.carbs || 0), 0) * 10) / 10;
-  const totalAiFat = Math.round(parsedItems.reduce((acc, it) => acc + (it.fat || 0), 0) * 10) / 10;
+  // AI Tab Draft State (Working area before staging)
+  const [inputQuery, setInputQuery] = useState('');
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [aiDraftItems, setAiDraftItems] = useState<ParsedFoodItem[]>([]);
+  const [editingAiDraftIndex, setEditingAiDraftIndex] = useState<number | null>(null);
 
   // Search Tab State
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,6 +70,18 @@ export function QuickLogModal({
   // Serving & Portion Modal State
   const [servingModalItem, setServingModalItem] = useState<FoodCatalogItem | null>(null);
   const [isCreatingCustomFood, setIsCreatingCustomFood] = useState(false);
+
+  // Computed Totals for Global Staged Meal Basket
+  const totalBasketCalories = Math.round(stagedItems.reduce((acc, it) => acc + (it.calories || 0), 0));
+  const totalBasketProtein = Math.round(stagedItems.reduce((acc, it) => acc + (it.protein || 0), 0) * 10) / 10;
+  const totalBasketCarbs = Math.round(stagedItems.reduce((acc, it) => acc + (it.carbs || 0), 0) * 10) / 10;
+  const totalBasketFat = Math.round(stagedItems.reduce((acc, it) => acc + (it.fat || 0), 0) * 10) / 10;
+
+  // Computed Totals for AI Draft
+  const totalAiDraftCalories = Math.round(aiDraftItems.reduce((acc, it) => acc + (it.calories || 0), 0));
+  const totalAiDraftProtein = Math.round(aiDraftItems.reduce((acc, it) => acc + (it.protein || 0), 0) * 10) / 10;
+  const totalAiDraftCarbs = Math.round(aiDraftItems.reduce((acc, it) => acc + (it.carbs || 0), 0) * 10) / 10;
+  const totalAiDraftFat = Math.round(aiDraftItems.reduce((acc, it) => acc + (it.fat || 0), 0) * 10) / 10;
 
   useEffect(() => {
     if (visible) {
@@ -90,76 +110,86 @@ export function QuickLogModal({
     }
   };
 
+  // --- AI Tab Handlers ---
   const handleParseWithGemini = async () => {
     if (!inputQuery.trim()) {
       Alert.alert('Empty Input', 'Please describe what you ate or drank.');
       return;
     }
 
-    setLoading(true);
+    setLoadingAi(true);
     try {
       const items = await parseFoodInput(inputQuery, profileUsername);
       if (items.length === 0) {
         Alert.alert('No Food Detected', 'Gemini could not identify any food items in your description.');
       } else {
-        setParsedItems(items);
+        setAiDraftItems(items);
       }
     } catch (err: any) {
       Alert.alert('AI Error', err?.message || 'Failed to parse food with Gemini.');
     } finally {
-      setLoading(false);
+      setLoadingAi(false);
     }
   };
 
-  const handleConfirmAiMeals = async () => {
-    if (parsedItems.length === 0) return;
-
-    for (const item of parsedItems) {
-      const cleanName = item.food_name.trim() || item.canonical_name.trim();
-
-      // 1. Log the meal entry for today (logMeal automatically upserts into food_catalog)
-      await logMeal(profileUsername, {
-        date: targetDate,
-        food_name: cleanName,
-        canonical_name: cleanName,
-        brand: cleanTag(item.brand),
-        variant: cleanTag(item.variant),
-        serving_size: item.serving_size,
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-      });
-    }
-
-    await recalculateUserTdee(profileUsername);
-    resetAndClose();
-    onSuccess();
-  };
-
-  const handleClearAll = () => {
+  const handleAddAiDraftToBasket = () => {
+    if (aiDraftItems.length === 0) return;
+    setStagedItems((prev) => [...prev, ...aiDraftItems]);
+    setAiDraftItems([]);
     setInputQuery('');
-    setParsedItems([]);
   };
 
-  const handleRemoveAiItem = (index: number) => {
-    setParsedItems((prev) => prev.filter((_, idx) => idx !== index));
+  const handleLogAiDraftImmediately = async () => {
+    if (aiDraftItems.length === 0 || logging) return;
+
+    setLogging(true);
+    try {
+      for (const item of aiDraftItems) {
+        const cleanName = item.food_name.trim() || item.canonical_name.trim();
+        await logMeal(profileUsername, {
+          date: targetDate,
+          food_name: cleanName,
+          canonical_name: cleanName,
+          brand: cleanTag(item.brand),
+          variant: cleanTag(item.variant),
+          serving_size: item.serving_size,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: item.carbs,
+          fat: item.fat,
+        });
+      }
+
+      await recalculateUserTdee(profileUsername);
+      resetAndClose();
+      onSuccess();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to log meals.');
+    } finally {
+      setLogging(false);
+    }
   };
 
-  const handleOpenAiItemServing = async (aiItem: ParsedFoodItem, idx: number) => {
+  const handleEditAiDraftItem = async (aiItem: ParsedFoodItem, idx: number) => {
+    setEditingAiDraftIndex(idx);
+    setEditingStagedIndex(null);
     const cleanName = aiItem.food_name.trim() || aiItem.canonical_name.trim();
     const existing = await getFoodCatalogItem(profileUsername, cleanName);
 
     if (existing) {
       setServingModalItem({
         ...existing,
+        canonical_name: cleanName,
         brand: cleanTag(aiItem.brand ?? existing.brand),
         variant: cleanTag(aiItem.variant ?? existing.variant),
-        id: -1 * (idx + 1),
+        calories: aiItem.calories,
+        protein: aiItem.protein,
+        carbs: aiItem.carbs,
+        fat: aiItem.fat,
+        default_serving: aiItem.serving_size,
       });
     } else {
       setServingModalItem({
-        id: -1 * (idx + 1),
         username: profileUsername,
         canonical_name: cleanName,
         brand: cleanTag(aiItem.brand),
@@ -173,12 +203,97 @@ export function QuickLogModal({
         usage_count: 1,
         last_used_qty: null,
         last_used_unit: null,
-        last_used_at: undefined,
         created_at: '',
       });
     }
   };
 
+  const handleRemoveAiDraftItem = (index: number) => {
+    setAiDraftItems((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  // --- Staged Basket Handlers ---
+  const handleCommitStagedMeals = async () => {
+    if (stagedItems.length === 0 || logging) return;
+
+    setLogging(true);
+    try {
+      for (const item of stagedItems) {
+        const cleanName = item.food_name.trim() || item.canonical_name.trim();
+        await logMeal(profileUsername, {
+          date: targetDate,
+          food_name: cleanName,
+          canonical_name: cleanName,
+          brand: cleanTag(item.brand),
+          variant: cleanTag(item.variant),
+          serving_size: item.serving_size,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: item.carbs,
+          fat: item.fat,
+        });
+      }
+
+      await recalculateUserTdee(profileUsername);
+      setIsBasketReviewVisible(false);
+      resetAndClose();
+      onSuccess();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to log meals.');
+    } finally {
+      setLogging(false);
+    }
+  };
+
+  const handleClearAllStaged = () => {
+    setStagedItems([]);
+  };
+
+  const handleRemoveStagedItem = (index: number) => {
+    setStagedItems((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleEditStagedItem = async (item: StagedFoodItem, idx: number) => {
+    setEditingStagedIndex(idx);
+    setEditingAiDraftIndex(null);
+    const cleanName = item.food_name.trim() || item.canonical_name.trim();
+    const existing = item.catalogItem || (await getFoodCatalogItem(profileUsername, cleanName));
+
+    if (existing) {
+      setServingModalItem({
+        ...existing,
+        canonical_name: cleanName,
+        brand: cleanTag(item.brand ?? existing.brand),
+        variant: cleanTag(item.variant ?? existing.variant),
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        default_serving: item.serving_size,
+        last_used_qty: item.quantity ?? existing.last_used_qty,
+        last_used_unit: item.unit ?? existing.last_used_unit,
+      });
+    } else {
+      setServingModalItem({
+        username: profileUsername,
+        canonical_name: cleanName,
+        brand: cleanTag(item.brand),
+        variant: cleanTag(item.variant),
+        default_serving: item.serving_size,
+        base_weight_g: item.base_weight_g ?? null,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        usage_count: 1,
+        last_used_qty: item.quantity ?? null,
+        last_used_unit: item.unit ?? null,
+        created_at: '',
+      });
+    }
+  };
+
+  // --- Serving Modal Confirmations ---
   const handleConfirmServing = async (result: {
     foodName: string;
     originalCanonicalName: string;
@@ -197,13 +312,12 @@ export function QuickLogModal({
       const finalBrand = cleanTag(result.brand !== undefined ? result.brand : (servingModalItem?.brand ?? null));
       const finalVariant = cleanTag(result.variant !== undefined ? result.variant : (servingModalItem?.variant ?? null));
 
-      // Case 1: Editing a temporary item from the AI preview list
-      if (servingModalItem && servingModalItem.id !== undefined && servingModalItem.id < 0) {
-        const itemIdx = Math.abs(servingModalItem.id) - 1;
-        setParsedItems((prev) => {
+      // Case 1: Editing item in AI Draft preview
+      if (editingAiDraftIndex !== null) {
+        setAiDraftItems((prev) => {
           const updated = [...prev];
-          updated[itemIdx] = {
-            ...updated[itemIdx],
+          updated[editingAiDraftIndex] = {
+            ...updated[editingAiDraftIndex],
             food_name: finalName,
             canonical_name: finalName,
             brand: finalBrand,
@@ -216,18 +330,150 @@ export function QuickLogModal({
           };
           return updated;
         });
+        setEditingAiDraftIndex(null);
         setServingModalItem(null);
         return;
       }
 
-      // Case 2: Logging an item from Food Catalog
-      if (servingModalItem && servingModalItem.id !== undefined && servingModalItem.id > 0) {
-        // If food was renamed, rename in SQLite catalog
+      // Case 2: Editing item in Global Staged Basket
+      if (editingStagedIndex !== null) {
+        setStagedItems((prev) => {
+          const updated = [...prev];
+          updated[editingStagedIndex] = {
+            ...updated[editingStagedIndex],
+            food_name: finalName,
+            canonical_name: finalName,
+            brand: finalBrand,
+            variant: finalVariant,
+            serving_size: result.servingSizeStr,
+            quantity: result.quantity,
+            unit: result.unit,
+            calories: result.calories,
+            protein: result.protein,
+            carbs: result.carbs,
+            fat: result.fat,
+          };
+          return updated;
+        });
+        setEditingStagedIndex(null);
+        setServingModalItem(null);
+        return;
+      }
+
+      // Case 3: Creating custom food and staging it
+      if (isCreatingCustomFood) {
+        await upsertFoodCatalog({
+          username: profileUsername,
+          canonical_name: finalName,
+          brand: finalBrand,
+          variant: finalVariant,
+          default_serving: result.servingSizeStr,
+          calories: result.calories,
+          protein: result.protein,
+          carbs: result.carbs,
+          fat: result.fat,
+          usage_count: 1,
+          last_used_qty: result.quantity,
+          last_used_unit: result.unit,
+        });
+
+        setStagedItems((prev) => [
+          ...prev,
+          {
+            food_name: finalName,
+            canonical_name: finalName,
+            brand: finalBrand,
+            variant: finalVariant,
+            serving_size: result.servingSizeStr,
+            quantity: result.quantity,
+            unit: result.unit,
+            calories: result.calories,
+            protein: result.protein,
+            carbs: result.carbs,
+            fat: result.fat,
+          },
+        ]);
+
+        setIsCreatingCustomFood(false);
+        setServingModalItem(null);
+        setSearchQuery('');
+        loadSearchResults('');
+        return;
+      }
+
+      // Case 4: Adding an item from Food Catalog to staged basket
+      if (result.originalCanonicalName && finalName !== result.originalCanonicalName) {
+        await renameFoodCatalogItem(profileUsername, result.originalCanonicalName, finalName);
+      }
+      await updateCatalogLastUsedMeasurement(
+        profileUsername,
+        finalName,
+        result.quantity,
+        result.unit
+      );
+
+      setStagedItems((prev) => [
+        ...prev,
+        {
+          food_name: finalName,
+          canonical_name: finalName,
+          brand: finalBrand,
+          variant: finalVariant,
+          serving_size: result.servingSizeStr,
+          quantity: result.quantity,
+          unit: result.unit,
+          calories: result.calories,
+          protein: result.protein,
+          carbs: result.carbs,
+          fat: result.fat,
+          catalogItem: servingModalItem ?? undefined,
+        },
+      ]);
+
+      setServingModalItem(null);
+      setSearchQuery(''); // Clears search query so catalog results reset cleanly
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to stage food item.');
+    }
+  };
+
+  const handleConfirmImmediateLog = async (result: {
+    foodName: string;
+    originalCanonicalName: string;
+    brand?: string | null;
+    variant?: string | null;
+    servingSizeStr: string;
+    quantity: number;
+    unit: string;
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+  }) => {
+    try {
+      const finalName = result.foodName.trim() || result.originalCanonicalName;
+      const finalBrand = cleanTag(result.brand !== undefined ? result.brand : (servingModalItem?.brand ?? null));
+      const finalVariant = cleanTag(result.variant !== undefined ? result.variant : (servingModalItem?.variant ?? null));
+
+      if (isCreatingCustomFood) {
+        await upsertFoodCatalog({
+          username: profileUsername,
+          canonical_name: finalName,
+          brand: finalBrand,
+          variant: finalVariant,
+          default_serving: result.servingSizeStr,
+          calories: result.calories,
+          protein: result.protein,
+          carbs: result.carbs,
+          fat: result.fat,
+          usage_count: 1,
+          last_used_qty: result.quantity,
+          last_used_unit: result.unit,
+        });
+      } else {
         if (result.originalCanonicalName && finalName !== result.originalCanonicalName) {
           await renameFoodCatalogItem(profileUsername, result.originalCanonicalName, finalName);
         }
-
-        // Remember last used quantity & unit
         await updateCatalogLastUsedMeasurement(
           profileUsername,
           finalName,
@@ -251,6 +497,7 @@ export function QuickLogModal({
 
       await recalculateUserTdee(profileUsername);
       setServingModalItem(null);
+      setIsCreatingCustomFood(false);
       resetAndClose();
       onSuccess();
     } catch (err: any) {
@@ -273,17 +520,37 @@ export function QuickLogModal({
     setServingModalItem(newItem);
   };
 
+  const handleCloseAttempt = () => {
+    const totalCount = stagedItems.length + aiDraftItems.length;
+    if (totalCount > 0) {
+      Alert.alert(
+        'Discard Food Log?',
+        `You have ${totalCount} item${totalCount > 1 ? 's' : ''} that have not been logged.`,
+        [
+          { text: 'Keep Editing', style: 'cancel' },
+          { text: 'Discard', style: 'destructive', onPress: resetAndClose },
+        ]
+      );
+    } else {
+      resetAndClose();
+    }
+  };
+
   const resetAndClose = () => {
     setInputQuery('');
-    setParsedItems([]);
+    setAiDraftItems([]);
+    setStagedItems([]);
     setSearchQuery('');
     setServingModalItem(null);
+    setEditingStagedIndex(null);
+    setEditingAiDraftIndex(null);
     setIsCreatingCustomFood(false);
+    setIsBasketReviewVisible(false);
     onClose();
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleCloseAttempt}>
       <View
         style={[
           styles.container,
@@ -304,7 +571,7 @@ export function QuickLogModal({
               </Text>
             </View>
           </View>
-          <TouchableOpacity onPress={resetAndClose} style={styles.closeBtn}>
+          <TouchableOpacity onPress={handleCloseAttempt} style={styles.closeBtn}>
             <Ionicons name="close" size={24} color="#64748b" />
           </TouchableOpacity>
         </View>
@@ -342,7 +609,12 @@ export function QuickLogModal({
 
         {/* Tab Content */}
         {activeTab === 'ai' ? (
-          <ScrollView contentContainerStyle={styles.content}>
+          <ScrollView
+            contentContainerStyle={[
+              styles.content,
+              { paddingBottom: stagedItems.length > 0 ? 84 : 20 },
+            ]}
+          >
             <Text style={styles.instruction}>
               Describe your meal in plain English or use voice dictation. Gemini will calculate the macros automatically:
             </Text>
@@ -359,11 +631,11 @@ export function QuickLogModal({
 
             <View style={styles.actionRow}>
               <TouchableOpacity
-                style={[styles.parseBtn, loading && { opacity: 0.7 }]}
+                style={[styles.parseBtn, loadingAi && { opacity: 0.7 }]}
                 onPress={handleParseWithGemini}
-                disabled={loading}
+                disabled={loadingAi}
               >
-                {loading ? (
+                {loadingAi ? (
                   <ActivityIndicator color="#ffffff" />
                 ) : (
                   <>
@@ -373,10 +645,13 @@ export function QuickLogModal({
                 )}
               </TouchableOpacity>
 
-              {(inputQuery.trim().length > 0 || parsedItems.length > 0) && (
+              {(inputQuery.trim().length > 0 || aiDraftItems.length > 0) && (
                 <TouchableOpacity
                   style={styles.clearBtn}
-                  onPress={handleClearAll}
+                  onPress={() => {
+                    setInputQuery('');
+                    setAiDraftItems([]);
+                  }}
                   activeOpacity={0.7}
                 >
                   <Ionicons name="trash-outline" size={16} color="#64748b" />
@@ -385,26 +660,26 @@ export function QuickLogModal({
               )}
             </View>
 
-            {/* Parsed Items Preview */}
-            {parsedItems.length > 0 && (
+            {/* AI Draft Items Preview (Local Working Area) */}
+            {aiDraftItems.length > 0 && (
               <View style={styles.previewContainer}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <Text style={styles.previewTitle}>Estimated Items ({parsedItems.length})</Text>
+                  <Text style={styles.previewTitle}>AI Estimated Items ({aiDraftItems.length})</Text>
                   <TouchableOpacity
-                    onPress={handleClearAll}
+                    onPress={() => setAiDraftItems([])}
                     style={styles.clearAllTextBtn}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <Ionicons name="trash-outline" size={13} color="#ef4444" />
-                    <Text style={styles.clearAllText}>Clear all</Text>
+                    <Text style={styles.clearAllText}>Clear draft</Text>
                   </TouchableOpacity>
                 </View>
 
-                {parsedItems.map((item, idx) => (
+                {aiDraftItems.map((item, idx) => (
                   <TouchableOpacity
                     key={idx}
                     style={styles.previewCard}
-                    onPress={() => handleOpenAiItemServing(item, idx)}
+                    onPress={() => handleEditAiDraftItem(item, idx)}
                     activeOpacity={0.7}
                   >
                     <View style={{ flex: 1, marginRight: 8 }}>
@@ -432,7 +707,7 @@ export function QuickLogModal({
                       <TouchableOpacity
                         onPress={(e) => {
                           e.stopPropagation();
-                          handleRemoveAiItem(idx);
+                          handleRemoveAiDraftItem(idx);
                         }}
                         style={styles.deleteCardBtn}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -444,40 +719,62 @@ export function QuickLogModal({
                   </TouchableOpacity>
                 ))}
 
-                {/* Total Nutrition Summary Card */}
+                {/* Total Nutrition Summary Card for AI Draft */}
                 <View style={styles.summaryTotalCard}>
                   <View style={styles.summaryTotalHeader}>
-                    <Text style={styles.summaryTotalLabel}>Total Estimated Nutrition</Text>
-                    <Text style={styles.summaryTotalCals}>{totalAiCalories} kcal</Text>
+                    <Text style={styles.summaryTotalLabel}>Draft Estimated Nutrition</Text>
+                    <Text style={styles.summaryTotalCals}>{totalAiDraftCalories} kcal</Text>
                   </View>
                   <View style={styles.summaryMacrosRow}>
                     <View style={styles.summaryMacroBadge}>
                       <Text style={styles.summaryMacroLabel}>Protein</Text>
-                      <Text style={[styles.summaryMacroVal, { color: '#2563eb' }]}>{totalAiProtein}g</Text>
+                      <Text style={[styles.summaryMacroVal, { color: '#2563eb' }]}>{totalAiDraftProtein}g</Text>
                     </View>
                     <View style={styles.summaryMacroBadge}>
                       <Text style={styles.summaryMacroLabel}>Carbs</Text>
-                      <Text style={[styles.summaryMacroVal, { color: '#10b981' }]}>{totalAiCarbs}g</Text>
+                      <Text style={[styles.summaryMacroVal, { color: '#10b981' }]}>{totalAiDraftCarbs}g</Text>
                     </View>
                     <View style={styles.summaryMacroBadge}>
                       <Text style={styles.summaryMacroLabel}>Fat</Text>
-                      <Text style={[styles.summaryMacroVal, { color: '#f59e0b' }]}>{totalAiFat}g</Text>
+                      <Text style={[styles.summaryMacroVal, { color: '#f59e0b' }]}>{totalAiDraftFat}g</Text>
                     </View>
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.confirmBtn}
-                  onPress={handleConfirmAiMeals}
-                >
-                  <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={styles.confirmBtnText}>Add All to Log ({totalAiCalories} kcal)</Text>
-                </TouchableOpacity>
+                {/* Stage vs Log Actions for AI Draft */}
+                <View style={styles.aiActionGroup}>
+                  <TouchableOpacity
+                    style={styles.addToBasketBtn}
+                    onPress={handleAddAiDraftToBasket}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="basket-outline" size={18} color="#ffffff" />
+                    <Text style={styles.addToBasketBtnText}>
+                      + Add to Staged Meal ({totalAiDraftCalories} kcal)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.logDirectBtn}
+                    onPress={handleLogAiDraftImmediately}
+                    disabled={logging}
+                    activeOpacity={0.85}
+                  >
+                    {logging ? (
+                      <ActivityIndicator color="#2563eb" size="small" />
+                    ) : (
+                      <>
+                        <Ionicons name="flash-outline" size={16} color="#2563eb" />
+                        <Text style={styles.logDirectBtnText}>Log Directly to Today</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </ScrollView>
         ) : (
-          <View style={[styles.content, { flex: 1 }]}>
+          <View style={[styles.content, { flex: 1, paddingBottom: 0 }]}>
             <View style={styles.searchBar}>
               <Ionicons name="search" size={20} color="#94a3b8" />
               <TextInput
@@ -487,6 +784,11 @@ export function QuickLogModal({
                 onChangeText={setSearchQuery}
                 placeholderTextColor="#94a3b8"
               />
+              {searchQuery.trim().length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                </TouchableOpacity>
+              )}
             </View>
 
             <TouchableOpacity
@@ -502,7 +804,10 @@ export function QuickLogModal({
               </Text>
             </TouchableOpacity>
 
-            <ScrollView style={{ flex: 1 }}>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: stagedItems.length > 0 ? 84 : 20 }}
+            >
               {searchResults.length === 0 ? (
                 <View style={{ alignItems: 'center', marginTop: 24 }}>
                   <Text style={styles.noResultsText}>No foods found in your catalog.</Text>
@@ -523,7 +828,11 @@ export function QuickLogModal({
                     <TouchableOpacity
                       key={item.id}
                       style={styles.searchItem}
-                      onPress={() => setServingModalItem(item)}
+                      onPress={() => {
+                        setEditingStagedIndex(null);
+                        setEditingAiDraftIndex(null);
+                        setServingModalItem(item);
+                      }}
                       activeOpacity={0.7}
                     >
                       <View style={{ flex: 1 }}>
@@ -570,19 +879,244 @@ export function QuickLogModal({
           </View>
         )}
 
+        {/* Global Floating Docked Bottom Bar (Visible whenever staged basket has items) */}
+        {stagedItems.length > 0 && (
+          <View style={[styles.floatingCartBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 12 }]}>
+            <TouchableOpacity
+              style={styles.floatingCartInfo}
+              onPress={() => setIsBasketReviewVisible(true)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.floatingCartBadge}>
+                <Ionicons name="basket" size={18} color="#ffffff" />
+                <Text style={styles.floatingCartBadgeCount}>{stagedItems.length}</Text>
+              </View>
+              <View>
+                <Text style={styles.floatingCartCals}>{totalBasketCalories} kcal</Text>
+                <Text style={styles.floatingCartMacros}>
+                  P: {totalBasketProtein}g • C: {totalBasketCarbs}g • F: {totalBasketFat}g
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.floatingCartButtons}>
+              <TouchableOpacity
+                style={styles.floatingReviewBtn}
+                onPress={() => setIsBasketReviewVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.floatingReviewBtnText}>Review</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.floatingLogBtn}
+                onPress={handleCommitStagedMeals}
+                disabled={logging}
+                activeOpacity={0.85}
+              >
+                {logging ? (
+                  <ActivityIndicator color="#ffffff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={16} color="#ffffff" />
+                    <Text style={styles.floatingLogBtnText}>Log Meal</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
         {/* Serving Size & Quantity Adjustment Modal */}
         <FoodServingModal
           visible={servingModalItem !== null}
           item={servingModalItem}
           initialManualMacros={isCreatingCustomFood}
-          title={isCreatingCustomFood ? 'Create Custom Food' : 'Serving & Quantity'}
-          submitLabel={isCreatingCustomFood ? 'Save & Log Food' : undefined}
+          initialServing={
+            editingStagedIndex !== null && stagedItems[editingStagedIndex]
+              ? {
+                  quantity: stagedItems[editingStagedIndex].quantity,
+                  unit: stagedItems[editingStagedIndex].unit,
+                }
+              : undefined
+          }
+          title={
+            editingAiDraftIndex !== null
+              ? 'Edit Estimated Item'
+              : editingStagedIndex !== null
+              ? 'Edit Staged Food'
+              : isCreatingCustomFood
+              ? 'Create Custom Food'
+              : 'Serving & Quantity'
+          }
+          submitLabel={
+            editingAiDraftIndex !== null || editingStagedIndex !== null
+              ? 'Update Item'
+              : '+ Add to Meal'
+          }
+          secondarySubmitLabel={
+            editingAiDraftIndex === null && editingStagedIndex === null ? 'Log Immediately' : undefined
+          }
           onClose={() => {
             setServingModalItem(null);
+            setEditingStagedIndex(null);
+            setEditingAiDraftIndex(null);
             setIsCreatingCustomFood(false);
           }}
           onConfirm={handleConfirmServing}
+          onSecondaryConfirm={
+            editingAiDraftIndex === null && editingStagedIndex === null ? handleConfirmImmediateLog : undefined
+          }
         />
+
+        {/* Slide-Up Bottom Sheet for Staged Basket Review */}
+        <Modal
+          visible={isBasketReviewVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setIsBasketReviewVisible(false)}
+        >
+          <View style={styles.bottomSheetOverlay}>
+            <TouchableWithoutFeedback onPress={() => setIsBasketReviewVisible(false)}>
+              <View style={styles.bottomSheetBackdrop} />
+            </TouchableWithoutFeedback>
+
+            <View
+              style={[
+                styles.bottomSheetContainer,
+                { paddingBottom: insets.bottom > 0 ? insets.bottom : 16 },
+              ]}
+            >
+              {/* Drag Handle */}
+              <View style={styles.bottomSheetHandleRow}>
+                <View style={styles.bottomSheetHandle} />
+              </View>
+
+              {/* Sheet Header */}
+              <View style={styles.bottomSheetHeader}>
+                <View>
+                  <Text style={styles.bottomSheetTitle}>Staged Meal Basket</Text>
+                  <Text style={styles.bottomSheetSubTitle}>
+                    {stagedItems.length} item{stagedItems.length > 1 ? 's' : ''} ready to log
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <TouchableOpacity
+                    onPress={handleClearAllStaged}
+                    style={styles.clearAllTextBtn}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="trash-outline" size={13} color="#ef4444" />
+                    <Text style={styles.clearAllText}>Clear all</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setIsBasketReviewVisible(false)}
+                    style={styles.sheetCloseBtn}
+                  >
+                    <Ionicons name="close" size={20} color="#64748b" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Items List */}
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+                {stagedItems.map((item, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.previewCard}
+                    onPress={() => {
+                      setIsBasketReviewVisible(false);
+                      handleEditStagedItem(item, idx);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 2 }}>
+                        <Text style={styles.previewFoodName}>{item.food_name}</Text>
+                        {isValidTag(item.brand) ? (
+                          <View style={styles.brandBadge}>
+                            <Ionicons name="business-outline" size={10} color="#475569" />
+                            <Text style={styles.brandBadgeText}>{item.brand}</Text>
+                          </View>
+                        ) : null}
+                        {isValidTag(item.variant) ? (
+                          <View style={styles.variantBadge}>
+                            <Text style={styles.variantBadgeText}>{item.variant}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.previewDetails}>
+                        {item.serving_size} • P: {item.protein}g | C: {item.carbs}g | F: {item.fat}g
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'center', flexDirection: 'row', gap: 8 }}>
+                      <Text style={styles.previewCalories}>{Math.round(item.calories)} kcal</Text>
+                      <Ionicons name="create-outline" size={16} color="#94a3b8" />
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleRemoveStagedItem(idx);
+                        }}
+                        style={styles.deleteCardBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Ionicons name="close-circle" size={18} color="#94a3b8" />
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+
+                {/* Total Nutrition Summary */}
+                <View style={styles.summaryTotalCard}>
+                  <View style={styles.summaryTotalHeader}>
+                    <Text style={styles.summaryTotalLabel}>Total Nutrition</Text>
+                    <Text style={styles.summaryTotalCals}>{totalBasketCalories} kcal</Text>
+                  </View>
+                  <View style={styles.summaryMacrosRow}>
+                    <View style={styles.summaryMacroBadge}>
+                      <Text style={styles.summaryMacroLabel}>Protein</Text>
+                      <Text style={[styles.summaryMacroVal, { color: '#2563eb' }]}>{totalBasketProtein}g</Text>
+                    </View>
+                    <View style={styles.summaryMacroBadge}>
+                      <Text style={styles.summaryMacroLabel}>Carbs</Text>
+                      <Text style={[styles.summaryMacroVal, { color: '#10b981' }]}>{totalBasketCarbs}g</Text>
+                    </View>
+                    <View style={styles.summaryMacroBadge}>
+                      <Text style={styles.summaryMacroLabel}>Fat</Text>
+                      <Text style={[styles.summaryMacroVal, { color: '#f59e0b' }]}>{totalBasketFat}g</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Actions */}
+                <TouchableOpacity
+                  style={styles.confirmBtn}
+                  onPress={handleCommitStagedMeals}
+                  disabled={logging}
+                  activeOpacity={0.85}
+                >
+                  {logging ? (
+                    <ActivityIndicator color="#ffffff" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                      <Text style={styles.confirmBtnText}>Confirm & Log Meal ({totalBasketCalories} kcal)</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.addMoreBtn}
+                  onPress={() => setIsBasketReviewVisible(false)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="add" size={18} color="#2563eb" />
+                  <Text style={styles.addMoreBtnText}>Back to Search / Add More Foods</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </View>
     </Modal>
   );
@@ -767,6 +1301,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     marginTop: 10,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: '#bfdbfe',
   },
@@ -812,6 +1347,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
+  aiActionGroup: {
+    gap: 10,
+    marginTop: 6,
+  },
+  addToBasketBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb',
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  addToBasketBtnText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  logDirectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 12,
+    paddingVertical: 13,
+    gap: 6,
+  },
+  logDirectBtnText: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   confirmBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -819,7 +1388,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#16a34a',
     borderRadius: 12,
     paddingVertical: 14,
-    marginTop: 16,
+    marginTop: 10,
   },
   confirmBtnText: {
     color: '#ffffff',
@@ -921,5 +1490,157 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#92400e',
+  },
+  floatingCartBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#ffffff',
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: -3 },
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  floatingCartInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  floatingCartBadge: {
+    backgroundColor: '#2563eb',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  floatingCartBadgeCount: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    backgroundColor: '#ef4444',
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '800',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    overflow: 'hidden',
+  },
+  floatingCartCals: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  floatingCartMacros: {
+    fontSize: 11,
+    color: '#64748b',
+  },
+  floatingCartButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  floatingReviewBtn: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  floatingReviewBtnText: {
+    color: '#334155',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  floatingLogBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#16a34a',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  floatingLogBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetBackdrop: {
+    flex: 1,
+  },
+  bottomSheetContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    maxHeight: '80%',
+  },
+  bottomSheetHandleRow: {
+    alignItems: 'center',
+    paddingVertical: 4,
+    marginBottom: 8,
+  },
+  bottomSheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#cbd5e1',
+  },
+  bottomSheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  bottomSheetTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  bottomSheetSubTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563eb',
+    marginTop: 2,
+  },
+  sheetCloseBtn: {
+    padding: 6,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 16,
+  },
+  addMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 13,
+    marginTop: 8,
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    gap: 6,
+  },
+  addMoreBtnText: {
+    color: '#2563eb',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
