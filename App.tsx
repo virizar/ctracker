@@ -15,6 +15,8 @@ import { DashboardScreen } from './src/screens/DashboardScreen';
 import { WeightTrendsScreen } from './src/screens/WeightTrendsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { QuickLogModal } from './src/screens/QuickLogModal';
+import { BackgroundTaskProvider } from './src/context/BackgroundTaskContext';
+import { AppTaskBanner } from './src/components/AppTaskBanner';
 
 function MainApp() {
   const insets = useSafeAreaInsets();
@@ -38,6 +40,9 @@ function MainApp() {
   return (
     <View style={[styles.mainContainer, { paddingTop: insets.top }]}>
       <StatusBar style="dark" />
+
+      {/* Persistent Background Task Banner */}
+      <AppTaskBanner onPressBanner={handleOpenSettings} />
 
       {/* Screen Body */}
       <View style={styles.screenContainer}>
@@ -159,7 +164,9 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <MainApp />
+      <BackgroundTaskProvider>
+        <MainApp />
+      </BackgroundTaskProvider>
     </SafeAreaProvider>
   );
 }

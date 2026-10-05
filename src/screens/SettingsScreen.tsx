@@ -31,6 +31,7 @@ import {
 } from '../services/tdee';
 import { pickAndInspectFile, ImportPreview } from '../services/importer';
 import { runFoodCatalogOptimization } from '../services/catalogOptimizer';
+import { useBackgroundTask } from '../context/BackgroundTaskContext';
 import { UserProfile } from '../types';
 
 interface SettingsScreenProps {
@@ -61,10 +62,14 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
   const [isImporting, setIsImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
 
-  // AI Catalog Optimizer State
-  const [isOptimizingCatalog, setIsOptimizingCatalog] = useState(false);
-  const [optimizationProgress, setOptimizationProgress] = useState({ current: 0, total: 0 });
-  const optimizerAbortRef = React.useRef<AbortController | null>(null);
+  // Global Background Task Hook
+  const { activeTask, startTask, updateProgress, completeTask, failTask, stopTask, isTaskRunning } =
+    useBackgroundTask();
+  const isOptimizingCatalog = isTaskRunning('catalog_optimization');
+  const optimizationProgress =
+    activeTask?.id === 'catalog_optimization' && activeTask.progress
+      ? activeTask.progress
+      : { current: 0, total: 0 };
 
   useEffect(() => {
     loadSettings();
@@ -188,9 +193,16 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
 
   const handleExecuteImport = async () => {
     if (!importPreview) return;
+    startTask({
+      id: 'data_import',
+      title: 'Importing Health Data',
+      canStop: false,
+    });
+
     try {
       setIsImporting(true);
       const result = await importPreview.executeImport();
+      completeTask(`Imported ${result.mealsImported} meals, ${result.weightsImported} weigh-ins`);
       setImportPreview(null);
       Alert.alert(
         'Import Successful! 🎉',
@@ -204,6 +216,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
         ]
       );
     } catch (err: any) {
+      failTask(err?.message);
       Alert.alert('Import Failed', err?.message || 'An error occurred while saving the imported data.');
     } finally {
       setIsImporting(false);
@@ -212,16 +225,18 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
 
   const handleRunCatalogOptimization = async () => {
     const uname = profile?.username || 'victor';
-    const controller = new AbortController();
-    optimizerAbortRef.current = controller;
-    setIsOptimizingCatalog(true);
-    setOptimizationProgress({ current: 0, total: 0 });
+    const controller = startTask({
+      id: 'catalog_optimization',
+      title: 'Optimizing Food Library',
+      canStop: true,
+      progress: { current: 0, total: 0 },
+    });
 
     try {
       const result = await runFoodCatalogOptimization(
         uname,
         (current, total) => {
-          setOptimizationProgress({ current, total });
+          updateProgress({ current, total });
         },
         controller.signal
       );
@@ -232,25 +247,23 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
           `Stopped as requested. Progress safely saved:\n\n• ${result.updatedCount} foods standardized\n• ${result.mergedCount} duplicates merged\n• ${result.migratedMealsCount} historical meal logs updated.`
         );
       } else if (result.totalProcessed === 0) {
+        completeTask('Catalog already clean');
         Alert.alert('Catalog Empty', 'There are no foods in your catalog to optimize yet.');
       } else {
+        completeTask(`${result.updatedCount} foods standardized`);
         Alert.alert(
           'Optimization Complete! ✨',
           `Processed ${result.totalProcessed} food items:\n\n• ${result.updatedCount} foods standardized & normalized\n• ${result.mergedCount} duplicate items merged\n• ${result.migratedMealsCount} historical meal logs updated to clean names.\n\nAll historical daily calorie sums remain intact.`
         );
       }
     } catch (err: any) {
+      failTask(err?.message);
       Alert.alert('Optimization Error', err?.message || 'Failed to optimize food catalog.');
-    } finally {
-      setIsOptimizingCatalog(false);
-      optimizerAbortRef.current = null;
     }
   };
 
   const handleStopCatalogOptimization = () => {
-    if (optimizerAbortRef.current) {
-      optimizerAbortRef.current.abort();
-    }
+    stopTask();
   };
 
   const handleRecalculateAll = async () => {
@@ -353,36 +366,45 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
         </Text>
 
         {isOptimizingCatalog ? (
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
-            <View
-              style={[
-                styles.saveBtn,
-                { backgroundColor: '#059669', flex: 1, opacity: 0.9, marginTop: 0 },
-              ]}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                <ActivityIndicator color="#ffffff" style={{ marginRight: 8 }} size="small" />
-                <Text style={styles.saveBtnText}>
-                  {optimizationProgress.total > 0
-                    ? `Optimizing (${optimizationProgress.current}/${optimizationProgress.total})...`
-                    : 'Optimizing Library...'}
-                </Text>
+          <View style={{ marginTop: 16 }}>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View
+                style={[
+                  styles.saveBtn,
+                  { backgroundColor: '#059669', flex: 1, opacity: 0.9, marginTop: 0 },
+                ]}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <ActivityIndicator color="#ffffff" style={{ marginRight: 8 }} size="small" />
+                  <Text style={styles.saveBtnText}>
+                    {optimizationProgress.total > 0
+                      ? `Optimizing (${optimizationProgress.current}/${optimizationProgress.total})...`
+                      : 'Optimizing Library...'}
+                  </Text>
+                </View>
               </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.saveBtn,
+                  { backgroundColor: '#ef4444', paddingHorizontal: 18, marginTop: 0 },
+                ]}
+                onPress={handleStopCatalogOptimization}
+                activeOpacity={0.7}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="stop-circle-outline" size={18} color="#fff" />
+                  <Text style={[styles.saveBtnText, { marginLeft: 6 }]}>Stop</Text>
+                </View>
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={[
-                styles.saveBtn,
-                { backgroundColor: '#ef4444', paddingHorizontal: 18, marginTop: 0 },
-              ]}
-              onPress={handleStopCatalogOptimization}
-              activeOpacity={0.7}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Ionicons name="stop-circle-outline" size={18} color="#fff" />
-                <Text style={[styles.saveBtnText, { marginLeft: 6 }]}>Stop</Text>
-              </View>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 5 }}>
+              <Ionicons name="sunny-outline" size={13} color="#059669" />
+              <Text style={{ fontSize: 11.5, color: '#059669', fontWeight: '600' }}>
+                Screen stay-awake active • Keep app open
+              </Text>
+            </View>
           </View>
         ) : (
           <TouchableOpacity
