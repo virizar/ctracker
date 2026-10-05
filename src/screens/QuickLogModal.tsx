@@ -25,7 +25,7 @@ import {
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
 import { formatCatalogServing, isValidTag, cleanTag } from '../services/serving';
-import { ParsedFoodItem, FoodCatalogItem, DEFAULT_USERNAME } from '../types';
+import { ParsedFoodItem, FoodCatalogItem, FoodSource, DEFAULT_USERNAME } from '../types';
 import { FoodServingModal } from '../components/FoodServingModal';
 
 export interface StagedFoodItem extends ParsedFoodItem {
@@ -157,7 +157,7 @@ export function QuickLogModal({
           protein: item.protein,
           carbs: item.carbs,
           fat: item.fat,
-        });
+        }, 'ai');
       }
 
       await recalculateUserTdee(profileUsername);
@@ -220,6 +220,7 @@ export function QuickLogModal({
     try {
       for (const item of stagedItems) {
         const cleanName = item.food_name.trim() || item.canonical_name.trim();
+        const itemSource: FoodSource = item.catalogItem?.source || (item.base_weight_g !== undefined ? 'ai' : 'custom');
         await logMeal(profileUsername, {
           date: targetDate,
           food_name: cleanName,
@@ -231,7 +232,7 @@ export function QuickLogModal({
           protein: item.protein,
           carbs: item.carbs,
           fat: item.fat,
-        });
+        }, itemSource);
       }
 
       await recalculateUserTdee(profileUsername);
@@ -375,6 +376,7 @@ export function QuickLogModal({
           usage_count: 1,
           last_used_qty: result.quantity,
           last_used_unit: result.unit,
+          source: 'custom',
         });
 
         setStagedItems((prev) => [
@@ -469,6 +471,7 @@ export function QuickLogModal({
           usage_count: 1,
           last_used_qty: result.quantity,
           last_used_unit: result.unit,
+          source: 'custom',
         });
       } else {
         if (result.originalCanonicalName && finalName !== result.originalCanonicalName) {
@@ -482,6 +485,7 @@ export function QuickLogModal({
         );
       }
 
+      const itemSource: FoodSource = isCreatingCustomFood ? 'custom' : (servingModalItem?.source || 'custom');
       await logMeal(profileUsername, {
         date: targetDate,
         food_name: finalName,
@@ -493,7 +497,7 @@ export function QuickLogModal({
         protein: result.protein,
         carbs: result.carbs,
         fat: result.fat,
-      });
+      }, itemSource);
 
       await recalculateUserTdee(profileUsername);
       setServingModalItem(null);

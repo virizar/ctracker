@@ -14,7 +14,7 @@ describe('Catalog Optimizer Service', () => {
   });
 
   it('returns zero counts when food catalog is empty', async () => {
-    (queries.getAllFoodCatalogItems as jest.Mock).mockResolvedValue([]);
+    (queries.getOptimizableFoodCatalogItems as jest.Mock).mockResolvedValue([]);
 
     const result = await runFoodCatalogOptimization('user');
 
@@ -40,9 +40,11 @@ describe('Catalog Optimizer Service', () => {
       carbs: 10,
       fat: 2,
       usage_count: 1,
+      source: 'ai',
+      is_verified: 0,
     }));
 
-    (queries.getAllFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
+    (queries.getOptimizableFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
     (nutritionAi.optimizeFoodCatalogBatch as jest.Mock).mockImplementation((chunk) => {
       return chunk.map((item: FoodCatalogItem) => ({
         original_name: item.canonical_name,
@@ -66,6 +68,7 @@ describe('Catalog Optimizer Service', () => {
 
     const result = await runFoodCatalogOptimization('user', onProgress);
 
+    expect(queries.getOptimizableFoodCatalogItems).toHaveBeenCalledWith('user');
     expect(nutritionAi.optimizeFoodCatalogBatch).toHaveBeenCalledTimes(2);
     expect(queries.applyFoodCatalogOptimizations).toHaveBeenCalledTimes(2);
     expect(tdee.recalculateUserTdee).toHaveBeenCalledWith('user');
@@ -96,9 +99,10 @@ describe('Catalog Optimizer Service', () => {
       carbs: 10,
       fat: 2,
       usage_count: 1,
+      source: 'imported',
     }));
 
-    (queries.getAllFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
+    (queries.getOptimizableFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
     (nutritionAi.optimizeFoodCatalogBatch as jest.Mock)
       .mockRejectedValueOnce(new Error('AI Rate Limit'))
       .mockResolvedValueOnce([
@@ -134,7 +138,7 @@ describe('Catalog Optimizer Service', () => {
     const controller = new AbortController();
     controller.abort();
 
-    (queries.getAllFoodCatalogItems as jest.Mock).mockResolvedValue([
+    (queries.getOptimizableFoodCatalogItems as jest.Mock).mockResolvedValue([
       {
         id: 1,
         username: 'user',
@@ -145,6 +149,7 @@ describe('Catalog Optimizer Service', () => {
         carbs: 25,
         fat: 0.3,
         usage_count: 5,
+        source: 'ai',
       },
     ]);
 
@@ -167,9 +172,10 @@ describe('Catalog Optimizer Service', () => {
       carbs: 10,
       fat: 2,
       usage_count: 1,
+      source: 'ai',
     }));
 
-    (queries.getAllFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
+    (queries.getOptimizableFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
     (nutritionAi.optimizeFoodCatalogBatch as jest.Mock).mockImplementation(async () => {
       controller.abort();
       return [];
@@ -179,5 +185,76 @@ describe('Catalog Optimizer Service', () => {
 
     expect(result.aborted).toBe(true);
     expect(nutritionAi.optimizeFoodCatalogBatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts when AbortSignal is triggered during progress reporting', async () => {
+    const controller = new AbortController();
+
+    const mockItems: FoodCatalogItem[] = Array.from({ length: 50 }, (_, i) => ({
+      id: i + 1,
+      username: 'user',
+      canonical_name: `Food Item ${i + 1}`,
+      default_serving: '1 serving',
+      calories: 100,
+      protein: 10,
+      carbs: 10,
+      fat: 2,
+      usage_count: 1,
+      source: 'imported',
+    }));
+
+    (queries.getOptimizableFoodCatalogItems as jest.Mock).mockResolvedValue(mockItems);
+    (nutritionAi.optimizeFoodCatalogBatch as jest.Mock).mockResolvedValue([]);
+
+    const onProgress = () => {
+      controller.abort();
+    };
+
+    const result = await runFoodCatalogOptimization('user', onProgress, controller.signal);
+
+    expect(result.aborted).toBe(true);
+    expect(nutritionAi.optimizeFoodCatalogBatch).toHaveBeenCalledTimes(1);
+  });
+
+  it('queries only optimizable food catalog items, strictly shielding base and verified items', async () => {
+    const optimizableMockItems: FoodCatalogItem[] = [
+      {
+        id: 1,
+        username: 'user',
+        canonical_name: 'Raw oats from import',
+        default_serving: '100g',
+        calories: 389,
+        protein: 16.9,
+        carbs: 66.3,
+        fat: 6.9,
+        usage_count: 2,
+        source: 'imported',
+        is_verified: 0,
+      },
+    ];
+
+    (queries.getOptimizableFoodCatalogItems as jest.Mock).mockResolvedValue(optimizableMockItems);
+    (nutritionAi.optimizeFoodCatalogBatch as jest.Mock).mockResolvedValue([
+      {
+        original_name: 'Raw oats from import',
+        clean_name: 'Rolled Oats',
+        base_serving: '100g',
+        base_calories: 389,
+        base_protein: 16.9,
+        base_carbs: 66.3,
+        base_fat: 6.9,
+      },
+    ]);
+    (queries.applyFoodCatalogOptimizations as jest.Mock).mockResolvedValue({
+      updatedCount: 1,
+      mergedCount: 0,
+      migratedMealsCount: 1,
+    });
+
+    const result = await runFoodCatalogOptimization('user');
+
+    expect(queries.getOptimizableFoodCatalogItems).toHaveBeenCalledWith('user');
+    expect(nutritionAi.optimizeFoodCatalogBatch).toHaveBeenCalledWith(optimizableMockItems);
+    expect(result.updatedCount).toBe(1);
   });
 });

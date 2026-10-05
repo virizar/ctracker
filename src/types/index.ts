@@ -64,6 +64,8 @@ export interface DailySummary {
   updated_at?: string;
 }
 
+export type FoodSource = 'base' | 'off' | 'imported' | 'ai' | 'custom';
+
 export interface FoodCatalogItem {
   id?: number;
   username: string;
@@ -80,6 +82,8 @@ export interface FoodCatalogItem {
   base_weight_g?: number | null;
   last_used_qty?: number | null;
   last_used_unit?: string | null;
+  source?: FoodSource;
+  is_verified?: boolean | number;
   last_used_at?: string;
   created_at?: string;
 }

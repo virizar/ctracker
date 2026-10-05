@@ -1,4 +1,4 @@
-import { getAllFoodCatalogItems, applyFoodCatalogOptimizations } from '../db/queries';
+import { getOptimizableFoodCatalogItems, applyFoodCatalogOptimizations } from '../db/queries';
 import { optimizeFoodCatalogBatch } from './nutritionAi';
 import { FoodOptimizationResult, DEFAULT_USERNAME } from '../types';
 import { recalculateUserTdee } from './tdee';
@@ -8,9 +8,10 @@ export interface CatalogOptimizationExecutionResult extends FoodOptimizationResu
 }
 
 /**
- * Runs the AI-driven food catalog optimizer across all items in a user's food catalog.
+ * Runs the AI-driven food catalog optimizer across optimizable items in a user's food catalog.
  * Normalizes verbose food names, deduces 1-unit baseline portions, deduplicates entries,
  * and safely cascades name migrations to historical meal logs without altering recorded calorie sums.
+ * Authoritative base datasets, barcode-scanned items, and custom foods are strictly shielded.
  * Supports cancellation via AbortSignal.
  */
 export async function runFoodCatalogOptimization(
@@ -18,7 +19,7 @@ export async function runFoodCatalogOptimization(
   onProgress?: (processed: number, total: number) => void,
   signal?: AbortSignal
 ): Promise<CatalogOptimizationExecutionResult> {
-  const allItems = await getAllFoodCatalogItems(username);
+  const allItems = await getOptimizableFoodCatalogItems(username);
   if (allItems.length === 0) {
     return {
       totalProcessed: 0,

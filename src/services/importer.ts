@@ -545,14 +545,16 @@ export async function pickAndInspectFile(
         if (uniqueCatalogMap.size > 0) {
           const catalogStmt = await db.prepareAsync(
             `INSERT INTO food_catalog (
-              username, canonical_name, default_serving, calories, protein, carbs, fat, usage_count
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+              username, canonical_name, default_serving, calories, protein, carbs, fat, usage_count, source, is_verified
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'imported', 0)
             ON CONFLICT(username, canonical_name) DO UPDATE SET
-              default_serving = COALESCE(excluded.default_serving, food_catalog.default_serving),
-              calories = excluded.calories,
-              protein = excluded.protein,
-              carbs = excluded.carbs,
-              fat = excluded.fat,
+              default_serving = CASE WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.default_serving ELSE COALESCE(excluded.default_serving, food_catalog.default_serving) END,
+              calories = CASE WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.calories ELSE excluded.calories END,
+              protein = CASE WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.protein ELSE excluded.protein END,
+              carbs = CASE WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.carbs ELSE excluded.carbs END,
+              fat = CASE WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.fat ELSE excluded.fat END,
+              source = CASE WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.source ELSE 'imported' END,
+              is_verified = CASE WHEN food_catalog.source IN ('base', 'off') OR food_catalog.is_verified = 1 THEN 1 ELSE 0 END,
               usage_count = food_catalog.usage_count + 1,
               last_used_at = datetime('now')`
           );

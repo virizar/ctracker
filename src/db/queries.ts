@@ -6,6 +6,7 @@ import {
   DailySummary,
   FoodCatalogItem,
   OptimizedFoodMapping,
+  FoodSource,
   DEFAULT_USERNAME,
 } from '../types';
 import { cleanTag } from '../services/serving';
@@ -75,7 +76,8 @@ export async function getScaleWeights(
 
 export async function logMeal(
   username: string,
-  meal: Omit<MealLog, 'id' | 'created_at' | 'username'>
+  meal: Omit<MealLog, 'id' | 'created_at' | 'username'>,
+  source?: FoodSource
 ): Promise<number> {
   const cleanBrand = cleanTag(meal.brand);
   const cleanVariant = cleanTag(meal.variant);
@@ -120,6 +122,7 @@ export async function logMeal(
       carbs: meal.carbs,
       fat: meal.fat,
       usage_count: 1,
+      source: source || 'custom',
     });
   }
 
@@ -322,22 +325,85 @@ export async function getAllFoodCatalogItems(
   );
 }
 
+export async function getOptimizableFoodCatalogItems(
+  username = DEFAULT_USERNAME
+): Promise<FoodCatalogItem[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<FoodCatalogItem>(
+    `SELECT * FROM food_catalog 
+     WHERE username = ? 
+       AND (source IS NULL OR source NOT IN ('base', 'off', 'custom')) 
+       AND (is_verified IS NULL OR is_verified = 0)
+     ORDER BY usage_count DESC`,
+    [username]
+  );
+}
+
 export async function upsertFoodCatalog(
   item: Omit<FoodCatalogItem, 'id' | 'last_used_at' | 'created_at'>
 ): Promise<void> {
   const cleanBrand = cleanTag(item.brand);
   const cleanVariant = cleanTag(item.variant);
+  const source = item.source || 'custom';
+  const isVerified = item.is_verified ? 1 : (source === 'base' || source === 'off' ? 1 : 0);
 
   const db = await getDatabase();
   await db.runAsync(
     `INSERT INTO food_catalog (
       username, canonical_name, brand, variant, barcode, default_serving, calories, protein, carbs, fat,
-      base_weight_g, last_used_qty, last_used_unit, usage_count
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      base_weight_g, last_used_qty, last_used_unit, usage_count, source, is_verified
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
     ON CONFLICT(username, canonical_name) DO UPDATE SET
-      brand = COALESCE(excluded.brand, food_catalog.brand),
-      variant = COALESCE(excluded.variant, food_catalog.variant),
+      brand = CASE
+        WHEN excluded.source IN ('base', 'off') THEN COALESCE(excluded.brand, food_catalog.brand)
+        ELSE COALESCE(excluded.brand, food_catalog.brand)
+      END,
+      variant = CASE
+        WHEN excluded.source IN ('base', 'off') THEN COALESCE(excluded.variant, food_catalog.variant)
+        ELSE COALESCE(excluded.variant, food_catalog.variant)
+      END,
       barcode = COALESCE(excluded.barcode, food_catalog.barcode),
+      default_serving = CASE 
+        WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.default_serving
+        WHEN excluded.source IN ('base', 'off') THEN COALESCE(excluded.default_serving, food_catalog.default_serving)
+        ELSE COALESCE(excluded.default_serving, food_catalog.default_serving)
+      END,
+      calories = CASE 
+        WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.calories
+        WHEN excluded.source IN ('base', 'off') THEN excluded.calories
+        ELSE food_catalog.calories
+      END,
+      protein = CASE 
+        WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.protein
+        WHEN excluded.source IN ('base', 'off') THEN excluded.protein
+        ELSE food_catalog.protein
+      END,
+      carbs = CASE 
+        WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.carbs
+        WHEN excluded.source IN ('base', 'off') THEN excluded.carbs
+        ELSE food_catalog.carbs
+      END,
+      fat = CASE 
+        WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.fat
+        WHEN excluded.source IN ('base', 'off') THEN excluded.fat
+        ELSE food_catalog.fat
+      END,
+      base_weight_g = CASE 
+        WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.base_weight_g
+        WHEN excluded.source IN ('base', 'off') THEN COALESCE(excluded.base_weight_g, food_catalog.base_weight_g)
+        ELSE COALESCE(excluded.base_weight_g, food_catalog.base_weight_g)
+      END,
+      source = CASE
+        WHEN food_catalog.source IN ('base', 'off') THEN food_catalog.source
+        WHEN excluded.source IN ('base', 'off') THEN excluded.source
+        WHEN food_catalog.source IS NOT NULL AND food_catalog.source != 'custom' THEN food_catalog.source
+        ELSE COALESCE(excluded.source, food_catalog.source, 'custom')
+      END,
+      is_verified = CASE
+        WHEN food_catalog.source IN ('base', 'off') OR food_catalog.is_verified = 1 THEN 1
+        WHEN excluded.source IN ('base', 'off') OR excluded.is_verified = 1 THEN 1
+        ELSE 0
+      END,
       usage_count = food_catalog.usage_count + 1,
       last_used_qty = COALESCE(excluded.last_used_qty, food_catalog.last_used_qty),
       last_used_unit = COALESCE(excluded.last_used_unit, food_catalog.last_used_unit),
@@ -356,6 +422,8 @@ export async function upsertFoodCatalog(
       item.base_weight_g ?? null,
       item.last_used_qty ?? null,
       item.last_used_unit ?? null,
+      source,
+      isVerified,
     ]
   );
 }
@@ -477,32 +545,66 @@ export async function applyFoodCatalogOptimizations(
       }
 
       // 2. Update or merge in food_catalog
-      const existingClean = await db.getFirstAsync<{ id: number; usage_count: number }>(
-        `SELECT id, usage_count FROM food_catalog WHERE username = ? AND canonical_name = ?`,
+      const existingClean = await db.getFirstAsync<{
+        id: number;
+        usage_count: number;
+        source?: string;
+        is_verified?: number;
+      }>(
+        `SELECT id, usage_count, source, is_verified FROM food_catalog WHERE username = ? AND canonical_name = ?`,
         [username, cleanName]
       );
 
-      const oldItem = await db.getFirstAsync<{ id: number; usage_count: number }>(
-        `SELECT id, usage_count FROM food_catalog WHERE username = ? AND canonical_name = ?`,
+      const oldItem = await db.getFirstAsync<{
+        id: number;
+        usage_count: number;
+        source?: string;
+        is_verified?: number;
+      }>(
+        `SELECT id, usage_count, source, is_verified FROM food_catalog WHERE username = ? AND canonical_name = ?`,
         [username, originalName]
       );
 
+      // Never mutate authoritative base or verified barcode items
+      if (oldItem && (oldItem.source === 'base' || oldItem.source === 'off' || oldItem.is_verified === 1)) {
+        continue;
+      }
+
       if (existingClean && oldItem && existingClean.id !== oldItem.id) {
         // Merge / Deduplication
-        await db.runAsync(
-          `UPDATE food_catalog
-           SET usage_count = usage_count + ?,
-               brand = COALESCE(?, brand),
-               variant = COALESCE(?, variant),
-               default_serving = COALESCE(?, default_serving),
-               calories = ?,
-               protein = ?,
-               carbs = ?,
-               fat = ?,
-               base_weight_g = COALESCE(?, base_weight_g)
-            WHERE id = ?`,
-          [oldItem.usage_count, cleanBrand, cleanVariant, baseServing, baseCals, baseP, baseC, baseF, baseWeight, existingClean.id]
-        );
+        const isCleanProtected =
+          existingClean.source === 'base' ||
+          existingClean.source === 'off' ||
+          existingClean.is_verified === 1;
+
+        if (isCleanProtected) {
+          // Destination is an authoritative base/verified item.
+          // Merge usage count and adopt brand/variant if clean has none, but PRESERVE verified laboratory nutrition!
+          await db.runAsync(
+            `UPDATE food_catalog
+             SET usage_count = usage_count + ?,
+                 brand = COALESCE(brand, ?),
+                 variant = COALESCE(variant, ?)
+             WHERE id = ?`,
+            [oldItem.usage_count, cleanBrand, cleanVariant, existingClean.id]
+          );
+        } else {
+          await db.runAsync(
+            `UPDATE food_catalog
+             SET usage_count = usage_count + ?,
+                 brand = COALESCE(?, brand),
+                 variant = COALESCE(?, variant),
+                 default_serving = COALESCE(?, default_serving),
+                 calories = ?,
+                 protein = ?,
+                 carbs = ?,
+                 fat = ?,
+                 base_weight_g = COALESCE(?, base_weight_g)
+              WHERE id = ?`,
+            [oldItem.usage_count, cleanBrand, cleanVariant, baseServing, baseCals, baseP, baseC, baseF, baseWeight, existingClean.id]
+          );
+        }
+
         await db.runAsync(
           `DELETE FROM food_catalog WHERE id = ?`,
           [oldItem.id]
@@ -521,7 +623,7 @@ export async function applyFoodCatalogOptimizations(
                carbs = ?,
                fat = ?,
                base_weight_g = COALESCE(?, base_weight_g)
-           WHERE username = ? AND canonical_name = ?`,
+           WHERE username = ? AND canonical_name = ? AND (source IS NULL OR (source NOT IN ('base', 'off') AND is_verified = 0))`,
           [cleanName, cleanBrand, cleanVariant, baseServing, baseCals, baseP, baseC, baseF, baseWeight, username, originalName]
         );
         updatedCount++;
@@ -669,3 +771,22 @@ export async function getMonthLogStatus(
 
   return result;
 }
+
+export async function getAppMetadata(key: string): Promise<string | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ value: string }>(
+    'SELECT value FROM app_metadata WHERE key = ?',
+    [key]
+  );
+  return row ? row.value : null;
+}
+
+export async function setAppMetadata(key: string, value: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `INSERT INTO app_metadata (key, value, updated_at) VALUES (?, ?, datetime('now'))
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')`,
+    [key, value]
+  );
+}
+

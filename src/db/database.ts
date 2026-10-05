@@ -123,15 +123,26 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
       base_weight_g REAL,
       last_used_qty REAL DEFAULT 1.0,
       last_used_unit TEXT,
+      source TEXT NOT NULL DEFAULT 'custom',
+      is_verified INTEGER NOT NULL DEFAULT 0,
       usage_count INTEGER NOT NULL DEFAULT 1,
       last_used_at TEXT NOT NULL DEFAULT (datetime('now')),
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(username, canonical_name)
     );
 
+    CREATE TABLE IF NOT EXISTS app_metadata (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_meal_logs_user_date ON meal_logs(username, date);
     CREATE INDEX IF NOT EXISTS idx_scale_weights_user_date ON scale_weights(username, date);
     CREATE INDEX IF NOT EXISTS idx_daily_summaries_user_date ON daily_summaries(username, date);
+    CREATE INDEX IF NOT EXISTS idx_food_catalog_user_usage ON food_catalog(username, usage_count DESC, last_used_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_food_catalog_barcode ON food_catalog(barcode);
+    CREATE INDEX IF NOT EXISTS idx_food_catalog_optimizable ON food_catalog(username, source, is_verified);
   `);
 
   // Full-text search table for Food Catalog (available on native SQLite; falls back on Web)
@@ -185,6 +196,12 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
     await db.execAsync('ALTER TABLE food_catalog ADD COLUMN barcode TEXT;');
   } catch {}
   try {
+    await db.execAsync("ALTER TABLE food_catalog ADD COLUMN source TEXT NOT NULL DEFAULT 'custom';");
+  } catch {}
+  try {
+    await db.execAsync('ALTER TABLE food_catalog ADD COLUMN is_verified INTEGER NOT NULL DEFAULT 0;');
+  } catch {}
+  try {
     await db.execAsync('ALTER TABLE meal_logs ADD COLUMN brand TEXT;');
   } catch {}
   try {
@@ -195,6 +212,30 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
   } catch {}
   try {
     await db.execAsync("ALTER TABLE user_profiles ADD COLUMN loss_pace TEXT DEFAULT 'balanced';");
+  } catch {}
+  try {
+    await db.execAsync(`
+      CREATE TABLE IF NOT EXISTS app_metadata (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+    `);
+  } catch {}
+  try {
+    await db.execAsync(
+      'CREATE INDEX IF NOT EXISTS idx_food_catalog_user_usage ON food_catalog(username, usage_count DESC, last_used_at DESC);'
+    );
+  } catch {}
+  try {
+    await db.execAsync(
+      'CREATE INDEX IF NOT EXISTS idx_food_catalog_barcode ON food_catalog(barcode);'
+    );
+  } catch {}
+  try {
+    await db.execAsync(
+      'CREATE INDEX IF NOT EXISTS idx_food_catalog_optimizable ON food_catalog(username, source, is_verified);'
+    );
   } catch {}
 
   // Clean up any literal 'null', 'undefined', 'none' placeholder strings from brand or variant

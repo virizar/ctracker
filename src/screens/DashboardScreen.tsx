@@ -253,6 +253,8 @@ export function DashboardScreen({
         usage_count: 1,
         last_used_qty: result.quantity,
         last_used_unit: result.unit,
+        source: editingCatalogItem?.source || 'custom',
+        is_verified: editingCatalogItem?.is_verified,
       });
 
       await recalculateUserTdee(uname);
