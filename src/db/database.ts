@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import * as SQLite from 'expo-sqlite';
-import { UserProfile } from '../types';
+import { UserProfile, DEFAULT_USERNAME } from '../types';
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -207,26 +207,37 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
     `);
   } catch {}
 
+  // Migrate any legacy 'victor' user records to DEFAULT_USERNAME
+  try {
+    await db.execAsync(`
+      UPDATE user_profiles SET username = '${DEFAULT_USERNAME}' WHERE username = 'victor';
+      UPDATE meal_logs SET username = '${DEFAULT_USERNAME}' WHERE username = 'victor';
+      UPDATE scale_weights SET username = '${DEFAULT_USERNAME}' WHERE username = 'victor';
+      UPDATE daily_summaries SET username = '${DEFAULT_USERNAME}' WHERE username = 'victor';
+      UPDATE food_catalog SET username = '${DEFAULT_USERNAME}' WHERE username = 'victor';
+    `);
+  } catch {}
+
   // Seed default user profile if none exists
   const existingUser = await db.getFirstAsync<UserProfile>(
-    'SELECT * FROM user_profiles WHERE username = ?',
-    ['victor']
+    'SELECT * FROM user_profiles ORDER BY id ASC LIMIT 1'
   );
 
   if (!existingUser) {
     await db.runAsync(
       `INSERT INTO user_profiles (
-        username, dob, height_cm, sex, activity_multiplier,
+        username, name, dob, height_cm, sex, activity_multiplier,
         target_weight_kg, target_monthly_rate_kg, min_daily_calories,
         protein_ratio, carbs_ratio, fat_ratio
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        'victor',
-        '1987-12-07',
-        185.0,
+        DEFAULT_USERNAME,
+        'User',
+        '1990-01-01',
+        175.0,
         'male',
         1.2,
-        85.0,
+        75.0,
         -2.0,
         1500.0,
         0.30,
@@ -251,17 +262,18 @@ export async function wipeAllUserData(): Promise<void> {
     await db.runAsync('DELETE FROM user_profiles');
     await db.runAsync(
       `INSERT INTO user_profiles (
-        username, dob, height_cm, sex, activity_multiplier,
+        username, name, dob, height_cm, sex, activity_multiplier,
         target_weight_kg, target_monthly_rate_kg, min_daily_calories,
         protein_ratio, carbs_ratio, fat_ratio
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        'victor',
-        '1987-12-07',
-        185.0,
+        DEFAULT_USERNAME,
+        'User',
+        '1990-01-01',
+        175.0,
         'male',
         1.2,
-        85.0,
+        75.0,
         -2.0,
         1500.0,
         0.30,

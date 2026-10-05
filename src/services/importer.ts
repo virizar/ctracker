@@ -6,6 +6,7 @@ import { getDatabase } from '../db/database';
 import { logMeal, logScaleWeight } from '../db/queries';
 import { recalculateUserTdee } from './tdee';
 import { getGeminiApiKey, getGeminiModel } from './keychain';
+import { DEFAULT_USERNAME } from '../types';
 
 export interface ImportPreview {
   fileName: string;
@@ -225,7 +226,9 @@ async function readUriAsArrayBuffer(uri: string): Promise<ArrayBuffer> {
   }
 }
 
-export async function pickAndInspectFile(): Promise<ImportPreview | null> {
+export async function pickAndInspectFile(
+  targetUsername: string = DEFAULT_USERNAME
+): Promise<ImportPreview | null> {
   const pickerResult = await DocumentPicker.getDocumentAsync({
     type: [
       'text/csv',
@@ -505,7 +508,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
           );
           try {
             for (const w of weightsToInsert) {
-              await weightStmt.executeAsync(['victor', w.date, w.weight]);
+              await weightStmt.executeAsync([targetUsername, w.date, w.weight]);
               weightsImported++;
             }
           } finally {
@@ -517,7 +520,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
         if (mealsToInsert.length > 0 && startDate && endDate) {
           await db.runAsync(
             `DELETE FROM meal_logs WHERE username = ? AND date >= ? AND date <= ?`,
-            ['victor', startDate, endDate]
+            [targetUsername, startDate, endDate]
           );
         }
 
@@ -533,7 +536,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
           try {
             for (const m of mealsToInsert) {
               await mealStmt.executeAsync([
-                'victor',
+                targetUsername,
                 m.date,
                 m.food_name,
                 m.canonical_name || m.food_name,
@@ -573,7 +576,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
           try {
             for (const [canonical, m] of uniqueCatalogMap) {
               await catalogStmt.executeAsync([
-                'victor',
+                targetUsername,
                 canonical,
                 m.serving_size || null,
                 m.calories,
@@ -589,7 +592,7 @@ export async function pickAndInspectFile(): Promise<ImportPreview | null> {
       });
 
       // 5. Recalculate TDEE across the whole dataset
-      await recalculateUserTdee('victor');
+      await recalculateUserTdee(targetUsername);
 
       return { weightsImported, mealsImported };
     },

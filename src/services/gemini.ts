@@ -1,4 +1,4 @@
-import { FoodCatalogItem, ParsedFoodItem, OptimizedFoodMapping } from '../types';
+import { FoodCatalogItem, ParsedFoodItem, OptimizedFoodMapping, DEFAULT_USERNAME } from '../types';
 import { getGeminiApiKey, getGeminiModel } from './keychain';
 import { searchFoodCatalog } from '../db/queries';
 import { cleanTag } from './serving';
@@ -97,7 +97,7 @@ export function extractFoodItemsFromJson(candidateText: string): ParsedFoodItem[
 
 export async function getRelevantCatalogContext(
   userInput: string,
-  username = 'victor'
+  username = DEFAULT_USERNAME
 ): Promise<string> {
   try {
     const words = userInput
@@ -148,7 +148,7 @@ export async function getRelevantCatalogContext(
 
 export async function parseFoodInput(
   userInput: string,
-  _username = 'victor'
+  _username = DEFAULT_USERNAME
 ): Promise<ParsedFoodItem[]> {
   const apiKey = await getGeminiApiKey();
   if (!apiKey) {

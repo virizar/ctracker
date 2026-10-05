@@ -1,6 +1,6 @@
 import { getAllFoodCatalogItems, applyFoodCatalogOptimizations } from '../db/queries';
 import { optimizeFoodCatalogBatch } from './gemini';
-import { FoodOptimizationResult } from '../types';
+import { FoodOptimizationResult, DEFAULT_USERNAME } from '../types';
 import { recalculateUserTdee } from './tdee';
 
 export interface CatalogOptimizationExecutionResult extends FoodOptimizationResult {
@@ -14,7 +14,7 @@ export interface CatalogOptimizationExecutionResult extends FoodOptimizationResu
  * Supports cancellation via AbortSignal.
  */
 export async function runFoodCatalogOptimization(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   onProgress?: (processed: number, total: number) => void,
   signal?: AbortSignal
 ): Promise<CatalogOptimizationExecutionResult> {

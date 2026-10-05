@@ -32,7 +32,7 @@ import {
 import { pickAndInspectFile, ImportPreview } from '../services/importer';
 import { runFoodCatalogOptimization } from '../services/catalogOptimizer';
 import { useBackgroundTask } from '../context/BackgroundTaskContext';
-import { UserProfile } from '../types';
+import { UserProfile, DEFAULT_USERNAME } from '../types';
 
 interface SettingsScreenProps {
   onDatabaseWiped?: () => void;
@@ -46,7 +46,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
   const [currentWeight, setCurrentWeight] = useState<number | null>(null);
 
   // Physiology & Demographics Form States
-  const [name, setName] = useState('Victor');
+  const [name, setName] = useState('User');
   const [dob, setDob] = useState('1987-12-07');
   const [sex, setSex] = useState<'male' | 'female'>('male');
   const [height, setHeight] = useState('185');
@@ -85,7 +85,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
     const u = await getUserProfile();
     if (u) {
       setProfile(u);
-      setName(u.name || u.username || 'Victor');
+      setName(u.name || 'User');
       setDob(u.dob || '1987-12-07');
       setSex(u.sex || 'male');
       setHeight(u.height_cm ? u.height_cm.toString() : '185');
@@ -94,7 +94,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
       setLossPace((u.loss_pace as any) || 'balanced');
       setMinCalories(u.min_daily_calories ? u.min_daily_calories.toString() : '1500');
 
-      const weights = await getScaleWeights(u.username || 'victor', 1);
+      const weights = await getScaleWeights(u.username || DEFAULT_USERNAME, 1);
       if (weights.length > 0) {
         setCurrentWeight(weights[0].raw_weight);
       }
@@ -152,7 +152,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
       return;
     }
 
-    const effectiveUsername = profile?.username || 'victor';
+    const effectiveUsername = profile?.username || DEFAULT_USERNAME;
 
     await updateUserProfile(effectiveUsername, {
       name: name.trim() || effectiveUsername,
@@ -224,7 +224,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
   };
 
   const handleRunCatalogOptimization = async () => {
-    const uname = profile?.username || 'victor';
+    const uname = profile?.username || DEFAULT_USERNAME;
     const controller = startTask({
       id: 'catalog_optimization',
       title: 'Optimizing Food Library',
@@ -267,7 +267,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
   };
 
   const handleRecalculateAll = async () => {
-    const uname = profile?.username || 'victor';
+    const uname = profile?.username || DEFAULT_USERNAME;
     await recalculateUserTdee(uname);
     Alert.alert('Recalculated', 'Full TDEE and exponential weight trends updated.');
   };
@@ -460,7 +460,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
         <Text style={styles.label}>Display Name</Text>
         <TextInput
           style={styles.input}
-          placeholder="Victor"
+          placeholder="Your Name"
           value={name}
           onChangeText={setName}
           placeholderTextColor="#94a3b8"

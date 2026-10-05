@@ -24,7 +24,7 @@ import {
   logFastedDay,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate, parseDate } from '../services/tdee';
-import { UserProfile, DailySummary, MealLog, FoodCatalogItem } from '../types';
+import { UserProfile, DailySummary, MealLog, FoodCatalogItem, DEFAULT_USERNAME } from '../types';
 import { FoodServingModal } from '../components/FoodServingModal';
 import { parseServingString, isValidTag, cleanTag } from '../services/serving';
 import { DateCalendarModal } from '../components/DateCalendarModal';
@@ -79,7 +79,7 @@ export function DashboardScreen({
     try {
       const user = await getUserProfile();
       setProfile(user);
-      const uname = user?.username || 'victor';
+      const uname = user?.username || DEFAULT_USERNAME;
 
       let daySummary = await getDailySummary(uname, currentDate);
       if (!daySummary) {
@@ -100,7 +100,7 @@ export function DashboardScreen({
 
   const onRefresh = async () => {
     setRefreshing(true);
-    const uname = profile?.username || 'victor';
+    const uname = profile?.username || DEFAULT_USERNAME;
     await recalculateUserTdee(uname);
     await loadData();
     setRefreshing(false);
@@ -129,7 +129,7 @@ export function DashboardScreen({
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          const uname = profile?.username || 'victor';
+          const uname = profile?.username || DEFAULT_USERNAME;
           await deleteMeal(mealId);
           await recalculateUserTdee(uname);
           await loadData();
@@ -139,7 +139,7 @@ export function DashboardScreen({
   };
 
   const handleMarkFasted = () => {
-    const uname = profile?.username || 'victor';
+    const uname = profile?.username || DEFAULT_USERNAME;
     if (meals.length > 0 && !isFastedDay) {
       Alert.alert(
         'Mark as Fasted?',
@@ -177,7 +177,7 @@ export function DashboardScreen({
   };
 
   const handleOpenEditMeal = async (m: MealLog) => {
-    const uname = profile?.username || 'victor';
+    const uname = profile?.username || DEFAULT_USERNAME;
     const canonical = m.canonical_name || m.food_name;
     let catalogItem = await getFoodCatalogItem(uname, canonical);
 
@@ -222,7 +222,7 @@ export function DashboardScreen({
     fat: number;
   }) => {
     if (!editingMeal?.id) return;
-    const uname = profile?.username || 'victor';
+    const uname = profile?.username || DEFAULT_USERNAME;
     const brandToSave = cleanTag(result.brand !== undefined ? result.brand : (editingMeal.brand ?? null));
     const variantToSave = cleanTag(result.variant !== undefined ? result.variant : (editingMeal.variant ?? null));
 
@@ -270,7 +270,7 @@ export function DashboardScreen({
       Alert.alert('Invalid Weight', 'Please enter a valid weight in kg (e.g. 84.5)');
       return;
     }
-    const uname = profile?.username || 'victor';
+    const uname = profile?.username || DEFAULT_USERNAME;
     await logScaleWeight(uname, currentDate, val);
     setIsWeightModalVisible(false);
     setWeightInput('');
@@ -401,7 +401,7 @@ export function DashboardScreen({
   const carbsTargetG = profile ? Math.round((targetCals * profile.carbs_ratio) / 4) : 200;
   const fatTargetG = profile ? Math.round((targetCals * profile.fat_ratio) / 9) : 65;
 
-  const displayName = profile?.name || profile?.username || 'Victor';
+  const displayName = profile?.name || profile?.username || 'User';
 
   return (
     <View style={styles.container}>

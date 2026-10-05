@@ -1,3 +1,5 @@
+export const DEFAULT_USERNAME = 'user';
+
 export interface UserProfile {
   id?: number;
   username: string;

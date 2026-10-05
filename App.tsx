@@ -143,7 +143,7 @@ export default function App() {
     async function setupApp() {
       try {
         await getDatabase();
-        await recalculateUserTdee('victor');
+        await recalculateUserTdee();
       } catch (err) {
         console.error('Failed to initialize database:', err);
       } finally {

@@ -6,10 +6,11 @@ import {
   DailySummary,
   FoodCatalogItem,
   OptimizedFoodMapping,
+  DEFAULT_USERNAME,
 } from '../types';
 import { cleanTag } from '../services/serving';
 
-export async function getUserProfile(username = 'victor'): Promise<UserProfile | null> {
+export async function getUserProfile(username = DEFAULT_USERNAME): Promise<UserProfile | null> {
   const db = await getDatabase();
   const user = await db.getFirstAsync<UserProfile>(
     'SELECT * FROM user_profiles WHERE username = ?',
@@ -62,7 +63,7 @@ export async function logScaleWeight(
 }
 
 export async function getScaleWeights(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   limit = 90
 ): Promise<ScaleWeight[]> {
   const db = await getDatabase();
@@ -159,7 +160,7 @@ export async function updateMealLog(
 }
 
 export async function getMealsByDate(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   date: string
 ): Promise<MealLog[]> {
   const db = await getDatabase();
@@ -170,7 +171,7 @@ export async function getMealsByDate(
 }
 
 export async function getDailySummary(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   date: string
 ): Promise<DailySummary | null> {
   const db = await getDatabase();
@@ -181,7 +182,7 @@ export async function getDailySummary(
 }
 
 export async function getLatestDailySummary(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   upToDate?: string
 ): Promise<DailySummary | null> {
   const db = await getDatabase();
@@ -198,7 +199,7 @@ export async function getLatestDailySummary(
 }
 
 export async function getDailySummariesRange(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   days = 30
 ): Promise<DailySummary[]> {
   const db = await getDatabase();
@@ -251,7 +252,7 @@ export async function upsertDailySummary(
 }
 
 export async function searchFoodCatalog(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   query: string,
   limit = 20
 ): Promise<FoodCatalogItem[]> {
@@ -301,7 +302,7 @@ export async function searchFoodCatalog(
 }
 
 export async function getFoodCatalogItem(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   canonicalName: string
 ): Promise<FoodCatalogItem | null> {
   const db = await getDatabase();
@@ -312,7 +313,7 @@ export async function getFoodCatalogItem(
 }
 
 export async function getAllFoodCatalogItems(
-  username = 'victor'
+  username = DEFAULT_USERNAME
 ): Promise<FoodCatalogItem[]> {
   const db = await getDatabase();
   return await db.getAllAsync<FoodCatalogItem>(
@@ -360,7 +361,7 @@ export async function upsertFoodCatalog(
 }
 
 export async function updateFoodCatalogNutrition(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   canonicalName: string,
   nutrition: {
     default_serving?: string | null;
@@ -396,7 +397,7 @@ export async function updateFoodCatalogNutrition(
 }
 
 export async function renameFoodCatalogItem(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   oldCanonicalName: string,
   newCanonicalName: string
 ): Promise<void> {
@@ -438,7 +439,7 @@ export async function renameFoodCatalogItem(
 }
 
 export async function applyFoodCatalogOptimizations(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   optimizations: OptimizedFoodMapping[]
 ): Promise<{ updatedCount: number; mergedCount: number; migratedMealsCount: number }> {
   const db = await getDatabase();
@@ -533,7 +534,7 @@ export async function applyFoodCatalogOptimizations(
 
 
 export async function updateCatalogLastUsedMeasurement(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   canonicalName: string,
   qty: number,
   unit: string
@@ -560,7 +561,7 @@ export interface DayLogStatus {
 }
 
 export async function logFastedDay(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   date: string
 ): Promise<number> {
   const db = await getDatabase();
@@ -579,7 +580,7 @@ export async function logFastedDay(
 }
 
 export async function getMonthLogStatus(
-  username = 'victor',
+  username = DEFAULT_USERNAME,
   year: number,
   month: number // 1-12
 ): Promise<Record<string, DayLogStatus>> {

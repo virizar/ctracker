@@ -24,7 +24,7 @@ import {
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
 import { formatCatalogServing, isValidTag, cleanTag } from '../services/serving';
-import { ParsedFoodItem, FoodCatalogItem } from '../types';
+import { ParsedFoodItem, FoodCatalogItem, DEFAULT_USERNAME } from '../types';
 import { FoodServingModal } from '../components/FoodServingModal';
 
 interface QuickLogModalProps {
@@ -42,7 +42,7 @@ export function QuickLogModal({
 }: QuickLogModalProps) {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'ai' | 'search'>('ai');
-  const [profileUsername, setProfileUsername] = useState('victor');
+  const [profileUsername, setProfileUsername] = useState(DEFAULT_USERNAME);
 
   // AI Tab State
   const [inputQuery, setInputQuery] = useState('');
@@ -66,7 +66,7 @@ export function QuickLogModal({
   useEffect(() => {
     if (visible) {
       getUserProfile().then((u) => {
-        const uname = u?.username || 'victor';
+        const uname = u?.username || DEFAULT_USERNAME;
         setProfileUsername(uname);
         if (activeTab === 'search') {
           loadSearchResults(searchQuery, uname);

@@ -1,4 +1,4 @@
-import { UserProfile, DailySummary, ScaleWeight, MealLog } from '../types';
+import { UserProfile, DailySummary, ScaleWeight, MealLog, DEFAULT_USERNAME } from '../types';
 import {
   getUserProfile,
   getScaleWeights,
@@ -249,7 +249,7 @@ export function parseDate(dStr: string): Date {
   return new Date(y, m - 1, d, 12, 0, 0);
 }
 
-export async function recalculateUserTdee(username = 'victor'): Promise<void> {
+export async function recalculateUserTdee(username = DEFAULT_USERNAME): Promise<void> {
   const profile = await getUserProfile(username);
   if (!profile) return;
 

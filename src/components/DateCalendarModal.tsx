@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getMonthLogStatus, DayLogStatus, getUserProfile } from '../db/queries';
 import { formatDate, parseDate } from '../services/tdee';
+import { DEFAULT_USERNAME } from '../types';
 
 interface DateCalendarModalProps {
   visible: boolean;
@@ -49,7 +50,7 @@ export function DateCalendarModal({
   const loadMonth = useCallback(async () => {
     try {
       const u = await getUserProfile();
-      const uname = u?.username || 'victor';
+      const uname = u?.username || DEFAULT_USERNAME;
       const data = await getMonthLogStatus(uname, viewYear, viewMonth);
       setMonthData(data);
     } catch (err) {

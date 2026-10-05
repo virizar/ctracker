@@ -29,7 +29,7 @@ import {
   logScaleWeight,
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
-import { UserProfile, ScaleWeight, DailySummary } from '../types';
+import { UserProfile, ScaleWeight, DailySummary, DEFAULT_USERNAME } from '../types';
 
 type TimeframeOption = '30D' | '90D' | '180D' | 'All';
 
@@ -632,7 +632,7 @@ export function WeightTrendsScreen({ onNavigateToDate, onOpenSettings }: WeightT
     try {
       const u = await getUserProfile();
       setProfile(u);
-      const uname = u?.username || 'victor';
+      const uname = u?.username || DEFAULT_USERNAME;
 
       const w = await getScaleWeights(uname, 60);
       setWeights(w);
@@ -651,7 +651,7 @@ export function WeightTrendsScreen({ onNavigateToDate, onOpenSettings }: WeightT
 
   const onRefresh = async () => {
     setRefreshing(true);
-    const uname = profile?.username || 'victor';
+    const uname = profile?.username || DEFAULT_USERNAME;
     await recalculateUserTdee(uname);
     await loadData();
     setRefreshing(false);
@@ -663,7 +663,7 @@ export function WeightTrendsScreen({ onNavigateToDate, onOpenSettings }: WeightT
       Alert.alert('Invalid Weight', 'Please enter a valid weight in kg (e.g. 84.5)');
       return;
     }
-    const uname = profile?.username || 'victor';
+    const uname = profile?.username || DEFAULT_USERNAME;
     await logScaleWeight(uname, weightDate, val);
     setModalVisible(false);
     setWeightValue('');
