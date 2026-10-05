@@ -2,7 +2,19 @@ import {
   normalizeDate,
   findRowDate,
   buildServingSize,
+  askGeminiForColumnMapping,
+  pickAndInspectFile,
 } from '../src/services/importer';
+import * as DocumentPicker from 'expo-document-picker';
+import * as keychain from '../src/services/keychain';
+import * as dbMod from '../src/db/database';
+import * as tdee from '../src/services/tdee';
+import * as XLSX from 'xlsx';
+
+jest.mock('expo-document-picker');
+jest.mock('../src/services/keychain');
+jest.mock('../src/db/database');
+jest.mock('../src/services/tdee');
 
 describe('Data Importer Parsing & Normalization Tests', () => {
   describe('normalizeDate', () => {
@@ -90,6 +102,394 @@ describe('Data Importer Parsing & Normalization Tests', () => {
         Calories: 5,
       };
       expect(buildServingSize(row)).toBe('1 serving');
+    });
+  });
+
+  describe('askGeminiForColumnMapping', () => {
+    const originalFetch = global.fetch;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      (keychain.getGeminiModel as jest.Mock).mockResolvedValue('gemini-1.5-flash');
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it('throws if Gemini API key is not configured', async () => {
+      (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue(null);
+
+      await expect(askGeminiForColumnMapping(['Date', 'Food'], [{ Date: '2024-01-01' }])).rejects.toThrow(
+        'Gemini API key is required to detect custom spreadsheet formats.'
+      );
+    });
+
+    it('successfully calls Gemini and returns parsed ColumnMapping', async () => {
+      (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('test-key');
+
+      const mockMapping = {
+        dataType: 'meals',
+        dateColumn: 'Date',
+        dateFormat: 'YYYY-MM-DD',
+        foodNameColumn: 'Food',
+        caloriesColumn: 'Cals',
+        caloriesUnit: 'kcal',
+      };
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: JSON.stringify(mockMapping) }] } }],
+        }),
+      } as any);
+
+      const res = await askGeminiForColumnMapping(['Date', 'Food', 'Cals'], [{ Date: '2024-01-01', Food: 'Apple', Cals: 95 }]);
+      expect(res).toEqual(mockMapping);
+    });
+
+    it('throws if Gemini API returns HTTP error', async () => {
+      (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('test-key');
+
+      global.fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+      } as any);
+
+      await expect(askGeminiForColumnMapping(['Date'], [])).rejects.toThrow('Gemini mapping failed (403)');
+    });
+  });
+
+  describe('pickAndInspectFile', () => {
+    const originalFetch = global.fetch;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it('returns null if document picker is cancelled', async () => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: true,
+      });
+
+      const preview = await pickAndInspectFile('user');
+      expect(preview).toBeNull();
+    });
+
+    it('parses JSON backup format with weights and meals and executes import', async () => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            name: 'backup.json',
+            uri: 'file:///path/to/backup.json',
+          },
+        ],
+      });
+
+      const jsonData = {
+        weights: [{ date: '2026-09-01', raw_weight: 82.5 }],
+        meals: [
+          {
+            date: '2026-09-01',
+            food_name: 'Eggs',
+            canonical_name: 'Whole Eggs',
+            serving_size: '2 eggs',
+            calories: 140,
+            protein: 12,
+            carbs: 1,
+            fat: 10,
+          },
+        ],
+      };
+
+      global.fetch = jest.fn().mockResolvedValue({
+        text: async () => JSON.stringify(jsonData),
+      } as any);
+
+      const mockStmt = {
+        executeAsync: jest.fn().mockResolvedValue(undefined),
+        finalizeAsync: jest.fn().mockResolvedValue(undefined),
+      };
+
+      const mockDb = {
+        prepareAsync: jest.fn().mockResolvedValue(mockStmt),
+        runAsync: jest.fn().mockResolvedValue(undefined),
+        withTransactionAsync: jest.fn().mockImplementation(async (cb) => cb()),
+      };
+      (dbMod.getDatabase as jest.Mock).mockResolvedValue(mockDb);
+
+      const preview = await pickAndInspectFile('user');
+      expect(preview).not.toBeNull();
+      expect(preview?.sourceFormat).toBe('CTRACKER JSON Export');
+      expect(preview?.weightsCount).toBe(1);
+      expect(preview?.mealsCount).toBe(1);
+      expect(preview?.startDate).toBe('2026-09-01');
+      expect(preview?.endDate).toBe('2026-09-01');
+
+      const importResult = await preview!.executeImport();
+      expect(importResult).toEqual({ weightsImported: 1, mealsImported: 1 });
+      expect(tdee.recalculateUserTdee).toHaveBeenCalledWith('user');
+    });
+
+    it('parses Multi-Sheet Fitness Excel format (.xlsx)', async () => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            name: 'fitness_log.xlsx',
+            uri: 'file:///path/to/fitness_log.xlsx',
+          },
+        ],
+      });
+
+      const wb = XLSX.utils.book_new();
+      const weightData = [{ Date: '2026-09-01', Weight: 80.5 }];
+      const foodData = [
+        {
+          Date: '2026-09-01',
+          'Food Name': 'Chicken Breast',
+          'Calories (kcal)': 165,
+          'Protein (g)': 31,
+          'Carbs (g)': 0,
+          'Fat (g)': 3.6,
+          'Serving Qty': 100,
+          'Serving Size': 'g',
+        },
+      ];
+
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(weightData), 'Scale Weight');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(foodData), 'Nutrition');
+      const arrayBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+      global.fetch = jest.fn().mockResolvedValue({
+        arrayBuffer: async () => arrayBuffer,
+      } as any);
+
+      const preview = await pickAndInspectFile('user');
+      expect(preview).not.toBeNull();
+      expect(preview?.sourceFormat).toBe('Multi-Sheet Fitness Spreadsheet');
+      expect(preview?.weightsCount).toBe(1);
+      expect(preview?.mealsCount).toBe(1);
+    });
+
+    it('parses Standard Nutrition CSV format', async () => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            name: 'nutrition.csv',
+            uri: 'file:///path/to/nutrition.csv',
+          },
+        ],
+      });
+
+      const csvContent =
+        'Date,Food Name,Serving Qty,Serving Size,Calories (kcal),Protein (g),Carbs (g),Fat (g)\n' +
+        '2026-09-01,Oatmeal,1,cup,150,5,27,3\n';
+
+      global.fetch = jest.fn().mockResolvedValue({
+        text: async () => csvContent,
+      } as any);
+
+      const preview = await pickAndInspectFile('user');
+      expect(preview).not.toBeNull();
+      expect(preview?.sourceFormat).toBe('Standard Nutrition CSV');
+      expect(preview?.mealsCount).toBe(1);
+    });
+
+    it('parses MyFitnessPal CSV format', async () => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            name: 'mfp.csv',
+            uri: 'file:///path/to/mfp.csv',
+          },
+        ],
+      });
+
+      const csvContent =
+        'Date,Meal,Calories,Protein (g),Carbohydrates (g),Fat (g)\n' +
+        '2026-09-01,Breakfast Burrito,450,22,48,18\n';
+
+      global.fetch = jest.fn().mockResolvedValue({
+        text: async () => csvContent,
+      } as any);
+
+      const preview = await pickAndInspectFile('user');
+      expect(preview).not.toBeNull();
+      expect(preview?.sourceFormat).toBe('MyFitnessPal CSV');
+      expect(preview?.mealsCount).toBe(1);
+    });
+
+    it('parses Cronometer CSV format', async () => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            name: 'cronometer.csv',
+            uri: 'file:///path/to/cronometer.csv',
+          },
+        ],
+      });
+
+      const csvContent =
+        'Date,Food Name,Energy (kcal),Protein (g),Carbs (g),Fat (g)\n' +
+        '2026-09-01,Salmon,208,20,0,13\n';
+
+      global.fetch = jest.fn().mockResolvedValue({
+        text: async () => csvContent,
+      } as any);
+
+      const preview = await pickAndInspectFile('user');
+      expect(preview).not.toBeNull();
+      expect(preview?.sourceFormat).toBe('Cronometer CSV');
+      expect(preview?.mealsCount).toBe(1);
+    });
+
+    it('parses Scale Weight CSV format', async () => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            name: 'weights.csv',
+            uri: 'file:///path/to/weights.csv',
+          },
+        ],
+      });
+
+      const csvContent =
+        'Date,Weight (kg)\n' +
+        '2026-09-01,81.4\n' +
+        '2026-09-02,81.2\n';
+
+      global.fetch = jest.fn().mockResolvedValue({
+        text: async () => csvContent,
+      } as any);
+
+      const preview = await pickAndInspectFile('user');
+      expect(preview).not.toBeNull();
+      expect(preview?.sourceFormat).toBe('Scale Weight CSV');
+      expect(preview?.weightsCount).toBe(2);
+    });
+
+    it('parses unrecognized CSV using AI mapping with unit conversions (kJ -> kcal, lbs -> kg)', async () => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            name: 'custom_export.csv',
+            uri: 'file:///path/to/custom_export.csv',
+          },
+        ],
+      });
+
+      const csvContent =
+        'Timestamp,Item,Category,Notes,Energy_kJ,Protein_g,Carb_g,Fat_g,Weight_lbs\n' +
+        '2026-09-01,Energy Bar,Snacks,Post-workout,1000,15,40,8,180\n';
+
+      global.fetch = jest.fn().mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('googleapis')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          dataType: 'both',
+                          dateColumn: 'Timestamp',
+                          dateFormat: 'YYYY-MM-DD',
+                          foodNameColumn: 'Item',
+                          caloriesColumn: 'Energy_kJ',
+                          caloriesUnit: 'kJ',
+                          weightColumn: 'Weight_lbs',
+                          weightUnit: 'lbs',
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.resolve({
+          text: async () => csvContent,
+        });
+      });
+
+      (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('test-key');
+      (keychain.getGeminiModel as jest.Mock).mockResolvedValue('gemini-1.5-flash');
+
+      const preview = await pickAndInspectFile('user');
+      expect(preview).not.toBeNull();
+      expect(preview?.sourceFormat).toBe('Smart CSV (AI Detected)');
+      expect(preview?.weightsCount).toBe(1);
+      expect(preview?.mealsCount).toBe(1);
+    });
+
+    it('parses General Single-Sheet Excel using AI mapping', async () => {
+      (DocumentPicker.getDocumentAsync as jest.Mock).mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            name: 'custom_sheet.xlsx',
+            uri: 'file:///path/to/custom_sheet.xlsx',
+          },
+        ],
+      });
+
+      const wb = XLSX.utils.book_new();
+      const customData = [{ LogDate: '2026-09-01', Dish: 'Pizza', Energy: 600 }];
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(customData), 'Sheet1');
+      const arrayBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+      global.fetch = jest.fn().mockImplementation((url: string) => {
+        if (typeof url === 'string' && url.includes('googleapis')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          dataType: 'meals',
+                          dateColumn: 'LogDate',
+                          dateFormat: 'YYYY-MM-DD',
+                          foodNameColumn: 'Dish',
+                          caloriesColumn: 'Energy',
+                          caloriesUnit: 'kcal',
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          });
+        }
+        return Promise.resolve({
+          arrayBuffer: async () => arrayBuffer,
+        });
+      });
+
+      (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('test-key');
+      (keychain.getGeminiModel as jest.Mock).mockResolvedValue('gemini-1.5-flash');
+
+      const preview = await pickAndInspectFile('user');
+      expect(preview).not.toBeNull();
+      expect(preview?.sourceFormat).toBe('Smart Excel (meals)');
+      expect(preview?.mealsCount).toBe(1);
     });
   });
 });

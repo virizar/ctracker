@@ -306,4 +306,120 @@ describe('TDEE & Metabolic Engine Tests', () => {
       expect(balanced.targetCalories).toBeGreaterThan(ambitious.targetCalories);
     });
   });
+
+  describe('Alpha EMA calculations', () => {
+    it('calculates expenditure EMA alpha correctly', () => {
+      const alpha = calculateExpenditureEmaAlpha(14);
+      expect(alpha).toBeCloseTo(1 - Math.exp(-1 / 14), 4);
+    });
+
+    it('calculates weight EMA alpha correctly', () => {
+      const alpha = calculateWeightEmaAlpha(10);
+      expect(alpha).toBeCloseTo(1 - Math.exp(-1 / 10), 4);
+    });
+  });
+
+  describe('recalculateUserTdee integration', () => {
+    it('returns early when user profile is not found', async () => {
+      const { recalculateUserTdee } = require('../src/services/tdee');
+      const queries = require('../src/db/queries');
+      jest.spyOn(queries, 'getUserProfile').mockResolvedValueOnce(null);
+
+      await expect(recalculateUserTdee('unknown_user')).resolves.toBeUndefined();
+    });
+
+    it('returns early when no weight or food logs exist', async () => {
+      const { recalculateUserTdee } = require('../src/services/tdee');
+      const queries = require('../src/db/queries');
+      const dbMod = require('../src/db/database');
+
+      jest.spyOn(queries, 'getUserProfile').mockResolvedValueOnce({
+        username: 'user',
+        dob: '1990-01-01',
+        height_cm: 180,
+        sex: 'male',
+        activity_multiplier: 1.4,
+        target_weight_kg: 75,
+        target_monthly_rate_kg: -2,
+        min_daily_calories: 1500,
+        protein_ratio: 0.3,
+        carbs_ratio: 0.4,
+        fat_ratio: 0.3,
+      });
+
+      const mockDb = {
+        getAllAsync: jest.fn().mockResolvedValue([]),
+        withTransactionAsync: jest.fn(),
+      };
+      jest.spyOn(dbMod, 'getDatabase').mockResolvedValueOnce(mockDb as any);
+
+      await expect(recalculateUserTdee('user')).resolves.toBeUndefined();
+      expect(mockDb.withTransactionAsync).not.toHaveBeenCalled();
+    });
+
+    it('computes trend weights, rolling TDEE window, and upserts daily summaries across date range', async () => {
+      const { recalculateUserTdee } = require('../src/services/tdee');
+      const queries = require('../src/db/queries');
+      const dbMod = require('../src/db/database');
+
+      jest.spyOn(queries, 'getUserProfile').mockResolvedValueOnce({
+        username: 'user',
+        dob: '1990-01-01',
+        height_cm: 180,
+        sex: 'male',
+        activity_multiplier: 1.4,
+        target_weight_kg: 75,
+        target_monthly_rate_kg: -2,
+        loss_pace: 'balanced',
+        min_daily_calories: 1500,
+        protein_ratio: 0.3,
+        carbs_ratio: 0.4,
+        fat_ratio: 0.3,
+      });
+
+      const upsertMock = jest.spyOn(queries, 'upsertDailySummary').mockResolvedValue(undefined as any);
+
+      // 18 days of weight & meals
+      const mockWeights = [
+        { date: '2026-09-01', raw_weight: 85.0 },
+        { date: '2026-09-10', raw_weight: 84.0 },
+        { date: '2026-09-18', raw_weight: 83.0 },
+      ];
+
+      const mockMeals: Array<{ date: string; total_calories: number; total_protein: number; total_carbs: number; total_fat: number }> = [];
+      for (let day = 1; day <= 18; day++) {
+        const dStr = `2026-09-${String(day).padStart(2, '0')}`;
+        mockMeals.push({
+          date: dStr,
+          total_calories: 2200,
+          total_protein: 150,
+          total_carbs: 220,
+          total_fat: 60,
+        });
+      }
+
+      const mockDb = {
+        getAllAsync: jest.fn().mockImplementation(async (sql: string) => {
+          if (sql.includes('scale_weights')) return mockWeights;
+          if (sql.includes('meal_logs')) return mockMeals;
+          return [];
+        }),
+        withTransactionAsync: jest.fn().mockImplementation(async (cb: () => Promise<void>) => {
+          await cb();
+        }),
+      };
+      jest.spyOn(dbMod, 'getDatabase').mockResolvedValueOnce(mockDb as any);
+
+      await recalculateUserTdee('user');
+
+      expect(mockDb.withTransactionAsync).toHaveBeenCalledTimes(1);
+      expect(upsertMock).toHaveBeenCalled();
+      // Ensure daily summary was upserted with non-zero trend_weight and target_calories
+      const lastCallArg = upsertMock.mock.calls[upsertMock.mock.calls.length - 1][0] as any;
+      expect(lastCallArg.username).toBe('user');
+      expect(lastCallArg.trend_weight).toBeGreaterThan(80);
+      expect(lastCallArg.target_calories).toBeGreaterThan(1200);
+      expect(lastCallArg.tdee).toBeGreaterThan(1500);
+    });
+  });
 });

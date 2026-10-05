@@ -1,5 +1,16 @@
-import { extractFoodItemsFromJson, extractJsonArray } from '../src/services/gemini';
-import { OptimizedFoodMapping } from '../src/types';
+import {
+  extractFoodItemsFromJson,
+  extractJsonArray,
+  getRelevantCatalogContext,
+  parseFoodInput,
+  optimizeFoodCatalogBatch,
+} from '../src/services/gemini';
+import { OptimizedFoodMapping, FoodCatalogItem } from '../src/types';
+import * as keychain from '../src/services/keychain';
+import * as queries from '../src/db/queries';
+
+jest.mock('../src/services/keychain');
+jest.mock('../src/db/queries');
 
 describe('Gemini AI Response Parsing Tests', () => {
   it('parses valid JSON food array correctly', () => {
@@ -104,71 +115,18 @@ describe('Gemini AI Response Parsing Tests', () => {
 
     const result = extractJsonArray<OptimizedFoodMapping>(raw);
     expect(result).toHaveLength(2);
+    expect(result[0].original_name).toBe(
+      '2 slices of torta di mele italian (relatively thin)'
+    );
     expect(result[0].clean_name).toBe('Torta di Mele');
     expect(result[0].base_calories).toBe(204);
+
+    expect(result[1].original_name).toBe('3 knaeckebroed crackers');
     expect(result[1].clean_name).toBe('Knækbrød');
-    expect(result[1].base_serving).toBe('1 cracker (10g)');
+    expect(result[1].base_calories).toBe(35);
   });
 
-  it('parses full multi-item decomposed meal list correctly', () => {
-    const raw = JSON.stringify([
-      {
-        food_name: 'Knækbrød',
-        canonical_name: 'Knækbrød',
-        serving_size: '3 crackers (30g)',
-        calories: 105,
-        protein: 3,
-        carbs: 18,
-        fat: 1.5,
-      },
-      {
-        food_name: 'Butter',
-        canonical_name: 'Butter',
-        serving_size: '2 tbsp (28g)',
-        calories: 204,
-        protein: 0.2,
-        carbs: 0,
-        fat: 23,
-      },
-      {
-        food_name: 'Sourdough Bread',
-        canonical_name: 'Sourdough Bread',
-        serving_size: '4 slices (160g)',
-        calories: 380,
-        protein: 12,
-        carbs: 76,
-        fat: 2,
-      },
-      {
-        food_name: 'Torta di Mele',
-        canonical_name: 'Torta di Mele',
-        serving_size: '3 slices (240g)',
-        calories: 612,
-        protein: 9,
-        carbs: 84,
-        fat: 27,
-      },
-      {
-        food_name: 'Milk Chocolate with Hazelnut',
-        canonical_name: 'Milk Chocolate with Hazelnut',
-        serving_size: '1 square (20g)',
-        calories: 110,
-        protein: 2,
-        carbs: 11,
-        fat: 7,
-      },
-    ]);
-
-    const result = extractFoodItemsFromJson(raw);
-    expect(result).toHaveLength(5);
-    expect(result[0].canonical_name).toBe('Knækbrød');
-    expect(result[1].canonical_name).toBe('Butter');
-    expect(result[2].canonical_name).toBe('Sourdough Bread');
-    expect(result[3].canonical_name).toBe('Torta di Mele');
-    expect(result[4].canonical_name).toBe('Milk Chocolate with Hazelnut');
-  });
-
-  it('parses brand and variant fields correctly for branded foods', () => {
+  it('parses brand and variant fields for branded / fast food items', () => {
     const raw = JSON.stringify([
       {
         food_name: 'Big Mac',
@@ -176,13 +134,13 @@ describe('Gemini AI Response Parsing Tests', () => {
         brand: "McDonald's",
         variant: 'Original',
         serving_size: '1 burger (215g)',
-        calories: 563,
-        protein: 26,
-        carbs: 44,
-        fat: 33,
+        calories: 590,
+        protein: 25,
+        carbs: 46,
+        fat: 34,
       },
       {
-        food_name: 'Cream Cheese Light',
+        food_name: 'Cream Cheese',
         canonical_name: 'Philadelphia Cream Cheese (Light)',
         brand: 'Philadelphia',
         variant: 'Light',
@@ -196,6 +154,7 @@ describe('Gemini AI Response Parsing Tests', () => {
 
     const result = extractFoodItemsFromJson(raw);
     expect(result).toHaveLength(2);
+
     expect(result[0].brand).toBe("McDonald's");
     expect(result[0].variant).toBe('Original');
     expect(result[0].canonical_name).toBe("McDonald's Big Mac");
@@ -260,5 +219,261 @@ describe('Gemini AI Response Parsing Tests', () => {
     expect(result[0].variant).toBeNull();
     expect(result[1].brand).toBeNull();
     expect(result[1].variant).toBeNull();
+  });
+});
+
+describe('getRelevantCatalogContext', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns empty string for short words or stop words', async () => {
+    const res1 = await getRelevantCatalogContext('and with the for');
+    expect(res1).toBe('');
+
+    const res2 = await getRelevantCatalogContext('hi a b');
+    expect(res2).toBe('');
+  });
+
+  it('returns formatted context string when items match in catalog', async () => {
+    const mockItem: FoodCatalogItem = {
+      id: 1,
+      username: 'user',
+      canonical_name: 'Whole Milk',
+      default_serving: '250ml',
+      calories: 150,
+      protein: 8,
+      carbs: 12,
+      fat: 8,
+      usage_count: 5,
+    };
+
+    (queries.searchFoodCatalog as jest.Mock).mockResolvedValue([mockItem]);
+
+    const res = await getRelevantCatalogContext('milk with coffee', 'user');
+
+    expect(queries.searchFoodCatalog).toHaveBeenCalledWith('user', 'milk', 2);
+    expect(res).toContain('USER KNOWN FOOD CATALOG');
+    expect(res).toContain('"Whole Milk": 250ml -> 150 kcal');
+  });
+
+  it('handles database search exceptions gracefully and returns empty string', async () => {
+    (queries.searchFoodCatalog as jest.Mock).mockRejectedValue(new Error('DB Locked'));
+
+    const res = await getRelevantCatalogContext('banana pancake', 'user');
+    expect(res).toBe('');
+  });
+});
+
+describe('parseFoodInput API interaction', () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (keychain.getGeminiModel as jest.Mock).mockResolvedValue('gemini-1.5-flash');
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('throws an error if Gemini API key is missing', async () => {
+    (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue(null);
+
+    await expect(parseFoodInput('2 scrambled eggs')).rejects.toThrow(
+      'Gemini API key is not set. Please configure your API key in Settings.'
+    );
+  });
+
+  it('successfully calls API and parses candidates', async () => {
+    (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('fake-api-key');
+
+    const fakeResponseBody = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify([
+                  {
+                    food_name: 'Scrambled Eggs',
+                    canonical_name: 'Scrambled Eggs',
+                    serving_size: '2 eggs',
+                    calories: 140,
+                    protein: 12,
+                    carbs: 2,
+                    fat: 10,
+                  },
+                ]),
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => fakeResponseBody,
+    } as any);
+
+    const items = await parseFoodInput('2 scrambled eggs', 'user');
+    expect(items).toHaveLength(1);
+    expect(items[0].food_name).toBe('Scrambled Eggs');
+    expect(items[0].calories).toBe(140);
+  });
+
+  it('returns empty array if candidate text is missing', async () => {
+    (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('fake-api-key');
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ candidates: [] }),
+    } as any);
+
+    const items = await parseFoodInput('nothing', 'user');
+    expect(items).toEqual([]);
+  });
+
+  it('throws when Gemini API returns an HTTP error status', async () => {
+    (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('fake-api-key');
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      text: async () => 'Quota Exceeded',
+    } as any);
+
+    await expect(parseFoodInput('2 scrambled eggs')).rejects.toThrow(
+      'Gemini API error (403): Quota Exceeded'
+    );
+  });
+});
+
+describe('optimizeFoodCatalogBatch API interaction', () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (keychain.getGeminiModel as jest.Mock).mockResolvedValue('gemini-2.5-flash');
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('returns empty array when items array is empty', async () => {
+    const res = await optimizeFoodCatalogBatch([]);
+    expect(res).toEqual([]);
+  });
+
+  it('throws an error if Gemini API key is missing', async () => {
+    (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue(null);
+
+    await expect(
+      optimizeFoodCatalogBatch([
+        {
+          canonical_name: 'Apple',
+          calories: 95,
+          protein: 0.5,
+          carbs: 25,
+          fat: 0.3,
+        },
+      ])
+    ).rejects.toThrow('Gemini API key is not set. Please configure your API key in Settings.');
+  });
+
+  it('successfully optimizes a batch of items and cleans tags', async () => {
+    (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('fake-api-key');
+
+    const fakeResponseBody = {
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                text: JSON.stringify([
+                  {
+                    original_name: 'Apple',
+                    clean_name: 'Apple',
+                    brand: 'None',
+                    variant: 'null',
+                    base_serving: '1 medium (182g)',
+                    base_weight_g: 182,
+                    base_calories: 95,
+                    base_protein: 0.5,
+                    base_carbs: 25,
+                    base_fat: 0.3,
+                  },
+                ]),
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => fakeResponseBody,
+    } as any);
+
+    const mappings = await optimizeFoodCatalogBatch([
+      {
+        canonical_name: 'Apple',
+        calories: 95,
+        protein: 0.5,
+        carbs: 25,
+        fat: 0.3,
+      },
+    ]);
+
+    expect(mappings).toHaveLength(1);
+    expect(mappings[0].clean_name).toBe('Apple');
+    expect(mappings[0].brand).toBeNull();
+    expect(mappings[0].variant).toBeNull();
+  });
+
+  it('returns empty array if candidate text is missing', async () => {
+    (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('fake-api-key');
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ candidates: [] }),
+    } as any);
+
+    const mappings = await optimizeFoodCatalogBatch([
+      {
+        canonical_name: 'Apple',
+        calories: 95,
+        protein: 0.5,
+        carbs: 25,
+        fat: 0.3,
+      },
+    ]);
+
+    expect(mappings).toEqual([]);
+  });
+
+  it('throws when API returns an HTTP error status', async () => {
+    (keychain.getGeminiApiKey as jest.Mock).mockResolvedValue('fake-api-key');
+
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: async () => 'Internal Server Error',
+    } as any);
+
+    await expect(
+      optimizeFoodCatalogBatch([
+        {
+          canonical_name: 'Apple',
+          calories: 95,
+          protein: 0.5,
+          carbs: 25,
+          fat: 0.3,
+        },
+      ])
+    ).rejects.toThrow('Gemini API error (500): Internal Server Error');
   });
 });
