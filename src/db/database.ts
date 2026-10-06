@@ -299,6 +299,9 @@ export async function wipeAllUserData(): Promise<void> {
     try {
       await db.runAsync('DELETE FROM food_catalog_fts');
     } catch {}
+    try {
+      await db.runAsync("DELETE FROM app_metadata WHERE key = 'base_catalog_version'");
+    } catch {}
     // Reset user profile to defaults
     await db.runAsync('DELETE FROM user_profiles');
     await db.runAsync(

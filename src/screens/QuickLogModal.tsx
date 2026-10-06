@@ -25,6 +25,7 @@ import {
 } from '../db/queries';
 import { recalculateUserTdee, formatDate } from '../services/tdee';
 import { formatCatalogServing, isValidTag, cleanTag } from '../services/serving';
+import { lookupFoodByBarcode } from '../services/openFoodFacts';
 import { ParsedFoodItem, FoodCatalogItem, FoodSource, DEFAULT_USERNAME } from '../types';
 import { FoodServingModal } from '../components/FoodServingModal';
 
@@ -103,7 +104,17 @@ export function QuickLogModal({
 
   const loadSearchResults = async (q: string, uname = profileUsername) => {
     try {
-      const results = await searchFoodCatalog(uname, q);
+      const trimmed = q.trim();
+      let results = await searchFoodCatalog(uname, trimmed);
+
+      // If query is an 8-14 digit numeric barcode and not in local results, resolve from Open Food Facts
+      if (/^\d{8,14}$/.test(trimmed)) {
+        const offItem = await lookupFoodByBarcode(uname, trimmed);
+        if (offItem && !results.some((r) => r.id === offItem.id || r.canonical_name === offItem.canonical_name)) {
+          results = [offItem, ...results];
+        }
+      }
+
       setSearchResults(results);
     } catch (err) {
       console.error('Error searching food catalog:', err);
@@ -842,6 +853,17 @@ export function QuickLogModal({
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
                           <Text style={styles.searchItemTitle}>{item.canonical_name}</Text>
+                          {item.source === 'base' ? (
+                            <View style={styles.verifiedBadge}>
+                              <Ionicons name="checkmark-circle" size={11} color="#059669" />
+                              <Text style={styles.verifiedBadgeText}>Verified</Text>
+                            </View>
+                          ) : item.source === 'off' ? (
+                            <View style={styles.offBadge}>
+                              <Ionicons name="barcode-outline" size={10} color="#7c3aed" />
+                              <Text style={styles.offBadgeText}>Barcode</Text>
+                            </View>
+                          ) : null}
                           {isValidTag(item.brand) ? (
                             <View style={styles.brandBadge}>
                               <Ionicons name="business-outline" size={10} color="#475569" />
@@ -1465,6 +1487,38 @@ const styles = StyleSheet.create({
   searchItemUsage: {
     fontSize: 11,
     color: '#94a3b8',
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  verifiedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#065f46',
+  },
+  offBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#f5f3ff',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ddd6fe',
+  },
+  offBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6d28d9',
   },
   brandBadge: {
     flexDirection: 'row',

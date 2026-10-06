@@ -315,6 +315,19 @@ export async function getFoodCatalogItem(
   );
 }
 
+export async function getFoodCatalogItemByBarcode(
+  username = DEFAULT_USERNAME,
+  barcode: string
+): Promise<FoodCatalogItem | null> {
+  const db = await getDatabase();
+  const cleanBarcode = barcode.trim();
+  if (!cleanBarcode) return null;
+  return await db.getFirstAsync<FoodCatalogItem>(
+    'SELECT * FROM food_catalog WHERE username = ? AND barcode = ? LIMIT 1',
+    [username, cleanBarcode]
+  );
+}
+
 export async function getAllFoodCatalogItems(
   username = DEFAULT_USERNAME
 ): Promise<FoodCatalogItem[]> {

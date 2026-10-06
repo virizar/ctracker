@@ -281,8 +281,19 @@ export function FoodServingModal({
               <View style={styles.nameHeaderRow}>
                 <Ionicons name="pencil-outline" size={14} color="#64748b" />
                 <Text style={styles.nameLabel}>Food Name (Tap to edit)</Text>
-                {(isValidTag(brand) || isValidTag(variant)) && (
+                {(item?.source === 'base' || item?.source === 'off' || isValidTag(brand) || isValidTag(variant)) && (
                   <View style={styles.tagRow}>
+                    {item?.source === 'base' ? (
+                      <View style={styles.verifiedTag}>
+                        <Ionicons name="checkmark-circle" size={11} color="#059669" />
+                        <Text style={styles.verifiedTagText}>Verified</Text>
+                      </View>
+                    ) : item?.source === 'off' ? (
+                      <View style={styles.offTag}>
+                        <Ionicons name="barcode-outline" size={10} color="#7c3aed" />
+                        <Text style={styles.offTagText}>Barcode</Text>
+                      </View>
+                    ) : null}
                     {isValidTag(brand) ? (
                       <View style={styles.brandTag}>
                         <Ionicons name="business-outline" size={10} color="#475569" />
@@ -536,6 +547,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginLeft: 'auto',
+  },
+  verifiedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#a7f3d0',
+  },
+  verifiedTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#065f46',
+  },
+  offTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#f5f3ff',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#ddd6fe',
+  },
+  offTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6d28d9',
   },
   brandTag: {
     flexDirection: 'row',

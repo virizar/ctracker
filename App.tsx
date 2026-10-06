@@ -11,6 +11,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { Ionicons } from '@expo/vector-icons';
 import { getDatabase } from './src/db/database';
 import { recalculateUserTdee, formatDate } from './src/services/tdee';
+import { seedBaseCatalogIfNeeded } from './src/services/catalogSeeder';
 import { DashboardScreen } from './src/screens/DashboardScreen';
 import { WeightTrendsScreen } from './src/screens/WeightTrendsScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
@@ -143,6 +144,7 @@ export default function App() {
     async function setupApp() {
       try {
         await getDatabase();
+        await seedBaseCatalogIfNeeded();
         await recalculateUserTdee();
       } catch (err) {
         console.error('Failed to initialize database:', err);
