@@ -1,0 +1,3192 @@
+[
+  {
+    "canonical_name": "All-Purpose Wheat Flour",
+    "variant": "White Flour",
+    "default_serving": "100g",
+    "calories": 364,
+    "protein": 10.3,
+    "carbs": 76.3,
+    "fat": 1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Almond Butter, 100% Almonds",
+    "variant": "Natural",
+    "default_serving": "2 tbsp (32g)",
+    "calories": 196,
+    "protein": 6.7,
+    "carbs": 6,
+    "fat": 17.8,
+    "base_weight_g": 32
+  },
+  {
+    "canonical_name": "Almond Flour",
+    "variant": "Blanched Finely Ground",
+    "default_serving": "1/4 cup (28g)",
+    "calories": 160,
+    "protein": 6,
+    "carbs": 6,
+    "fat": 14,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Almond Milk, Unsweetened",
+    "variant": "Plain",
+    "default_serving": "1 cup (240ml)",
+    "calories": 30,
+    "protein": 1,
+    "carbs": 1,
+    "fat": 2.5,
+    "base_weight_g": 240
+  },
+  {
+    "canonical_name": "Almonds, Whole",
+    "variant": "Raw / Dry Roasted",
+    "default_serving": "1 oz (28g)",
+    "calories": 164,
+    "protein": 6,
+    "carbs": 6.1,
+    "fat": 14.2,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Anchovies, Canned in Oil, Drained",
+    "variant": "Canned",
+    "default_serving": "5 fillets (20g)",
+    "calories": 42,
+    "protein": 5.8,
+    "carbs": 0,
+    "fat": 2,
+    "base_weight_g": 20
+  },
+  {
+    "canonical_name": "Apple Cider Vinegar",
+    "variant": "Raw Organic",
+    "default_serving": "1 tbsp (15g)",
+    "calories": 3,
+    "protein": 0,
+    "carbs": 0.1,
+    "fat": 0,
+    "base_weight_g": 15
+  },
+  {
+    "canonical_name": "Apple, Fresh, with Skin",
+    "variant": "Medium Apple",
+    "default_serving": "1 medium (182g)",
+    "calories": 95,
+    "protein": 0.5,
+    "carbs": 25.1,
+    "fat": 0.3,
+    "base_weight_g": 182
+  },
+  {
+    "canonical_name": "Arborio Rice, Dry (Risotto)",
+    "variant": "Dry Raw",
+    "default_serving": "100g",
+    "calories": 360,
+    "protein": 6.5,
+    "carbs": 80,
+    "fat": 0.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Arugula / Rocket, Raw",
+    "variant": "Fresh Salad",
+    "default_serving": "100g",
+    "calories": 25,
+    "protein": 2.6,
+    "carbs": 3.7,
+    "fat": 0.7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Asparagus, Cooked",
+    "variant": "Steamed Spears",
+    "default_serving": "100g",
+    "calories": 22,
+    "protein": 2.4,
+    "carbs": 4.1,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Avocado Oil",
+    "variant": "Pure Virgin",
+    "default_serving": "1 tbsp (14g)",
+    "calories": 124,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 14,
+    "base_weight_g": 14
+  },
+  {
+    "canonical_name": "Avocado, Hass, Fresh",
+    "variant": "Fresh Flesh",
+    "default_serving": "1/2 medium (100g)",
+    "calories": 160,
+    "protein": 2,
+    "carbs": 8.5,
+    "fat": 14.7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Bacon, Pork, Cooked",
+    "variant": "Crispy Pan-fried",
+    "default_serving": "2 slices (24g)",
+    "calories": 110,
+    "protein": 7.4,
+    "carbs": 0.3,
+    "fat": 8.7,
+    "base_weight_g": 24
+  },
+  {
+    "canonical_name": "Bagel, Plain",
+    "variant": "Medium Bakery",
+    "default_serving": "1 bagel (95g)",
+    "calories": 250,
+    "protein": 9.8,
+    "carbs": 48,
+    "fat": 1.5,
+    "base_weight_g": 95
+  },
+  {
+    "canonical_name": "Baguette, French White",
+    "variant": "Fresh",
+    "default_serving": "1/4 baguette (65g)",
+    "calories": 185,
+    "protein": 6.5,
+    "carbs": 37,
+    "fat": 0.9,
+    "base_weight_g": 65
+  },
+  {
+    "canonical_name": "Balsamic Vinegar",
+    "variant": "Modena",
+    "default_serving": "1 tbsp (16g)",
+    "calories": 14,
+    "protein": 0.1,
+    "carbs": 2.7,
+    "fat": 0,
+    "base_weight_g": 16
+  },
+  {
+    "canonical_name": "Banana, Raw",
+    "variant": "Fresh Peeled",
+    "default_serving": "1 medium (118g)",
+    "calories": 105,
+    "protein": 1.3,
+    "carbs": 27,
+    "fat": 0.4,
+    "base_weight_g": 118
+  },
+  {
+    "canonical_name": "Barley, Pearl, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (157g)",
+    "calories": 193,
+    "protein": 3.5,
+    "carbs": 44.3,
+    "fat": 0.7,
+    "base_weight_g": 157
+  },
+  {
+    "canonical_name": "Basmati Rice, Cooked",
+    "variant": "Steamed",
+    "default_serving": "1 cup (160g)",
+    "calories": 205,
+    "protein": 4.3,
+    "carbs": 45,
+    "fat": 0.5,
+    "base_weight_g": 160
+  },
+  {
+    "canonical_name": "Beef Brisket, Lean & Fat, Cooked",
+    "variant": "Braised/Smoked",
+    "default_serving": "100g",
+    "calories": 290,
+    "protein": 24,
+    "carbs": 0,
+    "fat": 21,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beef Flank Steak, Cooked",
+    "variant": "Braised/Grilled",
+    "default_serving": "100g",
+    "calories": 192,
+    "protein": 28,
+    "carbs": 0,
+    "fat": 8,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beef Liver, Raw",
+    "variant": "Raw",
+    "default_serving": "100g",
+    "calories": 135,
+    "protein": 20.4,
+    "carbs": 3.9,
+    "fat": 3.6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beef Mince (10%–12% Fat), Raw",
+    "variant": "10% Fat Raw",
+    "default_serving": "100g",
+    "calories": 176,
+    "protein": 20,
+    "carbs": 0,
+    "fat": 10,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beef Mince (15% Fat), Raw",
+    "variant": "15% Fat Raw",
+    "default_serving": "100g",
+    "calories": 215,
+    "protein": 18.6,
+    "carbs": 0,
+    "fat": 15,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beef Ribeye Steak, Lean, Cooked",
+    "variant": "Grilled",
+    "default_serving": "100g",
+    "calories": 242,
+    "protein": 27.3,
+    "carbs": 0,
+    "fat": 14.8,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beef Rump Steak, Lean, Cooked",
+    "variant": "Grilled",
+    "default_serving": "100g",
+    "calories": 175,
+    "protein": 28.5,
+    "carbs": 0,
+    "fat": 6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beef Sirloin Steak, Lean, Cooked",
+    "variant": "Grilled / Broiled",
+    "default_serving": "100g",
+    "calories": 183,
+    "protein": 30.5,
+    "carbs": 0,
+    "fat": 6.8,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beef Sirloin Steak, Lean, Raw",
+    "variant": "Trimmed Raw",
+    "default_serving": "100g",
+    "calories": 142,
+    "protein": 22.8,
+    "carbs": 0,
+    "fat": 5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beef Tenderloin / Filet Mignon, Cooked",
+    "variant": "Grilled",
+    "default_serving": "100g",
+    "calories": 217,
+    "protein": 26.1,
+    "carbs": 0,
+    "fat": 11.8,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Beetroot, Cooked",
+    "variant": "Boiled / Steamed",
+    "default_serving": "100g",
+    "calories": 44,
+    "protein": 1.7,
+    "carbs": 10,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Bell Pepper, Green, Raw",
+    "variant": "Sweet Green",
+    "default_serving": "1 medium (119g)",
+    "calories": 24,
+    "protein": 1,
+    "carbs": 5.5,
+    "fat": 0.2,
+    "base_weight_g": 119
+  },
+  {
+    "canonical_name": "Bell Pepper, Red, Raw",
+    "variant": "Sweet Red",
+    "default_serving": "1 medium (119g)",
+    "calories": 37,
+    "protein": 1.2,
+    "carbs": 7.2,
+    "fat": 0.4,
+    "base_weight_g": 119
+  },
+  {
+    "canonical_name": "Bell Pepper, Yellow, Raw",
+    "variant": "Sweet Yellow",
+    "default_serving": "1 medium (119g)",
+    "calories": 32,
+    "protein": 1.2,
+    "carbs": 7.5,
+    "fat": 0.2,
+    "base_weight_g": 119
+  },
+  {
+    "canonical_name": "Black Beans, Cooked",
+    "variant": "Boiled / Canned Drained",
+    "default_serving": "1 cup (172g)",
+    "calories": 227,
+    "protein": 15.2,
+    "carbs": 40.8,
+    "fat": 0.9,
+    "base_weight_g": 172
+  },
+  {
+    "canonical_name": "Black Tea, Brewed",
+    "variant": "Unsweetened",
+    "default_serving": "1 cup (240ml)",
+    "calories": 2,
+    "protein": 0,
+    "carbs": 0.5,
+    "fat": 0,
+    "base_weight_g": 240
+  },
+  {
+    "canonical_name": "Blackberries, Fresh",
+    "variant": "Fresh Berries",
+    "default_serving": "1 cup (144g)",
+    "calories": 62,
+    "protein": 2,
+    "carbs": 13.8,
+    "fat": 0.7,
+    "base_weight_g": 144
+  },
+  {
+    "canonical_name": "Blueberries, Fresh",
+    "variant": "Fresh Berries",
+    "default_serving": "1 cup (148g)",
+    "calories": 84,
+    "protein": 1.1,
+    "carbs": 21.4,
+    "fat": 0.5,
+    "base_weight_g": 148
+  },
+  {
+    "canonical_name": "Brazil Nuts",
+    "variant": "Raw Whole",
+    "default_serving": "1 oz (28g)",
+    "calories": 186,
+    "protein": 4.1,
+    "carbs": 3.5,
+    "fat": 19,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Brie Cheese",
+    "variant": "Soft Cheese",
+    "default_serving": "1 wedge (30g)",
+    "calories": 100,
+    "protein": 6.2,
+    "carbs": 0.1,
+    "fat": 8.3,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Broccoli, Cooked",
+    "variant": "Steamed / Boiled",
+    "default_serving": "100g",
+    "calories": 35,
+    "protein": 2.4,
+    "carbs": 7.2,
+    "fat": 0.4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Broccoli, Raw",
+    "variant": "Raw Florets",
+    "default_serving": "100g",
+    "calories": 34,
+    "protein": 2.8,
+    "carbs": 6.6,
+    "fat": 0.4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Broccolini / Baby Broccoli, Steamed",
+    "variant": "Steamed",
+    "default_serving": "100g",
+    "calories": 35,
+    "protein": 3.5,
+    "carbs": 5,
+    "fat": 0.4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Brown Rice, Long Grain, Cooked",
+    "variant": "Steamed / Boiled",
+    "default_serving": "1 cup (195g)",
+    "calories": 216,
+    "protein": 5,
+    "carbs": 44.8,
+    "fat": 1.8,
+    "base_weight_g": 195
+  },
+  {
+    "canonical_name": "Brussels Sprouts, Cooked",
+    "variant": "Boiled / Roasted",
+    "default_serving": "100g",
+    "calories": 36,
+    "protein": 2.6,
+    "carbs": 7.1,
+    "fat": 0.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Buckwheat Groats / Kasha, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (168g)",
+    "calories": 155,
+    "protein": 5.7,
+    "carbs": 33.5,
+    "fat": 1,
+    "base_weight_g": 168
+  },
+  {
+    "canonical_name": "Bulgur Wheat, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (182g)",
+    "calories": 151,
+    "protein": 5.6,
+    "carbs": 33.8,
+    "fat": 0.4,
+    "base_weight_g": 182
+  },
+  {
+    "canonical_name": "Butter, Salted",
+    "variant": "82% Fat",
+    "default_serving": "1 pat (10g)",
+    "calories": 72,
+    "protein": 0.1,
+    "carbs": 0,
+    "fat": 8.1,
+    "base_weight_g": 10
+  },
+  {
+    "canonical_name": "Butter, Unsalted",
+    "variant": "82% Fat",
+    "default_serving": "1 pat (10g)",
+    "calories": 72,
+    "protein": 0.1,
+    "carbs": 0,
+    "fat": 8.1,
+    "base_weight_g": 10
+  },
+  {
+    "canonical_name": "Buttermilk",
+    "variant": "Cultured",
+    "default_serving": "1 cup (245ml)",
+    "calories": 98,
+    "protein": 8.1,
+    "carbs": 11.7,
+    "fat": 2.2,
+    "base_weight_g": 245
+  },
+  {
+    "canonical_name": "Cabbage, Green, Raw",
+    "variant": "Raw Shredded",
+    "default_serving": "100g",
+    "calories": 25,
+    "protein": 1.3,
+    "carbs": 5.8,
+    "fat": 0.1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Cabbage, Red, Raw",
+    "variant": "Raw Shredded",
+    "default_serving": "100g",
+    "calories": 31,
+    "protein": 1.4,
+    "carbs": 7.4,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Camembert Cheese",
+    "variant": "Soft Cheese",
+    "default_serving": "1 wedge (30g)",
+    "calories": 90,
+    "protein": 6,
+    "carbs": 0.1,
+    "fat": 7.3,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Cannellini / White Beans, Cooked",
+    "variant": "Canned Drained",
+    "default_serving": "1 cup (180g)",
+    "calories": 249,
+    "protein": 17.4,
+    "carbs": 44.9,
+    "fat": 0.6,
+    "base_weight_g": 180
+  },
+  {
+    "canonical_name": "Canola / Rapeseed Oil",
+    "variant": "Refined",
+    "default_serving": "1 tbsp (14g)",
+    "calories": 124,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 14,
+    "base_weight_g": 14
+  },
+  {
+    "canonical_name": "Cantaloupe / Rockmelon, Diced",
+    "variant": "Fresh Flesh",
+    "default_serving": "1 cup (160g)",
+    "calories": 54,
+    "protein": 1.3,
+    "carbs": 13,
+    "fat": 0.3,
+    "base_weight_g": 160
+  },
+  {
+    "canonical_name": "Carrot, Raw",
+    "variant": "Fresh",
+    "default_serving": "1 medium (61g)",
+    "calories": 25,
+    "protein": 0.6,
+    "carbs": 5.8,
+    "fat": 0.1,
+    "base_weight_g": 61
+  },
+  {
+    "canonical_name": "Casein Protein Powder, Micellar",
+    "variant": "Slow Digestion",
+    "default_serving": "1 scoop (30g)",
+    "calories": 110,
+    "protein": 24,
+    "carbs": 1.5,
+    "fat": 0.8,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Cashew Butter, 100% Cashews",
+    "variant": "Natural",
+    "default_serving": "2 tbsp (32g)",
+    "calories": 188,
+    "protein": 5.6,
+    "carbs": 9,
+    "fat": 15.8,
+    "base_weight_g": 32
+  },
+  {
+    "canonical_name": "Cashew Milk, Unsweetened",
+    "variant": "Plain",
+    "default_serving": "1 cup (240ml)",
+    "calories": 25,
+    "protein": 0.8,
+    "carbs": 1,
+    "fat": 2,
+    "base_weight_g": 240
+  },
+  {
+    "canonical_name": "Cashews, Whole",
+    "variant": "Raw / Dry Roasted",
+    "default_serving": "1 oz (28g)",
+    "calories": 157,
+    "protein": 5.2,
+    "carbs": 8.6,
+    "fat": 12.4,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Cauliflower, Cooked",
+    "variant": "Steamed",
+    "default_serving": "100g",
+    "calories": 23,
+    "protein": 1.8,
+    "carbs": 4.1,
+    "fat": 0.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Cauliflower, Raw",
+    "variant": "Raw Florets",
+    "default_serving": "100g",
+    "calories": 25,
+    "protein": 1.9,
+    "carbs": 5,
+    "fat": 0.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Celery, Raw",
+    "variant": "Crisp Stalks",
+    "default_serving": "100g",
+    "calories": 14,
+    "protein": 0.7,
+    "carbs": 3,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Cheddar Cheese, Mature / Sharp",
+    "variant": "Sharp",
+    "default_serving": "1 slice (28g)",
+    "calories": 115,
+    "protein": 7,
+    "carbs": 0.4,
+    "fat": 9.4,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Cheddar Cheese, Mild",
+    "variant": "Block",
+    "default_serving": "1 slice (28g)",
+    "calories": 115,
+    "protein": 6.5,
+    "carbs": 0.6,
+    "fat": 9.4,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Cherries, Sweet, Fresh",
+    "variant": "Pitted",
+    "default_serving": "1 cup (154g)",
+    "calories": 97,
+    "protein": 1.6,
+    "carbs": 24.7,
+    "fat": 0.3,
+    "base_weight_g": 154
+  },
+  {
+    "canonical_name": "Cherry Tomatoes",
+    "variant": "Raw",
+    "default_serving": "1 cup (149g)",
+    "calories": 27,
+    "protein": 1.3,
+    "carbs": 5.8,
+    "fat": 0.3,
+    "base_weight_g": 149
+  },
+  {
+    "canonical_name": "Chia Seeds, Whole",
+    "variant": "Dry Whole",
+    "default_serving": "1 tbsp (12g)",
+    "calories": 58,
+    "protein": 2,
+    "carbs": 5,
+    "fat": 3.7,
+    "base_weight_g": 12
+  },
+  {
+    "canonical_name": "Chicken Breast, Skinless, Cooked",
+    "variant": "Grilled / Roasted",
+    "default_serving": "100g",
+    "calories": 165,
+    "protein": 31,
+    "carbs": 0,
+    "fat": 3.6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chicken Breast, Skinless, Raw",
+    "variant": "Raw",
+    "default_serving": "100g",
+    "calories": 120,
+    "protein": 22.5,
+    "carbs": 0,
+    "fat": 2.6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chicken Breast, with Skin, Raw",
+    "variant": "Raw with skin",
+    "default_serving": "100g",
+    "calories": 172,
+    "protein": 20.9,
+    "carbs": 0,
+    "fat": 9.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chicken Breast, with Skin, Roasted",
+    "variant": "Roasted with skin",
+    "default_serving": "100g",
+    "calories": 197,
+    "protein": 29.8,
+    "carbs": 0,
+    "fat": 7.8,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chicken Drumstick, Skinless, Cooked",
+    "variant": "Roasted",
+    "default_serving": "100g",
+    "calories": 172,
+    "protein": 28.3,
+    "carbs": 0,
+    "fat": 5.7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chicken Liver, Raw",
+    "variant": "Raw",
+    "default_serving": "100g",
+    "calories": 119,
+    "protein": 16.9,
+    "carbs": 0.7,
+    "fat": 4.8,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chicken Thigh, Skinless, Cooked",
+    "variant": "Roasted/Grilled",
+    "default_serving": "100g",
+    "calories": 209,
+    "protein": 26,
+    "carbs": 0,
+    "fat": 10.9,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chicken Thigh, Skinless, Raw",
+    "variant": "Raw",
+    "default_serving": "100g",
+    "calories": 144,
+    "protein": 19.3,
+    "carbs": 0,
+    "fat": 7.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chicken Thigh, with Skin, Cooked",
+    "variant": "Roasted with skin",
+    "default_serving": "100g",
+    "calories": 232,
+    "protein": 24,
+    "carbs": 0,
+    "fat": 14.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chicken Wing, Meat & Skin, Cooked",
+    "variant": "Roasted",
+    "default_serving": "100g",
+    "calories": 290,
+    "protein": 26.9,
+    "carbs": 0,
+    "fat": 19.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Chickpeas / Garbanzo Beans, Cooked",
+    "variant": "Boiled / Canned Drained",
+    "default_serving": "1 cup (164g)",
+    "calories": 269,
+    "protein": 14.5,
+    "carbs": 45,
+    "fat": 4.2,
+    "base_weight_g": 164
+  },
+  {
+    "canonical_name": "Clementine / Mandarin, Fresh",
+    "variant": "Peeled",
+    "default_serving": "1 fruit (74g)",
+    "calories": 35,
+    "protein": 0.6,
+    "carbs": 9,
+    "fat": 0.1,
+    "base_weight_g": 74
+  },
+  {
+    "canonical_name": "Cocoa Powder, Unsweetened",
+    "variant": "Baking Cocoa",
+    "default_serving": "1 tbsp (5g)",
+    "calories": 12,
+    "protein": 1,
+    "carbs": 3,
+    "fat": 0.7,
+    "base_weight_g": 5
+  },
+  {
+    "canonical_name": "Coconut Cream, Canned",
+    "variant": "Canned",
+    "default_serving": "100g",
+    "calories": 330,
+    "protein": 3.6,
+    "carbs": 6.6,
+    "fat": 34.7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Coconut Flour",
+    "variant": "Organic",
+    "default_serving": "2 tbsp (18g)",
+    "calories": 60,
+    "protein": 3,
+    "carbs": 10,
+    "fat": 2,
+    "base_weight_g": 18
+  },
+  {
+    "canonical_name": "Coconut Milk, Beverage, Unsweetened",
+    "variant": "Carton",
+    "default_serving": "1 cup (240ml)",
+    "calories": 45,
+    "protein": 0.5,
+    "carbs": 1,
+    "fat": 4.5,
+    "base_weight_g": 240
+  },
+  {
+    "canonical_name": "Coconut Milk, Canned, Full-Fat",
+    "variant": "Full Fat Canned",
+    "default_serving": "100g",
+    "calories": 197,
+    "protein": 2,
+    "carbs": 2.8,
+    "fat": 21.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Coconut Milk, Canned, Light",
+    "variant": "Light Canned",
+    "default_serving": "100g",
+    "calories": 75,
+    "protein": 0.9,
+    "carbs": 2,
+    "fat": 7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Coconut Oil, Virgin",
+    "variant": "Cold-pressed",
+    "default_serving": "1 tbsp (14g)",
+    "calories": 121,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 13.5,
+    "base_weight_g": 14
+  },
+  {
+    "canonical_name": "Cod, Atlantic, Cooked",
+    "variant": "Baked",
+    "default_serving": "100g",
+    "calories": 105,
+    "protein": 22.8,
+    "carbs": 0,
+    "fat": 0.9,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Cod, Atlantic, Raw",
+    "variant": "Fresh Raw",
+    "default_serving": "100g",
+    "calories": 82,
+    "protein": 17.8,
+    "carbs": 0,
+    "fat": 0.7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Coffee, Black, Brewed",
+    "variant": "Unsweetened",
+    "default_serving": "1 cup (240ml)",
+    "calories": 2,
+    "protein": 0.3,
+    "carbs": 0,
+    "fat": 0,
+    "base_weight_g": 240
+  },
+  {
+    "canonical_name": "Corn Tortilla (6-inch)",
+    "variant": "Yellow/White Corn",
+    "default_serving": "1 tortilla (28g)",
+    "calories": 60,
+    "protein": 1.4,
+    "carbs": 12,
+    "fat": 0.7,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Cottage Cheese, Fat-Free (0%)",
+    "variant": "Fat-Free",
+    "default_serving": "100g",
+    "calories": 72,
+    "protein": 12.4,
+    "carbs": 2.7,
+    "fat": 0.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Cottage Cheese, Low-Fat (1%)",
+    "variant": "1% Fat",
+    "default_serving": "100g",
+    "calories": 72,
+    "protein": 12.4,
+    "carbs": 2.7,
+    "fat": 1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Cottage Cheese, Low-Fat (2%)",
+    "variant": "2% Fat",
+    "default_serving": "100g",
+    "calories": 81,
+    "protein": 11,
+    "carbs": 4,
+    "fat": 2.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Cottage Cheese, Regular (4%)",
+    "variant": "4% Fat",
+    "default_serving": "100g",
+    "calories": 98,
+    "protein": 11.1,
+    "carbs": 3.4,
+    "fat": 4.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Couscous, Wheat, Cooked",
+    "variant": "Steamed",
+    "default_serving": "1 cup (157g)",
+    "calories": 176,
+    "protein": 6,
+    "carbs": 36.5,
+    "fat": 0.3,
+    "base_weight_g": 157
+  },
+  {
+    "canonical_name": "Crab Meat, Cooked",
+    "variant": "Steamed",
+    "default_serving": "100g",
+    "calories": 97,
+    "protein": 19.4,
+    "carbs": 0,
+    "fat": 1.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Cream Cheese, Light",
+    "variant": "Light Spread",
+    "default_serving": "2 tbsp (30g)",
+    "calories": 60,
+    "protein": 2.3,
+    "carbs": 2.1,
+    "fat": 4.8,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Cream Cheese, Regular",
+    "variant": "Spread",
+    "default_serving": "2 tbsp (30g)",
+    "calories": 99,
+    "protein": 1.8,
+    "carbs": 1.6,
+    "fat": 9.9,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Creatine Monohydrate",
+    "variant": "100% Pure",
+    "default_serving": "1 scoop (5g)",
+    "calories": 0,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 0,
+    "base_weight_g": 5
+  },
+  {
+    "canonical_name": "Crème Fraîche (30% Fat)",
+    "variant": "Traditional",
+    "default_serving": "1 tbsp (20g)",
+    "calories": 59,
+    "protein": 0.5,
+    "carbs": 0.6,
+    "fat": 6,
+    "base_weight_g": 20
+  },
+  {
+    "canonical_name": "Cremini / Brown Mushrooms, Raw",
+    "variant": "Baby Bella",
+    "default_serving": "100g",
+    "calories": 22,
+    "protein": 2.5,
+    "carbs": 4.3,
+    "fat": 0.1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Croissant, Butter",
+    "variant": "Medium Bakery",
+    "default_serving": "1 croissant (57g)",
+    "calories": 231,
+    "protein": 4.7,
+    "carbs": 26.1,
+    "fat": 12,
+    "base_weight_g": 57
+  },
+  {
+    "canonical_name": "Cucumber, with Peel",
+    "variant": "Fresh Sliced",
+    "default_serving": "100g",
+    "calories": 15,
+    "protein": 0.7,
+    "carbs": 3.6,
+    "fat": 0.1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Dark Chocolate (70%–85% Cocoa)",
+    "variant": "70%–85% Bar",
+    "default_serving": "1 oz (28g)",
+    "calories": 170,
+    "protein": 2.2,
+    "carbs": 13,
+    "fat": 12,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Dark Chocolate (85%–90% Cocoa)",
+    "variant": "85%–90% Bar",
+    "default_serving": "1 oz (28g)",
+    "calories": 175,
+    "protein": 3.1,
+    "carbs": 10,
+    "fat": 14,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Dijon Mustard",
+    "variant": "French Dijon",
+    "default_serving": "1 tsp (5g)",
+    "calories": 5,
+    "protein": 0.3,
+    "carbs": 0.3,
+    "fat": 0.3,
+    "base_weight_g": 5
+  },
+  {
+    "canonical_name": "Dried Figs",
+    "variant": "Dried Whole",
+    "default_serving": "3 figs (60g)",
+    "calories": 150,
+    "protein": 2,
+    "carbs": 38,
+    "fat": 0.6,
+    "base_weight_g": 60
+  },
+  {
+    "canonical_name": "Duck Breast, Skinless, Raw",
+    "variant": "Raw",
+    "default_serving": "100g",
+    "calories": 123,
+    "protein": 19.9,
+    "carbs": 0,
+    "fat": 4.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Duck Breast, with Skin, Cooked",
+    "variant": "Pan seared",
+    "default_serving": "100g",
+    "calories": 201,
+    "protein": 23.5,
+    "carbs": 0,
+    "fat": 11.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Edam Cheese",
+    "variant": "Semi-Hard",
+    "default_serving": "1 slice (30g)",
+    "calories": 101,
+    "protein": 7.5,
+    "carbs": 0.4,
+    "fat": 7.8,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Edamame, Shelled, Cooked",
+    "variant": "Boiled / Steamed",
+    "default_serving": "1 cup (155g)",
+    "calories": 188,
+    "protein": 18.5,
+    "carbs": 13.8,
+    "fat": 8.1,
+    "base_weight_g": 155
+  },
+  {
+    "canonical_name": "Egg Noodles, Cooked",
+    "variant": "Enriched Boiled",
+    "default_serving": "1 cup (160g)",
+    "calories": 221,
+    "protein": 7.3,
+    "carbs": 40.3,
+    "fat": 3.3,
+    "base_weight_g": 160
+  },
+  {
+    "canonical_name": "Egg White, Cooked",
+    "variant": "Boiled/Cooked",
+    "default_serving": "100g",
+    "calories": 52,
+    "protein": 10.9,
+    "carbs": 0.7,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Egg White, Raw",
+    "variant": "Raw",
+    "default_serving": "1 large (33g)",
+    "calories": 17,
+    "protein": 3.6,
+    "carbs": 0.2,
+    "fat": 0.1,
+    "base_weight_g": 33
+  },
+  {
+    "canonical_name": "Egg Yolk, Raw",
+    "variant": "Raw",
+    "default_serving": "1 large (17g)",
+    "calories": 55,
+    "protein": 2.7,
+    "carbs": 0.6,
+    "fat": 4.5,
+    "base_weight_g": 17
+  },
+  {
+    "canonical_name": "Egg, Scrambled, Plain",
+    "variant": "Scrambled without milk",
+    "default_serving": "1 large (61g)",
+    "calories": 91,
+    "protein": 6.1,
+    "carbs": 1,
+    "fat": 6.7,
+    "base_weight_g": 61
+  },
+  {
+    "canonical_name": "Egg, Whole, Cooked",
+    "variant": "Hard Boiled",
+    "default_serving": "1 large (50g)",
+    "calories": 78,
+    "protein": 6.3,
+    "carbs": 0.6,
+    "fat": 5.3,
+    "base_weight_g": 50
+  },
+  {
+    "canonical_name": "Egg, Whole, Fried",
+    "variant": "Fried in spray",
+    "default_serving": "1 large (46g)",
+    "calories": 90,
+    "protein": 6.3,
+    "carbs": 0.4,
+    "fat": 6.8,
+    "base_weight_g": 46
+  },
+  {
+    "canonical_name": "Egg, Whole, Poached",
+    "variant": "Poached",
+    "default_serving": "1 large (50g)",
+    "calories": 72,
+    "protein": 6.3,
+    "carbs": 0.4,
+    "fat": 4.7,
+    "base_weight_g": 50
+  },
+  {
+    "canonical_name": "Egg, Whole, Raw",
+    "variant": "Large Raw",
+    "default_serving": "1 large (50g)",
+    "calories": 72,
+    "protein": 6.3,
+    "carbs": 0.4,
+    "fat": 4.8,
+    "base_weight_g": 50
+  },
+  {
+    "canonical_name": "Eggplant / Aubergine, Cooked",
+    "variant": "Baked / Boiled",
+    "default_serving": "100g",
+    "calories": 35,
+    "protein": 0.8,
+    "carbs": 8.7,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Emmental / Swiss Cheese",
+    "variant": "Hard Cheese",
+    "default_serving": "1 slice (28g)",
+    "calories": 106,
+    "protein": 7.6,
+    "carbs": 1.5,
+    "fat": 7.8,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "English Muffin, Plain",
+    "variant": "Toasted",
+    "default_serving": "1 muffin (57g)",
+    "calories": 132,
+    "protein": 5,
+    "carbs": 26,
+    "fat": 1,
+    "base_weight_g": 57
+  },
+  {
+    "canonical_name": "Espresso",
+    "variant": "Single Shot",
+    "default_serving": "1 shot (30ml)",
+    "calories": 3,
+    "protein": 0.1,
+    "carbs": 0.5,
+    "fat": 0.1,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Evaporated Milk, Canned",
+    "variant": "Whole",
+    "default_serving": "100g",
+    "calories": 134,
+    "protein": 6.8,
+    "carbs": 10,
+    "fat": 7.6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Extra Virgin Olive Oil",
+    "variant": "100% Pure EVOO",
+    "default_serving": "1 tbsp (14g)",
+    "calories": 119,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 13.5,
+    "base_weight_g": 14
+  },
+  {
+    "canonical_name": "Farro / Emmer, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1/2 cup (100g)",
+    "calories": 170,
+    "protein": 6,
+    "carbs": 34,
+    "fat": 1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Feta Cheese, Traditional Sheep/Goat",
+    "variant": "Block in brine",
+    "default_serving": "100g",
+    "calories": 264,
+    "protein": 14.2,
+    "carbs": 4.1,
+    "fat": 21.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Flaxseeds / Linseeds, Ground",
+    "variant": "Milled Meal",
+    "default_serving": "1 tbsp (7g)",
+    "calories": 37,
+    "protein": 1.3,
+    "carbs": 2,
+    "fat": 3,
+    "base_weight_g": 7
+  },
+  {
+    "canonical_name": "Garlic, Raw",
+    "variant": "Fresh Clove",
+    "default_serving": "1 clove (3g)",
+    "calories": 4,
+    "protein": 0.2,
+    "carbs": 1,
+    "fat": 0,
+    "base_weight_g": 3
+  },
+  {
+    "canonical_name": "Ghee / Clarified Butter",
+    "variant": "Pure Ghee",
+    "default_serving": "1 tbsp (13g)",
+    "calories": 112,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 12.7,
+    "base_weight_g": 13
+  },
+  {
+    "canonical_name": "Ginger Root, Raw",
+    "variant": "Fresh Sliced",
+    "default_serving": "1 tbsp (6g)",
+    "calories": 5,
+    "protein": 0.1,
+    "carbs": 1.1,
+    "fat": 0.1,
+    "base_weight_g": 6
+  },
+  {
+    "canonical_name": "Gnocchi, Potato, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (150g)",
+    "calories": 200,
+    "protein": 4.5,
+    "carbs": 44,
+    "fat": 0.8,
+    "base_weight_g": 150
+  },
+  {
+    "canonical_name": "Gouda Cheese",
+    "variant": "Semi-Hard",
+    "default_serving": "1 slice (30g)",
+    "calories": 107,
+    "protein": 7.5,
+    "carbs": 0.7,
+    "fat": 8.2,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Grapefruit, Pink or Red",
+    "variant": "Fresh Half",
+    "default_serving": "1/2 medium (123g)",
+    "calories": 52,
+    "protein": 0.9,
+    "carbs": 13.2,
+    "fat": 0.2,
+    "base_weight_g": 123
+  },
+  {
+    "canonical_name": "Grapes, Red / Green, Seedless",
+    "variant": "Fresh",
+    "default_serving": "1 cup (151g)",
+    "calories": 104,
+    "protein": 1.1,
+    "carbs": 27.3,
+    "fat": 0.2,
+    "base_weight_g": 151
+  },
+  {
+    "canonical_name": "Greek Yogurt, 2% Fat",
+    "variant": "2% Plain",
+    "default_serving": "100g",
+    "calories": 73,
+    "protein": 9.9,
+    "carbs": 3.9,
+    "fat": 2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Greek Yogurt, Authentic (10% Fat)",
+    "variant": "10% Plain",
+    "default_serving": "100g",
+    "calories": 130,
+    "protein": 8,
+    "carbs": 4,
+    "fat": 10,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Greek Yogurt, Nonfat (0%)",
+    "variant": "0% Fat Plain",
+    "default_serving": "100g",
+    "calories": 59,
+    "protein": 10.2,
+    "carbs": 3.6,
+    "fat": 0.4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Greek Yogurt, Whole (5% Fat)",
+    "variant": "5% Plain",
+    "default_serving": "100g",
+    "calories": 97,
+    "protein": 9,
+    "carbs": 3.8,
+    "fat": 5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Green Beans, Cooked",
+    "variant": "Boiled / Steamed",
+    "default_serving": "100g",
+    "calories": 35,
+    "protein": 1.9,
+    "carbs": 7.9,
+    "fat": 0.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Green Peas, Cooked",
+    "variant": "Boiled / Steamed",
+    "default_serving": "1 cup (160g)",
+    "calories": 134,
+    "protein": 8.6,
+    "carbs": 25,
+    "fat": 0.4,
+    "base_weight_g": 160
+  },
+  {
+    "canonical_name": "Green Tea, Brewed",
+    "variant": "Unsweetened",
+    "default_serving": "1 cup (240ml)",
+    "calories": 2,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 0,
+    "base_weight_g": 240
+  },
+  {
+    "canonical_name": "Ground Turkey, Extra Lean (99/1), Raw",
+    "variant": "99% Lean Raw",
+    "default_serving": "100g",
+    "calories": 112,
+    "protein": 26,
+    "carbs": 0,
+    "fat": 1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Ground Turkey, Lean (93/7), Raw",
+    "variant": "93% Lean Raw",
+    "default_serving": "100g",
+    "calories": 152,
+    "protein": 19.7,
+    "carbs": 0,
+    "fat": 7.7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Gruyère Cheese",
+    "variant": "AOP",
+    "default_serving": "1 slice (28g)",
+    "calories": 117,
+    "protein": 8.5,
+    "carbs": 0.1,
+    "fat": 9.2,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Haddock, Cooked",
+    "variant": "Baked",
+    "default_serving": "100g",
+    "calories": 90,
+    "protein": 20,
+    "carbs": 0,
+    "fat": 0.6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Halibut, Atlantic / Pacific, Cooked",
+    "variant": "Baked",
+    "default_serving": "100g",
+    "calories": 111,
+    "protein": 23,
+    "carbs": 0,
+    "fat": 1.6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Halloumi Cheese",
+    "variant": "Grilling Cheese",
+    "default_serving": "100g",
+    "calories": 321,
+    "protein": 21,
+    "carbs": 2,
+    "fat": 25,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Ham, Cooked, Sliced",
+    "variant": "Deli Lean",
+    "default_serving": "2 slices (56g)",
+    "calories": 60,
+    "protein": 10,
+    "carbs": 1.5,
+    "fat": 1.5,
+    "base_weight_g": 56
+  },
+  {
+    "canonical_name": "Hazelnuts / Filberts",
+    "variant": "Raw Whole",
+    "default_serving": "1 oz (28g)",
+    "calories": 178,
+    "protein": 4.2,
+    "carbs": 4.7,
+    "fat": 17.2,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Heavy Cream (36% Fat)",
+    "variant": "Whipping Cream",
+    "default_serving": "1 tbsp (15ml)",
+    "calories": 51,
+    "protein": 0.4,
+    "carbs": 0.4,
+    "fat": 5.4,
+    "base_weight_g": 15
+  },
+  {
+    "canonical_name": "Hemp Seeds / Hemp Hearts",
+    "variant": "Shelled",
+    "default_serving": "3 tbsp (30g)",
+    "calories": 166,
+    "protein": 9.5,
+    "carbs": 2.6,
+    "fat": 14.6,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Honey, Pure",
+    "variant": "Raw / Pure",
+    "default_serving": "1 tbsp (21g)",
+    "calories": 64,
+    "protein": 0.1,
+    "carbs": 17.3,
+    "fat": 0,
+    "base_weight_g": 21
+  },
+  {
+    "canonical_name": "Hummus, Classic",
+    "variant": "Traditional Chickpea",
+    "default_serving": "2 tbsp (30g)",
+    "calories": 70,
+    "protein": 2.4,
+    "carbs": 4.2,
+    "fat": 5.1,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Iceberg Lettuce, Raw",
+    "variant": "Crisphead",
+    "default_serving": "100g",
+    "calories": 14,
+    "protein": 0.9,
+    "carbs": 3,
+    "fat": 0.1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Jasmine Rice, Cooked",
+    "variant": "Steamed",
+    "default_serving": "1 cup (160g)",
+    "calories": 210,
+    "protein": 4,
+    "carbs": 46,
+    "fat": 0.4,
+    "base_weight_g": 160
+  },
+  {
+    "canonical_name": "Kale, Raw",
+    "variant": "Chopped Leaves",
+    "default_serving": "100g",
+    "calories": 49,
+    "protein": 4.3,
+    "carbs": 8.8,
+    "fat": 0.9,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Kefir, Plain, Low-Fat",
+    "variant": "Cultured",
+    "default_serving": "1 cup (243ml)",
+    "calories": 104,
+    "protein": 11,
+    "carbs": 12,
+    "fat": 2.2,
+    "base_weight_g": 243
+  },
+  {
+    "canonical_name": "Kiwi Fruit, Fresh",
+    "variant": "Peeled Fresh",
+    "default_serving": "1 fruit (69g)",
+    "calories": 42,
+    "protein": 0.8,
+    "carbs": 10.1,
+    "fat": 0.4,
+    "base_weight_g": 69
+  },
+  {
+    "canonical_name": "Lactose-Free Semi-Skimmed Milk",
+    "variant": "Semi-Skimmed",
+    "default_serving": "1 cup (240ml)",
+    "calories": 122,
+    "protein": 8.2,
+    "carbs": 12,
+    "fat": 4.8,
+    "base_weight_g": 244
+  },
+  {
+    "canonical_name": "Lactose-Free Whole Milk",
+    "variant": "Whole",
+    "default_serving": "1 cup (240ml)",
+    "calories": 149,
+    "protein": 7.7,
+    "carbs": 11.7,
+    "fat": 7.9,
+    "base_weight_g": 244
+  },
+  {
+    "canonical_name": "Lamb Leg, Lean, Cooked",
+    "variant": "Roasted",
+    "default_serving": "100g",
+    "calories": 191,
+    "protein": 28.3,
+    "carbs": 0,
+    "fat": 8.6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Lamb Loin Chop, Lean, Cooked",
+    "variant": "Grilled",
+    "default_serving": "100g",
+    "calories": 216,
+    "protein": 28,
+    "carbs": 0,
+    "fat": 11,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Lamb Mince (20% Fat), Raw",
+    "variant": "Raw",
+    "default_serving": "100g",
+    "calories": 282,
+    "protein": 16.6,
+    "carbs": 0,
+    "fat": 23.4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Lean Beef Mince (5% Fat), Cooked",
+    "variant": "5% Fat Pan-fried",
+    "default_serving": "100g",
+    "calories": 172,
+    "protein": 27,
+    "carbs": 0,
+    "fat": 6.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Lean Beef Mince (5% Fat), Raw",
+    "variant": "5% Fat Raw",
+    "default_serving": "100g",
+    "calories": 137,
+    "protein": 21.4,
+    "carbs": 0,
+    "fat": 5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Lentils, Brown / Green, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (198g)",
+    "calories": 230,
+    "protein": 17.9,
+    "carbs": 39.9,
+    "fat": 0.8,
+    "base_weight_g": 198
+  },
+  {
+    "canonical_name": "Lobster, Cooked",
+    "variant": "Boiled / Steamed",
+    "default_serving": "100g",
+    "calories": 89,
+    "protein": 19,
+    "carbs": 0,
+    "fat": 0.9,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Low-Fat Milk (1% Fat)",
+    "variant": "Pasteurized",
+    "default_serving": "1 cup (240ml)",
+    "calories": 102,
+    "protein": 8.2,
+    "carbs": 12.2,
+    "fat": 2.4,
+    "base_weight_g": 244
+  },
+  {
+    "canonical_name": "Macadamia Nuts",
+    "variant": "Raw / Roasted",
+    "default_serving": "1 oz (28g)",
+    "calories": 204,
+    "protein": 2.2,
+    "carbs": 3.9,
+    "fat": 21.5,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Mackerel, Atlantic, Cooked",
+    "variant": "Baked",
+    "default_serving": "100g",
+    "calories": 262,
+    "protein": 23.9,
+    "carbs": 0,
+    "fat": 17.8,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Mango, Fresh, Diced",
+    "variant": "Fresh",
+    "default_serving": "1 cup (165g)",
+    "calories": 99,
+    "protein": 1.4,
+    "carbs": 24.7,
+    "fat": 0.6,
+    "base_weight_g": 165
+  },
+  {
+    "canonical_name": "Maple Syrup, Pure",
+    "variant": "Grade A",
+    "default_serving": "1 tbsp (20g)",
+    "calories": 52,
+    "protein": 0,
+    "carbs": 13.4,
+    "fat": 0,
+    "base_weight_g": 20
+  },
+  {
+    "canonical_name": "Mascarpone Cheese",
+    "variant": "Soft Cheese",
+    "default_serving": "2 tbsp (30g)",
+    "calories": 120,
+    "protein": 1.5,
+    "carbs": 1,
+    "fat": 12.5,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Matcha Green Tea Powder",
+    "variant": "Ceremonial / Culinary",
+    "default_serving": "1 tsp (2g)",
+    "calories": 6,
+    "protein": 0.6,
+    "carbs": 0.8,
+    "fat": 0.1,
+    "base_weight_g": 2
+  },
+  {
+    "canonical_name": "Mayonnaise, Light",
+    "variant": "Reduced Calorie",
+    "default_serving": "1 tbsp (15g)",
+    "calories": 36,
+    "protein": 0.1,
+    "carbs": 1,
+    "fat": 3.3,
+    "base_weight_g": 15
+  },
+  {
+    "canonical_name": "Mayonnaise, Regular",
+    "variant": "Traditional",
+    "default_serving": "1 tbsp (14g)",
+    "calories": 94,
+    "protein": 0.1,
+    "carbs": 0.1,
+    "fat": 10.3,
+    "base_weight_g": 14
+  },
+  {
+    "canonical_name": "Medjool Dates, Pitted",
+    "variant": "Dried",
+    "default_serving": "2 dates (48g)",
+    "calories": 133,
+    "protein": 0.9,
+    "carbs": 36,
+    "fat": 0.1,
+    "base_weight_g": 48
+  },
+  {
+    "canonical_name": "Milk Chocolate",
+    "variant": "Standard Bar",
+    "default_serving": "1 oz (28g)",
+    "calories": 152,
+    "protein": 2.1,
+    "carbs": 16.8,
+    "fat": 8.4,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Millet, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (174g)",
+    "calories": 207,
+    "protein": 6.1,
+    "carbs": 41.2,
+    "fat": 1.7,
+    "base_weight_g": 174
+  },
+  {
+    "canonical_name": "Mixed Salad Greens",
+    "variant": "Spring Mix / Mesclun",
+    "default_serving": "100g",
+    "calories": 17,
+    "protein": 1.5,
+    "carbs": 2.8,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Mozzarella, Fresh, Traditional",
+    "variant": "Ball in brine",
+    "default_serving": "100g",
+    "calories": 280,
+    "protein": 22.2,
+    "carbs": 2.2,
+    "fat": 22,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Mozzarella, Low-Moisture Part-Skim",
+    "variant": "Grated / Block",
+    "default_serving": "100g",
+    "calories": 295,
+    "protein": 24,
+    "carbs": 2.8,
+    "fat": 21,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Mussels, Blue, Cooked",
+    "variant": "Steamed",
+    "default_serving": "100g",
+    "calories": 172,
+    "protein": 23.8,
+    "carbs": 7.4,
+    "fat": 4.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Naan Bread, Plain",
+    "variant": "Tandoori / Oven",
+    "default_serving": "1 piece (90g)",
+    "calories": 262,
+    "protein": 8,
+    "carbs": 45,
+    "fat": 5,
+    "base_weight_g": 90
+  },
+  {
+    "canonical_name": "Nectarine, Fresh",
+    "variant": "Medium with skin",
+    "default_serving": "1 medium (142g)",
+    "calories": 62,
+    "protein": 1.5,
+    "carbs": 15,
+    "fat": 0.5,
+    "base_weight_g": 142
+  },
+  {
+    "canonical_name": "Nutritional Yeast",
+    "variant": "Flakes",
+    "default_serving": "2 tbsp (10g)",
+    "calories": 40,
+    "protein": 5,
+    "carbs": 3,
+    "fat": 0.5,
+    "base_weight_g": 10
+  },
+  {
+    "canonical_name": "Oat Bran, Raw",
+    "variant": "Raw",
+    "default_serving": "1/3 cup (31g)",
+    "calories": 76,
+    "protein": 5.4,
+    "carbs": 20.5,
+    "fat": 2.2,
+    "base_weight_g": 31
+  },
+  {
+    "canonical_name": "Oat Milk, Plain",
+    "variant": "Regular",
+    "default_serving": "1 cup (240ml)",
+    "calories": 120,
+    "protein": 3,
+    "carbs": 16,
+    "fat": 5,
+    "base_weight_g": 240
+  },
+  {
+    "canonical_name": "Oatmeal / Porridge, Cooked in Water",
+    "variant": "Cooked with Water",
+    "default_serving": "1 cup (234g)",
+    "calories": 158,
+    "protein": 6,
+    "carbs": 28.1,
+    "fat": 3.2,
+    "base_weight_g": 234
+  },
+  {
+    "canonical_name": "Octopus, Cooked",
+    "variant": "Boiled / Braised",
+    "default_serving": "100g",
+    "calories": 164,
+    "protein": 29.8,
+    "carbs": 4.4,
+    "fat": 2.1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Orange, Fresh",
+    "variant": "Navel / Valencia",
+    "default_serving": "1 medium (131g)",
+    "calories": 62,
+    "protein": 1.2,
+    "carbs": 15.4,
+    "fat": 0.2,
+    "base_weight_g": 131
+  },
+  {
+    "canonical_name": "Oysters, Pacific, Raw",
+    "variant": "Raw",
+    "default_serving": "6 medium (84g)",
+    "calories": 68,
+    "protein": 7.9,
+    "carbs": 4.1,
+    "fat": 2,
+    "base_weight_g": 84
+  },
+  {
+    "canonical_name": "Papaya, Fresh, Diced",
+    "variant": "Fresh Flesh",
+    "default_serving": "1 cup (145g)",
+    "calories": 62,
+    "protein": 0.7,
+    "carbs": 15.7,
+    "fat": 0.4,
+    "base_weight_g": 145
+  },
+  {
+    "canonical_name": "Parmesan Cheese, Grated",
+    "variant": "Parmigiano-Reggiano",
+    "default_serving": "1 tbsp (10g)",
+    "calories": 43,
+    "protein": 3.8,
+    "carbs": 0.4,
+    "fat": 2.9,
+    "base_weight_g": 10
+  },
+  {
+    "canonical_name": "Pasta, Wheat Regular, Cooked",
+    "variant": "Al Dente Boiled",
+    "default_serving": "1 cup (140g)",
+    "calories": 221,
+    "protein": 8.1,
+    "carbs": 43.2,
+    "fat": 1.3,
+    "base_weight_g": 140
+  },
+  {
+    "canonical_name": "Pasta, Wheat Regular, Dry",
+    "variant": "Dry Raw",
+    "default_serving": "100g",
+    "calories": 371,
+    "protein": 13,
+    "carbs": 74.7,
+    "fat": 1.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Peach, Fresh",
+    "variant": "Medium with skin",
+    "default_serving": "1 medium (150g)",
+    "calories": 59,
+    "protein": 1.4,
+    "carbs": 14.3,
+    "fat": 0.4,
+    "base_weight_g": 150
+  },
+  {
+    "canonical_name": "Peanut Butter, 100% Peanuts",
+    "variant": "Smooth / Crunchy Natural",
+    "default_serving": "2 tbsp (32g)",
+    "calories": 188,
+    "protein": 8,
+    "carbs": 6.3,
+    "fat": 16.1,
+    "base_weight_g": 32
+  },
+  {
+    "canonical_name": "Peanuts, Roasted, Salted",
+    "variant": "Dry Roasted",
+    "default_serving": "1 oz (28g)",
+    "calories": 166,
+    "protein": 6.7,
+    "carbs": 6,
+    "fat": 14.1,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Pear, Bartlett / Anjou, Fresh",
+    "variant": "Medium with skin",
+    "default_serving": "1 medium (178g)",
+    "calories": 101,
+    "protein": 0.6,
+    "carbs": 27.1,
+    "fat": 0.2,
+    "base_weight_g": 178
+  },
+  {
+    "canonical_name": "Pecans, Halves",
+    "variant": "Raw",
+    "default_serving": "1 oz (28g)",
+    "calories": 196,
+    "protein": 2.6,
+    "carbs": 3.9,
+    "fat": 20.4,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Pecorino Romano Cheese",
+    "variant": "Hard Sheep Cheese",
+    "default_serving": "1 tbsp (10g)",
+    "calories": 39,
+    "protein": 2.6,
+    "carbs": 0.4,
+    "fat": 3.2,
+    "base_weight_g": 10
+  },
+  {
+    "canonical_name": "Pesto, Basil Genovese",
+    "variant": "Traditional Pine Nut",
+    "default_serving": "1 tbsp (15g)",
+    "calories": 68,
+    "protein": 1.3,
+    "carbs": 0.9,
+    "fat": 6.8,
+    "base_weight_g": 15
+  },
+  {
+    "canonical_name": "Pine Nuts / Pignoli",
+    "variant": "Dried",
+    "default_serving": "1 oz (28g)",
+    "calories": 191,
+    "protein": 3.9,
+    "carbs": 3.7,
+    "fat": 19.4,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Pineapple, Fresh, Chunks",
+    "variant": "Fresh Flesh",
+    "default_serving": "1 cup (165g)",
+    "calories": 82,
+    "protein": 0.9,
+    "carbs": 21.6,
+    "fat": 0.2,
+    "base_weight_g": 165
+  },
+  {
+    "canonical_name": "Pinto Beans, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (171g)",
+    "calories": 245,
+    "protein": 15.4,
+    "carbs": 44.8,
+    "fat": 1.1,
+    "base_weight_g": 171
+  },
+  {
+    "canonical_name": "Pistachios, Shelled",
+    "variant": "Dry Roasted",
+    "default_serving": "1 oz (28g)",
+    "calories": 159,
+    "protein": 5.7,
+    "carbs": 7.7,
+    "fat": 12.9,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Pita Bread, White",
+    "variant": "6.5-inch round",
+    "default_serving": "1 pita (60g)",
+    "calories": 165,
+    "protein": 5.5,
+    "carbs": 33.4,
+    "fat": 0.7,
+    "base_weight_g": 60
+  },
+  {
+    "canonical_name": "Pita Bread, Whole Wheat",
+    "variant": "6.5-inch round",
+    "default_serving": "1 pita (64g)",
+    "calories": 170,
+    "protein": 6.3,
+    "carbs": 35,
+    "fat": 1.7,
+    "base_weight_g": 64
+  },
+  {
+    "canonical_name": "Plant Protein Powder (Pea & Rice)",
+    "variant": "Vegan Blend",
+    "default_serving": "1 scoop (30g)",
+    "calories": 115,
+    "protein": 24,
+    "carbs": 2,
+    "fat": 1.5,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Plum, Fresh",
+    "variant": "Medium with skin",
+    "default_serving": "1 fruit (66g)",
+    "calories": 30,
+    "protein": 0.5,
+    "carbs": 7.5,
+    "fat": 0.2,
+    "base_weight_g": 66
+  },
+  {
+    "canonical_name": "Polenta / Cornmeal, Cooked",
+    "variant": "Boiled with water",
+    "default_serving": "1 cup (235g)",
+    "calories": 145,
+    "protein": 3.2,
+    "carbs": 31,
+    "fat": 0.8,
+    "base_weight_g": 235
+  },
+  {
+    "canonical_name": "Pomegranate Seeds (Arils)",
+    "variant": "Fresh",
+    "default_serving": "1/2 cup (87g)",
+    "calories": 72,
+    "protein": 1.5,
+    "carbs": 16.3,
+    "fat": 1,
+    "base_weight_g": 87
+  },
+  {
+    "canonical_name": "Pork Belly, Raw",
+    "variant": "Raw",
+    "default_serving": "100g",
+    "calories": 518,
+    "protein": 9.3,
+    "carbs": 0,
+    "fat": 53,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Pork Loin Chop, Boneless, Cooked",
+    "variant": "Grilled",
+    "default_serving": "100g",
+    "calories": 196,
+    "protein": 28,
+    "carbs": 0,
+    "fat": 8.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Pork Mince (10%–12% Fat), Raw",
+    "variant": "Lean Raw",
+    "default_serving": "100g",
+    "calories": 176,
+    "protein": 20.5,
+    "carbs": 0,
+    "fat": 10,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Pork Tenderloin, Cooked",
+    "variant": "Roasted",
+    "default_serving": "100g",
+    "calories": 143,
+    "protein": 26.2,
+    "carbs": 0,
+    "fat": 3.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Pork Tenderloin, Raw",
+    "variant": "Trimmed Raw",
+    "default_serving": "100g",
+    "calories": 120,
+    "protein": 21,
+    "carbs": 0,
+    "fat": 3.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Portobello Mushrooms, Grilled",
+    "variant": "Caps",
+    "default_serving": "100g",
+    "calories": 29,
+    "protein": 2.5,
+    "carbs": 5.1,
+    "fat": 0.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Potato, Baked, Flesh & Skin",
+    "variant": "Oven Baked",
+    "default_serving": "1 medium (173g)",
+    "calories": 161,
+    "protein": 4.3,
+    "carbs": 36.6,
+    "fat": 0.2,
+    "base_weight_g": 173
+  },
+  {
+    "canonical_name": "Potato, Boiled, without Skin",
+    "variant": "Boiled with salt",
+    "default_serving": "100g",
+    "calories": 87,
+    "protein": 1.9,
+    "carbs": 20.1,
+    "fat": 0.1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Potato, Raw, with Skin",
+    "variant": "Raw Russet / White",
+    "default_serving": "1 medium (173g)",
+    "calories": 137,
+    "protein": 4.3,
+    "carbs": 31,
+    "fat": 0.2,
+    "base_weight_g": 173
+  },
+  {
+    "canonical_name": "Prosciutto / Jamón Serrano",
+    "variant": "Dry-cured",
+    "default_serving": "2 slices (28g)",
+    "calories": 65,
+    "protein": 8,
+    "carbs": 0.1,
+    "fat": 3.5,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Prunes / Dried Plums, Pitted",
+    "variant": "Dried",
+    "default_serving": "5 prunes (48g)",
+    "calories": 115,
+    "protein": 1.1,
+    "carbs": 30.7,
+    "fat": 0.2,
+    "base_weight_g": 48
+  },
+  {
+    "canonical_name": "Pumpkin Seeds / Pepitas, Shelled",
+    "variant": "Raw / Roasted",
+    "default_serving": "1 oz (28g)",
+    "calories": 158,
+    "protein": 8.6,
+    "carbs": 3,
+    "fat": 13.9,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Quark, Low-Fat",
+    "variant": "Magerquark",
+    "default_serving": "100g",
+    "calories": 67,
+    "protein": 12,
+    "carbs": 4,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Quinoa, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (185g)",
+    "calories": 222,
+    "protein": 8.1,
+    "carbs": 39.4,
+    "fat": 3.6,
+    "base_weight_g": 185
+  },
+  {
+    "canonical_name": "Quinoa, White / Tri-Color, Raw",
+    "variant": "Dry Raw",
+    "default_serving": "100g",
+    "calories": 368,
+    "protein": 14.1,
+    "carbs": 64.2,
+    "fat": 6.1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Raisins, Seedless",
+    "variant": "Dried",
+    "default_serving": "1/4 cup (40g)",
+    "calories": 120,
+    "protein": 1.3,
+    "carbs": 32,
+    "fat": 0.2,
+    "base_weight_g": 40
+  },
+  {
+    "canonical_name": "Raspberries, Fresh",
+    "variant": "Fresh Berries",
+    "default_serving": "1 cup (123g)",
+    "calories": 64,
+    "protein": 1.5,
+    "carbs": 14.7,
+    "fat": 0.8,
+    "base_weight_g": 123
+  },
+  {
+    "canonical_name": "Red Kidney Beans, Cooked",
+    "variant": "Boiled / Canned Drained",
+    "default_serving": "1 cup (177g)",
+    "calories": 225,
+    "protein": 15.3,
+    "carbs": 40.4,
+    "fat": 0.9,
+    "base_weight_g": 177
+  },
+  {
+    "canonical_name": "Red Lentils, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (198g)",
+    "calories": 230,
+    "protein": 17.8,
+    "carbs": 40,
+    "fat": 0.8,
+    "base_weight_g": 198
+  },
+  {
+    "canonical_name": "Red Onion, Raw",
+    "variant": "Sliced",
+    "default_serving": "1 medium (110g)",
+    "calories": 44,
+    "protein": 1.2,
+    "carbs": 10.3,
+    "fat": 0.1,
+    "base_weight_g": 110
+  },
+  {
+    "canonical_name": "Regular Beef Mince (20% Fat), Raw",
+    "variant": "20% Fat Raw",
+    "default_serving": "100g",
+    "calories": 254,
+    "protein": 17.2,
+    "carbs": 0,
+    "fat": 20,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Rice Noodles, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (176g)",
+    "calories": 192,
+    "protein": 1.6,
+    "carbs": 44,
+    "fat": 0.4,
+    "base_weight_g": 176
+  },
+  {
+    "canonical_name": "Ricotta Cheese, Part-Skim",
+    "variant": "Part-Skim",
+    "default_serving": "100g",
+    "calories": 138,
+    "protein": 11.4,
+    "carbs": 5.1,
+    "fat": 7.9,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Ricotta Cheese, Whole Milk",
+    "variant": "Traditional",
+    "default_serving": "100g",
+    "calories": 174,
+    "protein": 11.3,
+    "carbs": 3,
+    "fat": 13,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Rolled Oats, Dry",
+    "variant": "Old Fashioned Raw",
+    "default_serving": "1/2 cup (40g)",
+    "calories": 152,
+    "protein": 5.3,
+    "carbs": 27.4,
+    "fat": 2.6,
+    "base_weight_g": 40
+  },
+  {
+    "canonical_name": "Romaine Lettuce, Raw",
+    "variant": "Shredded Leaves",
+    "default_serving": "100g",
+    "calories": 17,
+    "protein": 1.2,
+    "carbs": 3.3,
+    "fat": 0.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Roquefort / Blue Cheese",
+    "variant": "Blue Veined",
+    "default_serving": "1 oz (28g)",
+    "calories": 100,
+    "protein": 6,
+    "carbs": 0.7,
+    "fat": 8.2,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Rye Bread",
+    "variant": "European Style",
+    "default_serving": "1 slice (32g)",
+    "calories": 83,
+    "protein": 2.7,
+    "carbs": 15.5,
+    "fat": 1.1,
+    "base_weight_g": 32
+  },
+  {
+    "canonical_name": "Salmon, Atlantic, Cooked",
+    "variant": "Baked / Grilled",
+    "default_serving": "100g",
+    "calories": 206,
+    "protein": 22.1,
+    "carbs": 0,
+    "fat": 12.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Salmon, Atlantic, Raw",
+    "variant": "Fresh Raw",
+    "default_serving": "100g",
+    "calories": 208,
+    "protein": 20.4,
+    "carbs": 0,
+    "fat": 13.4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Salmon, Smoked",
+    "variant": "Cold Smoked Lox",
+    "default_serving": "100g",
+    "calories": 117,
+    "protein": 18.3,
+    "carbs": 0,
+    "fat": 4.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Salmon, Wild Pacific (Sockeye), Cooked",
+    "variant": "Baked",
+    "default_serving": "100g",
+    "calories": 169,
+    "protein": 26,
+    "carbs": 0,
+    "fat": 6.4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Sardines, Canned in Olive Oil, Drained",
+    "variant": "Canned Oil Drained",
+    "default_serving": "100g",
+    "calories": 208,
+    "protein": 24.6,
+    "carbs": 0,
+    "fat": 11.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Sardines, Canned in Water, Drained",
+    "variant": "Canned",
+    "default_serving": "100g",
+    "calories": 185,
+    "protein": 21,
+    "carbs": 0,
+    "fat": 10.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Scallops, Cooked",
+    "variant": "Steamed / Pan-seared",
+    "default_serving": "100g",
+    "calories": 111,
+    "protein": 20.5,
+    "carbs": 5.4,
+    "fat": 0.8,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Sea Bass, Cooked",
+    "variant": "Baked",
+    "default_serving": "100g",
+    "calories": 124,
+    "protein": 24,
+    "carbs": 0,
+    "fat": 2.6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Sea Bream / Dorade, Cooked",
+    "variant": "Baked",
+    "default_serving": "100g",
+    "calories": 135,
+    "protein": 23.5,
+    "carbs": 0,
+    "fat": 4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Seitan / Wheat Gluten",
+    "variant": "Cooked",
+    "default_serving": "100g",
+    "calories": 142,
+    "protein": 25,
+    "carbs": 5.5,
+    "fat": 2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Semi-Skimmed Milk (1.5% Fat)",
+    "variant": "Pasteurized",
+    "default_serving": "1 cup (240ml)",
+    "calories": 122,
+    "protein": 8.2,
+    "carbs": 12,
+    "fat": 4.8,
+    "base_weight_g": 244
+  },
+  {
+    "canonical_name": "Sesame Oil, Toasted",
+    "variant": "Dark Toasted",
+    "default_serving": "1 tbsp (14g)",
+    "calories": 120,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 13.6,
+    "base_weight_g": 14
+  },
+  {
+    "canonical_name": "Sesame Seeds, Whole",
+    "variant": "Dried",
+    "default_serving": "1 tbsp (9g)",
+    "calories": 52,
+    "protein": 1.6,
+    "carbs": 2.1,
+    "fat": 4.5,
+    "base_weight_g": 9
+  },
+  {
+    "canonical_name": "Shiitake Mushrooms, Cooked",
+    "variant": "Boiled / Sautéed",
+    "default_serving": "100g",
+    "calories": 56,
+    "protein": 2.2,
+    "carbs": 14.4,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Shrimp / Prawns, Cooked",
+    "variant": "Steamed / Boiled",
+    "default_serving": "100g",
+    "calories": 99,
+    "protein": 24,
+    "carbs": 0.2,
+    "fat": 0.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Single Cream (18%–20% Fat)",
+    "variant": "Light Cream",
+    "default_serving": "1 tbsp (15ml)",
+    "calories": 29,
+    "protein": 0.4,
+    "carbs": 0.6,
+    "fat": 2.9,
+    "base_weight_g": 15
+  },
+  {
+    "canonical_name": "Skimmed Milk (0.1% Fat)",
+    "variant": "Pasteurized",
+    "default_serving": "1 cup (240ml)",
+    "calories": 83,
+    "protein": 8.3,
+    "carbs": 12.2,
+    "fat": 0.2,
+    "base_weight_g": 245
+  },
+  {
+    "canonical_name": "Skyr, Plain, Nonfat",
+    "variant": "0% Plain",
+    "default_serving": "100g",
+    "calories": 63,
+    "protein": 11,
+    "carbs": 4,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Skyr, Vanilla",
+    "variant": "Low-Fat",
+    "default_serving": "100g",
+    "calories": 78,
+    "protein": 9.5,
+    "carbs": 8.5,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Soba Noodles (Buckwheat), Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (114g)",
+    "calories": 113,
+    "protein": 5.8,
+    "carbs": 24.4,
+    "fat": 0.1,
+    "base_weight_g": 114
+  },
+  {
+    "canonical_name": "Sour Cream (18% Fat)",
+    "variant": "Cultured",
+    "default_serving": "2 tbsp (30g)",
+    "calories": 59,
+    "protein": 0.7,
+    "carbs": 1.4,
+    "fat": 5.8,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Sour Cream, Light (10% Fat)",
+    "variant": "Light",
+    "default_serving": "2 tbsp (30g)",
+    "calories": 41,
+    "protein": 1,
+    "carbs": 2.1,
+    "fat": 3,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Sourdough Bread",
+    "variant": "Artisanal Slice",
+    "default_serving": "1 slice (50g)",
+    "calories": 140,
+    "protein": 5,
+    "carbs": 26,
+    "fat": 1,
+    "base_weight_g": 50
+  },
+  {
+    "canonical_name": "Soy Milk, Unsweetened",
+    "variant": "Plain",
+    "default_serving": "1 cup (240ml)",
+    "calories": 80,
+    "protein": 7,
+    "carbs": 4,
+    "fat": 4,
+    "base_weight_g": 240
+  },
+  {
+    "canonical_name": "Soy Sauce, Brewed",
+    "variant": "Regular",
+    "default_serving": "1 tbsp (16g)",
+    "calories": 9,
+    "protein": 1.3,
+    "carbs": 0.8,
+    "fat": 0,
+    "base_weight_g": 16
+  },
+  {
+    "canonical_name": "Spinach, Cooked",
+    "variant": "Steamed / Boiled",
+    "default_serving": "100g",
+    "calories": 23,
+    "protein": 3,
+    "carbs": 3.8,
+    "fat": 0.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Spinach, Raw",
+    "variant": "Fresh Baby Leaves",
+    "default_serving": "100g",
+    "calories": 23,
+    "protein": 2.9,
+    "carbs": 3.6,
+    "fat": 0.4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Spring Onions / Scallions, Raw",
+    "variant": "Green & White",
+    "default_serving": "1 cup (100g)",
+    "calories": 32,
+    "protein": 1.8,
+    "carbs": 7.3,
+    "fat": 0.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Squid / Calamari, Cooked",
+    "variant": "Grilled / Steamed",
+    "default_serving": "100g",
+    "calories": 92,
+    "protein": 15.6,
+    "carbs": 3.1,
+    "fat": 1.4,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Sriracha Hot Chili Sauce",
+    "variant": "Classic",
+    "default_serving": "1 tsp (5g)",
+    "calories": 5,
+    "protein": 0.1,
+    "carbs": 1,
+    "fat": 0,
+    "base_weight_g": 5
+  },
+  {
+    "canonical_name": "Steel Cut Oats, Dry",
+    "variant": "Irish / Pinhead",
+    "default_serving": "1/4 cup (40g)",
+    "calories": 150,
+    "protein": 5,
+    "carbs": 27,
+    "fat": 2.5,
+    "base_weight_g": 40
+  },
+  {
+    "canonical_name": "Strawberries, Fresh",
+    "variant": "Whole Fresh",
+    "default_serving": "1 cup (152g)",
+    "calories": 49,
+    "protein": 1,
+    "carbs": 11.7,
+    "fat": 0.5,
+    "base_weight_g": 152
+  },
+  {
+    "canonical_name": "Sunflower Oil",
+    "variant": "Refined",
+    "default_serving": "1 tbsp (14g)",
+    "calories": 124,
+    "protein": 0,
+    "carbs": 0,
+    "fat": 14,
+    "base_weight_g": 14
+  },
+  {
+    "canonical_name": "Sunflower Seeds, Kernels",
+    "variant": "Dry Roasted",
+    "default_serving": "1 oz (28g)",
+    "calories": 165,
+    "protein": 5.5,
+    "carbs": 6.8,
+    "fat": 14.1,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Sweet Corn, Yellow, Kernels, Cooked",
+    "variant": "Boiled / Steamed",
+    "default_serving": "1 cup (164g)",
+    "calories": 177,
+    "protein": 5.4,
+    "carbs": 41.2,
+    "fat": 2.1,
+    "base_weight_g": 164
+  },
+  {
+    "canonical_name": "Sweet Potato, Baked, in Skin",
+    "variant": "Baked",
+    "default_serving": "1 medium (114g)",
+    "calories": 103,
+    "protein": 2.3,
+    "carbs": 23.6,
+    "fat": 0.2,
+    "base_weight_g": 114
+  },
+  {
+    "canonical_name": "Sweet Potato, Raw, with Skin",
+    "variant": "Raw Orange",
+    "default_serving": "1 medium (130g)",
+    "calories": 112,
+    "protein": 2,
+    "carbs": 26.2,
+    "fat": 0.1,
+    "base_weight_g": 130
+  },
+  {
+    "canonical_name": "Sweetened Condensed Milk",
+    "variant": "Canned",
+    "default_serving": "2 tbsp (38g)",
+    "calories": 122,
+    "protein": 3,
+    "carbs": 20.7,
+    "fat": 3.3,
+    "base_weight_g": 38
+  },
+  {
+    "canonical_name": "Tahini, 100% Sesame Paste",
+    "variant": "Roasted Sesame",
+    "default_serving": "2 tbsp (30g)",
+    "calories": 178,
+    "protein": 5.1,
+    "carbs": 6.4,
+    "fat": 16,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Tamari, Gluten-Free",
+    "variant": "Brewed",
+    "default_serving": "1 tbsp (16g)",
+    "calories": 10,
+    "protein": 1.9,
+    "carbs": 0.6,
+    "fat": 0,
+    "base_weight_g": 16
+  },
+  {
+    "canonical_name": "Tempeh, Soy",
+    "variant": "Cooked",
+    "default_serving": "100g",
+    "calories": 192,
+    "protein": 20.3,
+    "carbs": 7.6,
+    "fat": 10.8,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Textured Vegetable Protein (TVP), Dry",
+    "variant": "Dry granules",
+    "default_serving": "1/4 cup (24g)",
+    "calories": 80,
+    "protein": 12,
+    "carbs": 7,
+    "fat": 0.3,
+    "base_weight_g": 24
+  },
+  {
+    "canonical_name": "Tilapia, Cooked",
+    "variant": "Baked",
+    "default_serving": "100g",
+    "calories": 128,
+    "protein": 26.2,
+    "carbs": 0,
+    "fat": 2.7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Tofu, Extra Firm",
+    "variant": "Raw / Pressed",
+    "default_serving": "100g",
+    "calories": 91,
+    "protein": 10.9,
+    "carbs": 2,
+    "fat": 5.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Tofu, Firm",
+    "variant": "Raw / Pressed",
+    "default_serving": "100g",
+    "calories": 83,
+    "protein": 10,
+    "carbs": 1.2,
+    "fat": 5.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Tofu, Silken",
+    "variant": "Raw",
+    "default_serving": "100g",
+    "calories": 55,
+    "protein": 5.3,
+    "carbs": 1.4,
+    "fat": 2.7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Tomato Ketchup",
+    "variant": "Classic",
+    "default_serving": "1 tbsp (17g)",
+    "calories": 17,
+    "protein": 0.2,
+    "carbs": 4.5,
+    "fat": 0,
+    "base_weight_g": 17
+  },
+  {
+    "canonical_name": "Tomato Paste, Canned",
+    "variant": "Concentrate",
+    "default_serving": "2 tbsp (32g)",
+    "calories": 26,
+    "protein": 1.4,
+    "carbs": 6,
+    "fat": 0.2,
+    "base_weight_g": 32
+  },
+  {
+    "canonical_name": "Tomato Sauce / Passata, Canned",
+    "variant": "Plain Puree",
+    "default_serving": "1/2 cup (122g)",
+    "calories": 32,
+    "protein": 1.6,
+    "carbs": 7.2,
+    "fat": 0.3,
+    "base_weight_g": 122
+  },
+  {
+    "canonical_name": "Tomato, Red, Fresh",
+    "variant": "Raw Ripe",
+    "default_serving": "1 medium (123g)",
+    "calories": 22,
+    "protein": 1.1,
+    "carbs": 4.8,
+    "fat": 0.2,
+    "base_weight_g": 123
+  },
+  {
+    "canonical_name": "Tortilla Wrap, Flour (8-inch)",
+    "variant": "Medium Flour",
+    "default_serving": "1 wrap (49g)",
+    "calories": 147,
+    "protein": 3.9,
+    "carbs": 24.3,
+    "fat": 3.5,
+    "base_weight_g": 49
+  },
+  {
+    "canonical_name": "Trout, Rainbow, Cooked",
+    "variant": "Baked",
+    "default_serving": "100g",
+    "calories": 141,
+    "protein": 20,
+    "carbs": 0,
+    "fat": 6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Tuna, Canned in Olive Oil, Drained",
+    "variant": "Canned Oil Drained",
+    "default_serving": "100g",
+    "calories": 198,
+    "protein": 29.1,
+    "carbs": 0,
+    "fat": 8.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Tuna, Canned in Water, Drained",
+    "variant": "Chunk Light / Skipjack",
+    "default_serving": "1 can (130g)",
+    "calories": 130,
+    "protein": 29,
+    "carbs": 0,
+    "fat": 1,
+    "base_weight_g": 130
+  },
+  {
+    "canonical_name": "Tuna, Fresh (Yellowfin / Ahi), Raw",
+    "variant": "Raw Steak",
+    "default_serving": "100g",
+    "calories": 109,
+    "protein": 24.4,
+    "carbs": 0,
+    "fat": 0.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Turkey Breast, Skinless, Cooked",
+    "variant": "Roasted",
+    "default_serving": "100g",
+    "calories": 147,
+    "protein": 30.1,
+    "carbs": 0,
+    "fat": 2.1,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Turkey Breast, Skinless, Raw",
+    "variant": "Raw",
+    "default_serving": "100g",
+    "calories": 114,
+    "protein": 24.1,
+    "carbs": 0,
+    "fat": 1.6,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Veal Cutlet, Lean, Cooked",
+    "variant": "Pan-broiled",
+    "default_serving": "100g",
+    "calories": 154,
+    "protein": 29.5,
+    "carbs": 0,
+    "fat": 3.2,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Walnuts, Halves",
+    "variant": "English Raw",
+    "default_serving": "1 oz (28g)",
+    "calories": 185,
+    "protein": 4.3,
+    "carbs": 3.9,
+    "fat": 18.5,
+    "base_weight_g": 28
+  },
+  {
+    "canonical_name": "Watermelon, Diced",
+    "variant": "Fresh Flesh",
+    "default_serving": "1 cup (152g)",
+    "calories": 46,
+    "protein": 0.9,
+    "carbs": 11.5,
+    "fat": 0.2,
+    "base_weight_g": 152
+  },
+  {
+    "canonical_name": "Whey Protein Powder, Concentrate",
+    "variant": "80% Concentrate",
+    "default_serving": "1 scoop (30g)",
+    "calories": 120,
+    "protein": 24,
+    "carbs": 2,
+    "fat": 1.8,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "Whey Protein Powder, Isolate",
+    "variant": "90% Isolate Unflavored",
+    "default_serving": "1 scoop (30g)",
+    "calories": 110,
+    "protein": 27,
+    "carbs": 0.5,
+    "fat": 0.3,
+    "base_weight_g": 30
+  },
+  {
+    "canonical_name": "White Bread, Sliced",
+    "variant": "Standard Slice",
+    "default_serving": "1 slice (35g)",
+    "calories": 93,
+    "protein": 3.1,
+    "carbs": 17.5,
+    "fat": 1.1,
+    "base_weight_g": 35
+  },
+  {
+    "canonical_name": "White Button Mushrooms, Raw",
+    "variant": "Sliced",
+    "default_serving": "100g",
+    "calories": 22,
+    "protein": 3.1,
+    "carbs": 3.3,
+    "fat": 0.3,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "White Rice, Long Grain, Cooked",
+    "variant": "Steamed / Boiled",
+    "default_serving": "1 cup (158g)",
+    "calories": 205,
+    "protein": 4.2,
+    "carbs": 44.5,
+    "fat": 0.4,
+    "base_weight_g": 158
+  },
+  {
+    "canonical_name": "White Rice, Long Grain, Raw",
+    "variant": "Dry Raw",
+    "default_serving": "100g",
+    "calories": 365,
+    "protein": 7.1,
+    "carbs": 79.9,
+    "fat": 0.7,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Whole Milk (3.5% Fat)",
+    "variant": "Pasteurized",
+    "default_serving": "1 cup (240ml)",
+    "calories": 149,
+    "protein": 7.7,
+    "carbs": 11.7,
+    "fat": 7.9,
+    "base_weight_g": 244
+  },
+  {
+    "canonical_name": "Whole Wheat Bread, Sliced",
+    "variant": "100% Whole Wheat",
+    "default_serving": "1 slice (40g)",
+    "calories": 99,
+    "protein": 4,
+    "carbs": 17.5,
+    "fat": 1.4,
+    "base_weight_g": 40
+  },
+  {
+    "canonical_name": "Whole Wheat Flour",
+    "variant": "100% Whole Grain",
+    "default_serving": "100g",
+    "calories": 340,
+    "protein": 13.2,
+    "carbs": 72,
+    "fat": 2.5,
+    "base_weight_g": 100
+  },
+  {
+    "canonical_name": "Whole Wheat Pasta, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (140g)",
+    "calories": 174,
+    "protein": 7.5,
+    "carbs": 37.2,
+    "fat": 0.8,
+    "base_weight_g": 140
+  },
+  {
+    "canonical_name": "Wild Rice, Cooked",
+    "variant": "Boiled",
+    "default_serving": "1 cup (164g)",
+    "calories": 166,
+    "protein": 6.5,
+    "carbs": 35,
+    "fat": 0.6,
+    "base_weight_g": 164
+  },
+  {
+    "canonical_name": "Yellow Mustard",
+    "variant": "Classic",
+    "default_serving": "1 tsp (5g)",
+    "calories": 3,
+    "protein": 0.2,
+    "carbs": 0.3,
+    "fat": 0.2,
+    "base_weight_g": 5
+  },
+  {
+    "canonical_name": "Yellow Onion, Raw",
+    "variant": "Chopped",
+    "default_serving": "1 medium (110g)",
+    "calories": 44,
+    "protein": 1.2,
+    "carbs": 10.3,
+    "fat": 0.1,
+    "base_weight_g": 110
+  },
+  {
+    "canonical_name": "Zucchini / Courgette, Raw",
+    "variant": "Fresh with skin",
+    "default_serving": "100g",
+    "calories": 17,
+    "protein": 1.2,
+    "carbs": 3.1,
+    "fat": 0.3,
+    "base_weight_g": 100
+  }
+]

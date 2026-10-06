@@ -32,6 +32,7 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:coverage": "jest --coverage",
+    "build:catalog": "node scripts/build-base-catalog.mjs",
     "build:apk": "./scripts/build-apk-docker.sh",
     "build:apk:local": "./scripts/build-apk-local.sh",
     "release": "./scripts/release.sh"
