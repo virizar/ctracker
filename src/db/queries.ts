@@ -847,3 +847,48 @@ export async function setAppMetadata(key: string, value: string): Promise<void> 
   );
 }
 
+export async function getAllScaleWeights(
+  username = DEFAULT_USERNAME
+): Promise<ScaleWeight[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<ScaleWeight>(
+    'SELECT * FROM scale_weights WHERE username = ? ORDER BY date ASC',
+    [username]
+  );
+}
+
+export async function getAllMealLogs(
+  username = DEFAULT_USERNAME
+): Promise<MealLog[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<MealLog>(
+    'SELECT * FROM meal_logs WHERE username = ? ORDER BY date ASC, id ASC',
+    [username]
+  );
+}
+
+export async function getCustomAndUsedFoodCatalogItems(
+  username = DEFAULT_USERNAME
+): Promise<FoodCatalogItem[]> {
+  const db = await getDatabase();
+  return await db.getAllAsync<FoodCatalogItem>(
+    `SELECT * FROM food_catalog 
+     WHERE username = ? 
+       AND (source IS NULL OR source != 'base' OR usage_count > 1)
+     ORDER BY usage_count DESC`,
+    [username]
+  );
+}
+
+export async function getAllAppMetadata(): Promise<Record<string, string>> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ key: string; value: string }>(
+    'SELECT key, value FROM app_metadata'
+  );
+  const result: Record<string, string> = {};
+  for (const row of rows) {
+    result[row.key] = row.value;
+  }
+  return result;
+}
+

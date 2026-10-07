@@ -37,7 +37,21 @@ import {
   formatDate,
   calculatePhysiologicalDailyTarget,
 } from '../services/tdee';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 import { pickAndInspectFile, ImportPreview } from '../services/importer';
+import {
+  exportBackupJson,
+  saveBackupToDevice,
+  exportCsvSpreadsheets,
+  saveCsvToDevice,
+  validateBackupPayload,
+  restoreBackup,
+  createAutoSafetySnapshot,
+  getLatestAutoSafetySnapshot,
+  restoreAutoSafetySnapshot,
+  BackupValidationResult,
+} from '../services/backupService';
 import { runFoodCatalogOptimization } from '../services/catalogOptimizer';
 import { useBackgroundTask } from '../context/BackgroundTaskContext';
 import { UserProfile, DEFAULT_USERNAME } from '../types';
@@ -77,6 +91,19 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
   const [isAnalyzingFile, setIsAnalyzingFile] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+
+  // Backup & Recovery State
+  const [isExportingJson, setIsExportingJson] = useState(false);
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [isRestoringBackup, setIsRestoringBackup] = useState(false);
+  const [restoreCandidate, setRestoreCandidate] = useState<BackupValidationResult | null>(null);
+  const [lastSnapshotInfo, setLastSnapshotInfo] = useState<{
+    exists: boolean;
+    date?: string;
+    reason?: string;
+    weightsCount?: number;
+    mealsCount?: number;
+  } | null>(null);
 
   // Global Background Task Hook
   const { activeTask, startTask, updateProgress, completeTask, failTask, stopTask, isTaskRunning } =
@@ -121,6 +148,9 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
         setCurrentWeight(weights[0].raw_weight);
       }
     }
+
+    const snapshot = await getLatestAutoSafetySnapshot();
+    setLastSnapshotInfo(snapshot);
   };
 
   const handleSelectProvider = async (provider: AIProviderType) => {
@@ -348,6 +378,219 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
     Alert.alert('Recalculated', 'Full TDEE and exponential weight trends updated.');
   };
 
+  const handlePromptExportJson = () => {
+    if (Platform.OS === 'web') {
+      handleExportJsonDirect('web');
+      return;
+    }
+
+    Alert.alert(
+      'Export Complete Backup',
+      'Where would you like to save your backup file?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save to Phone (Files/Downloads)',
+          onPress: () => handleExportJsonDirect('device'),
+        },
+        {
+          text: 'Share to Apps (WhatsApp, Drive...)',
+          onPress: () => handleExportJsonDirect('share'),
+        },
+      ]
+    );
+  };
+
+  const handleExportJsonDirect = async (destination: 'device' | 'share' | 'web') => {
+    try {
+      setIsExportingJson(true);
+      const uname = profile?.username || DEFAULT_USERNAME;
+
+      if (destination === 'device') {
+        const res = await saveBackupToDevice(uname);
+        if (res.success) {
+          Alert.alert(
+            'Saved to Phone! 📁',
+            `Backup successfully created in your selected folder:\n\n${res.filename}`
+          );
+        }
+      } else {
+        const res = await exportBackupJson(uname);
+        if (Platform.OS === 'web') {
+          Alert.alert('Backup Downloaded', `Saved backup file: ${res.filename}`);
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Export Failed', err?.message || 'Could not export backup JSON.');
+    } finally {
+      setIsExportingJson(false);
+    }
+  };
+
+  const handlePromptCsvExport = () => {
+    Alert.alert(
+      'Export Spreadsheets (CSV)',
+      'Which data tables would you like to export?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Weigh-Ins Only', onPress: () => handleChooseCsvDestination('weights') },
+        { text: 'Meals Only', onPress: () => handleChooseCsvDestination('meals') },
+        { text: 'Both (Weights & Meals)', onPress: () => handleChooseCsvDestination('both') },
+      ]
+    );
+  };
+
+  const handleChooseCsvDestination = (mode: 'weights' | 'meals' | 'both') => {
+    if (Platform.OS === 'web') {
+      handleExportCsvDirect(mode, 'web');
+      return;
+    }
+
+    Alert.alert(
+      'Export Destination',
+      'Where would you like to save the spreadsheet files?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save to Phone (Files/Downloads)',
+          onPress: () => handleExportCsvDirect(mode, 'device'),
+        },
+        {
+          text: 'Share to Apps (WhatsApp, Drive...)',
+          onPress: () => handleExportCsvDirect(mode, 'share'),
+        },
+      ]
+    );
+  };
+
+  const handleExportCsvDirect = async (
+    mode: 'weights' | 'meals' | 'both',
+    destination: 'device' | 'share' | 'web'
+  ) => {
+    try {
+      setIsExportingCsv(true);
+      const uname = profile?.username || DEFAULT_USERNAME;
+
+      if (destination === 'device') {
+        const res = await saveCsvToDevice(uname, mode);
+        if (res.success) {
+          Alert.alert(
+            'Saved to Phone! 📁',
+            `Spreadsheets saved in your selected folder:\n\n${res.filenames.join('\n')}`
+          );
+        }
+      } else {
+        const res = await exportCsvSpreadsheets(uname, mode);
+        if (Platform.OS === 'web') {
+          Alert.alert('Spreadsheets Downloaded', `Saved files: ${res.filenames.join(', ')}`);
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Export Failed', err?.message || 'Could not export CSV spreadsheets.');
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
+  const handlePickBackupFile = async () => {
+    try {
+      const pickerResult = await DocumentPicker.getDocumentAsync({
+        type: ['application/json', 'text/*', '*/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (pickerResult.canceled || !pickerResult.assets || pickerResult.assets.length === 0) {
+        return;
+      }
+
+      const asset = pickerResult.assets[0];
+      let jsonText = '';
+      try {
+        const res = await fetch(asset.uri);
+        jsonText = await res.text();
+      } catch {
+        const file = new File(asset.uri);
+        jsonText = await file.text();
+      }
+
+      if (jsonText.charCodeAt(0) === 0xFEFF) {
+        jsonText = jsonText.slice(1);
+      }
+
+      let parsed: any;
+      try {
+        parsed = JSON.parse(jsonText);
+      } catch {
+        Alert.alert('Invalid File', 'The selected file is not a valid JSON document.');
+        return;
+      }
+
+      const validation = validateBackupPayload(parsed);
+      if (!validation.valid) {
+        Alert.alert(
+          'Cannot Restore Backup',
+          validation.error || 'The backup file is invalid or incompatible with this version.'
+        );
+        return;
+      }
+
+      setRestoreCandidate(validation);
+    } catch (err: any) {
+      Alert.alert('File Error', err?.message || 'Failed to read the selected backup file.');
+    }
+  };
+
+  const handleExecuteRestore = async (mode: 'merge' | 'replace') => {
+    if (!restoreCandidate?.payload) return;
+    try {
+      setIsRestoringBackup(true);
+      const uname = profile?.username || DEFAULT_USERNAME;
+      const result = await restoreBackup(restoreCandidate.payload, uname, mode);
+      setRestoreCandidate(null);
+      await loadSettings();
+      onDatabaseWiped?.();
+
+      Alert.alert(
+        'Restore Complete! 🎉',
+        `Restored ${result.mealsRestored} meals, ${result.weightsRestored} weigh-ins, and ${result.customFoodsRestored} custom foods (${mode === 'replace' ? 'Clean Replace' : 'Merged'}). TDEE and exponential trends have been recalculated.`
+      );
+    } catch (err: any) {
+      Alert.alert('Restore Failed', err?.message || 'An error occurred while restoring data.');
+    } finally {
+      setIsRestoringBackup(false);
+    }
+  };
+
+  const handleRestoreSafetySnapshot = async () => {
+    Alert.alert(
+      'Restore Auto-Safety Snapshot?',
+      'This will restore your data to the automatic snapshot saved locally before the last wipe or restore.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Restore Snapshot',
+          onPress: async () => {
+            try {
+              setIsRestoringBackup(true);
+              const uname = profile?.username || DEFAULT_USERNAME;
+              const result = await restoreAutoSafetySnapshot(uname, 'replace');
+              await loadSettings();
+              onDatabaseWiped?.();
+              Alert.alert(
+                'Snapshot Restored! 🛡️',
+                `Recovered ${result.mealsRestored} meals and ${result.weightsRestored} weigh-ins.`
+              );
+            } catch (err: any) {
+              Alert.alert('Recovery Failed', err?.message || 'Could not restore snapshot.');
+            } finally {
+              setIsRestoringBackup(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleWipeDatabase = () => {
     Alert.alert(
       'Wipe All Data?',
@@ -359,6 +602,7 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
           style: 'destructive',
           onPress: async () => {
             try {
+              await createAutoSafetySnapshot(profile?.username || DEFAULT_USERNAME, 'pre-wipe');
               await wipeAllUserData();
               await loadSettings();
               onDatabaseWiped?.();
@@ -429,6 +673,100 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
             </View>
           )}
         </TouchableOpacity>
+      </View>
+
+      {/* Backup & Data Recovery Card */}
+      <View style={styles.card}>
+        <View style={styles.cardHeaderRow}>
+          <Ionicons name="shield-checkmark" size={20} color="#2563eb" />
+          <Text style={styles.cardTitle}>Backup & Data Recovery</Text>
+        </View>
+        <Text style={styles.infoText}>
+          Create full disaster-recovery backups of your weigh-ins, meals, and food library, or export clean spreadsheets for Excel or Google Sheets.
+        </Text>
+
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+          <TouchableOpacity
+            style={[styles.saveBtn, { backgroundColor: '#2563eb', flex: 1, marginTop: 0 }]}
+            onPress={handlePromptExportJson}
+            disabled={isExportingJson}
+          >
+            {isExportingJson ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="download-outline" size={17} color="#fff" />
+                <Text style={[styles.saveBtnText, { marginLeft: 6 }]}>Export Backup</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.saveBtn, { backgroundColor: '#0284c7', flex: 1, marginTop: 0 }]}
+            onPress={handlePromptCsvExport}
+            disabled={isExportingCsv}
+          >
+            {isExportingCsv ? (
+              <ActivityIndicator color="#ffffff" size="small" />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="grid-outline" size={17} color="#fff" />
+                <Text style={[styles.saveBtnText, { marginLeft: 6 }]}>Export CSV</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.saveBtn,
+            { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#cbd5e1', marginTop: 10 },
+          ]}
+          onPress={handlePickBackupFile}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="arrow-undo-outline" size={17} color="#0f172a" />
+            <Text style={[styles.saveBtnText, { color: '#0f172a', marginLeft: 6 }]}>
+              Restore from Backup File (.json)
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {lastSnapshotInfo?.exists && (
+          <View
+            style={{
+              marginTop: 14,
+              paddingTop: 12,
+              borderTopWidth: 1,
+              borderTopColor: '#f1f5f9',
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#475569' }}>
+                  🛡️ Local Safety Snapshot
+                </Text>
+                <Text style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                  Saved: {lastSnapshotInfo.date ? new Date(lastSnapshotInfo.date).toLocaleDateString() : 'Recent'} ({lastSnapshotInfo.mealsCount} meals, {lastSnapshotInfo.weightsCount} weigh-ins)
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#f1f5f9',
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 8,
+                }}
+                onPress={handleRestoreSafetySnapshot}
+                disabled={isRestoringBackup}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#334155' }}>
+                  Restore Snapshot
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* AI Food Library Optimizer Card */}
@@ -1134,6 +1472,95 @@ export function SettingsScreen({ onDatabaseWiped, onGoBack }: SettingsScreenProp
                   ) : (
                     <Text style={{ color: '#fff', fontWeight: '700' }}>Confirm Import</Text>
                   )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Restore Backup Preview Modal */}
+      {restoreCandidate && (
+        <Modal visible transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Restore Backup</Text>
+
+              <View style={styles.previewInfoRow}>
+                <Text style={styles.previewLabel}>Backup Date:</Text>
+                <Text style={styles.previewValue}>
+                  {restoreCandidate.summary?.exportedAt
+                    ? new Date(restoreCandidate.summary.exportedAt).toLocaleDateString()
+                    : 'Unknown'}
+                </Text>
+              </View>
+
+              <View style={styles.previewInfoRow}>
+                <Text style={styles.previewLabel}>App Version:</Text>
+                <Text style={[styles.previewValue, { color: '#2563eb', fontWeight: '700' }]}>
+                  v{restoreCandidate.summary?.appVersion} (format v{restoreCandidate.summary?.formatVersion})
+                </Text>
+              </View>
+
+              <View style={styles.previewInfoRow}>
+                <Text style={styles.previewLabel}>Meals Found:</Text>
+                <Text style={styles.previewValue}>{restoreCandidate.summary?.mealsCount}</Text>
+              </View>
+
+              <View style={styles.previewInfoRow}>
+                <Text style={styles.previewLabel}>Weigh-Ins Found:</Text>
+                <Text style={styles.previewValue}>{restoreCandidate.summary?.weightsCount}</Text>
+              </View>
+
+              <View style={styles.previewInfoRow}>
+                <Text style={styles.previewLabel}>Custom Foods:</Text>
+                <Text style={styles.previewValue}>{restoreCandidate.summary?.customFoodsCount}</Text>
+              </View>
+
+              <Text style={[styles.infoText, { marginTop: 14, marginBottom: 8 }]}>
+                Choose restore method:
+              </Text>
+
+              <View style={{ gap: 8 }}>
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: '#2563eb', marginTop: 0 }]}
+                  onPress={() => handleExecuteRestore('merge')}
+                  disabled={isRestoringBackup}
+                >
+                  {isRestoringBackup ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.saveBtnText}>Merge with Existing Data</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.saveBtn, { backgroundColor: '#dc2626', marginTop: 0 }]}
+                  onPress={() => {
+                    Alert.alert(
+                      'Clean Replace?',
+                      'This will replace your current meals and weigh-ins with the contents of this backup. (An auto safety snapshot will be preserved).',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Clean Replace',
+                          style: 'destructive',
+                          onPress: () => handleExecuteRestore('replace'),
+                        },
+                      ]
+                    );
+                  }}
+                  disabled={isRestoringBackup}
+                >
+                  <Text style={styles.saveBtnText}>Clean Replace (Overwrite)</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: '#e2e8f0', width: '100%', marginTop: 2 }]}
+                  onPress={() => setRestoreCandidate(null)}
+                  disabled={isRestoringBackup}
+                >
+                  <Text style={{ color: '#334155', fontWeight: '600' }}>Cancel</Text>
                 </TouchableOpacity>
               </View>
             </View>
