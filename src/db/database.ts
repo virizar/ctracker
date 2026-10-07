@@ -7,6 +7,19 @@ let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export const DB_NAME = 'ctracker.db';
 
+// On web, clean up database handle when the window/tab is unloaded or refreshed
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    if (dbInstance) {
+      try {
+        dbInstance.closeSync();
+      } catch {}
+      dbInstance = null;
+      dbPromise = null;
+    }
+  });
+}
+
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (dbInstance) {
     return dbInstance;
@@ -16,8 +29,44 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   }
 
   dbPromise = (async () => {
+    let openedDb: SQLite.SQLiteDatabase | null = null;
     try {
-      const db = await SQLite.openDatabaseAsync(DB_NAME);
+      if (Platform.OS === 'web') {
+        // Retry logic for Web OPFS sync access handles racing with page refresh or worker teardown
+        let attempts = 0;
+        while (true) {
+          try {
+            openedDb = await SQLite.openDatabaseAsync(DB_NAME);
+            break;
+          } catch (err: any) {
+            attempts++;
+            const msg = String(err?.message || '');
+            if (
+              attempts < 4 &&
+              (msg.includes('createSyncAccessHandle') ||
+                msg.includes('NoModificationAllowedError') ||
+                msg.includes('Access Handles cannot be created'))
+            ) {
+              await new Promise((res) => setTimeout(res, attempts * 300));
+              continue;
+            }
+            if (
+              msg.includes('createSyncAccessHandle') ||
+              msg.includes('NoModificationAllowedError') ||
+              msg.includes('Access Handles cannot be created')
+            ) {
+              console.error(
+                '[CTracker Web] Exclusive database lock held by another tab or session. If you have another CTracker tab open, please close it and reload this page.'
+              );
+            }
+            throw err;
+          }
+        }
+      } else {
+        openedDb = await SQLite.openDatabaseAsync(DB_NAME);
+      }
+
+      const db = openedDb!;
 
       // Enable WAL mode on native (web OPFS uses its own synchronous access locking)
       if (Platform.OS !== 'web') {
@@ -35,6 +84,11 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
       dbInstance = db;
       return db;
     } catch (err) {
+      if (openedDb) {
+        try {
+          await openedDb.closeAsync();
+        } catch {}
+      }
       dbPromise = null;
       throw err;
     }
@@ -140,43 +194,9 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
     CREATE INDEX IF NOT EXISTS idx_meal_logs_user_date ON meal_logs(username, date);
     CREATE INDEX IF NOT EXISTS idx_scale_weights_user_date ON scale_weights(username, date);
     CREATE INDEX IF NOT EXISTS idx_daily_summaries_user_date ON daily_summaries(username, date);
-    CREATE INDEX IF NOT EXISTS idx_food_catalog_user_usage ON food_catalog(username, usage_count DESC, last_used_at DESC);
-    CREATE INDEX IF NOT EXISTS idx_food_catalog_barcode ON food_catalog(barcode);
-    CREATE INDEX IF NOT EXISTS idx_food_catalog_optimizable ON food_catalog(username, source, is_verified);
   `);
 
-  // Full-text search table for Food Catalog (available on native SQLite; falls back on Web)
-  try {
-    await db.execAsync(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS food_catalog_fts USING fts5(
-        canonical_name,
-        username UNINDEXED,
-        content='food_catalog',
-        tokenize='porter unicode61'
-      );
-
-      CREATE TRIGGER IF NOT EXISTS food_catalog_ai AFTER INSERT ON food_catalog BEGIN
-        INSERT INTO food_catalog_fts(rowid, canonical_name, username)
-        VALUES (new.id, new.canonical_name, new.username);
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS food_catalog_ad AFTER DELETE ON food_catalog BEGIN
-        INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, username)
-        VALUES ('delete', old.id, old.canonical_name, old.username);
-      END;
-
-      CREATE TRIGGER IF NOT EXISTS food_catalog_au AFTER UPDATE ON food_catalog BEGIN
-        INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, username)
-        VALUES ('delete', old.id, old.canonical_name, old.username);
-        INSERT INTO food_catalog_fts(rowid, canonical_name, username)
-        VALUES (new.id, new.canonical_name, new.username);
-      END;
-    `);
-  } catch (err) {
-    console.warn('FTS5 virtual table not supported on this platform/engine, using standard SQL fallback:', err);
-  }
-
-  // Safe migrations for food_catalog extra columns
+  // Safe migrations for existing databases to add missing columns before indexes or FTS
   try {
     await db.execAsync('ALTER TABLE food_catalog ADD COLUMN base_weight_g REAL;');
   } catch {}
@@ -196,6 +216,9 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
     await db.execAsync('ALTER TABLE food_catalog ADD COLUMN barcode TEXT;');
   } catch {}
   try {
+    await db.execAsync('ALTER TABLE food_catalog ADD COLUMN aliases TEXT;');
+  } catch {}
+  try {
     await db.execAsync("ALTER TABLE food_catalog ADD COLUMN source TEXT NOT NULL DEFAULT 'custom';");
   } catch {}
   try {
@@ -213,15 +236,8 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
   try {
     await db.execAsync("ALTER TABLE user_profiles ADD COLUMN loss_pace TEXT DEFAULT 'balanced';");
   } catch {}
-  try {
-    await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS app_metadata (
-        key TEXT PRIMARY KEY,
-        value TEXT NOT NULL,
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-      );
-    `);
-  } catch {}
+
+  // Create indexes now that all columns are guaranteed to exist
   try {
     await db.execAsync(
       'CREATE INDEX IF NOT EXISTS idx_food_catalog_user_usage ON food_catalog(username, usage_count DESC, last_used_at DESC);'
@@ -237,6 +253,56 @@ export async function initializeSchema(db: SQLite.SQLiteDatabase): Promise<void>
       'CREATE INDEX IF NOT EXISTS idx_food_catalog_optimizable ON food_catalog(username, source, is_verified);'
     );
   } catch {}
+
+  // Full-text search table for Food Catalog (available on native SQLite; falls back on Web)
+  try {
+    const ftsCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(food_catalog_fts);');
+    const hasVariant = ftsCols.some((c) => c.name === 'variant');
+    const hasAliases = ftsCols.some((c) => c.name === 'aliases');
+    if (ftsCols.length > 0 && (!hasVariant || !hasAliases)) {
+      await db.execAsync(`
+        DROP TRIGGER IF EXISTS food_catalog_ai;
+        DROP TRIGGER IF EXISTS food_catalog_ad;
+        DROP TRIGGER IF EXISTS food_catalog_au;
+        DROP TABLE IF EXISTS food_catalog_fts;
+      `);
+    }
+
+    await db.execAsync(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS food_catalog_fts USING fts5(
+        canonical_name,
+        variant,
+        brand,
+        aliases,
+        username UNINDEXED,
+        content='food_catalog',
+        tokenize='porter unicode61'
+      );
+
+      CREATE TRIGGER IF NOT EXISTS food_catalog_ai AFTER INSERT ON food_catalog BEGIN
+        INSERT INTO food_catalog_fts(rowid, canonical_name, variant, brand, aliases, username)
+        VALUES (new.id, new.canonical_name, new.variant, new.brand, new.aliases, new.username);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS food_catalog_ad AFTER DELETE ON food_catalog BEGIN
+        INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, variant, brand, aliases, username)
+        VALUES ('delete', old.id, old.canonical_name, old.variant, old.brand, old.aliases, old.username);
+      END;
+
+      CREATE TRIGGER IF NOT EXISTS food_catalog_au AFTER UPDATE ON food_catalog BEGIN
+        INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, variant, brand, aliases, username)
+        VALUES ('delete', old.id, old.canonical_name, old.variant, old.brand, old.aliases, old.username);
+        INSERT INTO food_catalog_fts(rowid, canonical_name, variant, brand, aliases, username)
+        VALUES (new.id, new.canonical_name, new.variant, new.brand, new.aliases, new.username);
+      END;
+    `);
+
+    if (ftsCols.length > 0 && (!hasVariant || !hasAliases)) {
+      await db.execAsync("INSERT INTO food_catalog_fts(food_catalog_fts) VALUES('rebuild');");
+    }
+  } catch (err) {
+    console.warn('FTS5 virtual table not supported on this platform/engine, using standard SQL fallback:', err);
+  }
 
   // Clean up any literal 'null', 'undefined', 'none' placeholder strings from brand or variant
   try {

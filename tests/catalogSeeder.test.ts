@@ -67,6 +67,11 @@ describe('Catalog Seeder Service', () => {
       expect.stringContaining('CREATE TRIGGER IF NOT EXISTS food_catalog_ai')
     );
 
+    // Restored synchronous safety level
+    expect(mockDb.execAsync).toHaveBeenCalledWith(
+      expect.stringContaining('PRAGMA synchronous = NORMAL;')
+    );
+
     // Stored new version in metadata
     expect(queries.setAppMetadata).toHaveBeenCalledWith(
       METADATA_KEY_BASE_CATALOG_VERSION,

@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FoodCatalogItem } from '../types';
 import { parseServingString, scaleNutrition, isValidTag, cleanTag } from '../services/serving';
 
@@ -66,6 +67,7 @@ export function FoodServingModal({
   onConfirm,
   onSecondaryConfirm,
 }: FoodServingModalProps) {
+  const insets = useSafeAreaInsets();
   const [foodName, setFoodName] = useState('');
   const [brand, setBrand] = useState<string | null>(null);
   const [variant, setVariant] = useState<string | null>(null);
@@ -266,7 +268,17 @@ export function FoodServingModal({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.modalOverlay}
       >
-        <View style={styles.modalContainer}>
+        <TouchableOpacity
+          style={styles.backdropTouch}
+          activeOpacity={1}
+          onPress={onClose}
+        />
+        <View
+          style={[
+            styles.modalContainer,
+            { paddingBottom: Math.max(insets.bottom, 20) },
+          ]}
+        >
           {/* Header */}
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>{title || 'Serving & Quantity'}</Text>
@@ -275,7 +287,12 @@ export function FoodServingModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+          >
             {/* Editable Food Name */}
             <View style={styles.nameContainer}>
               <View style={styles.nameHeaderRow}>
@@ -462,36 +479,36 @@ export function FoodServingModal({
                 </>
               )}
             </View>
+          </ScrollView>
 
-            {/* Action Buttons */}
-            <View style={styles.buttonActionGroup}>
-              <TouchableOpacity style={styles.confirmBtn} onPress={handleSave} activeOpacity={0.85}>
-                <Ionicons
-                  name={submitLabel?.includes('Add') ? 'cart-outline' : 'checkmark-circle-outline'}
-                  size={18}
-                  color="#ffffff"
-                />
-                <Text style={styles.confirmBtnText}>
-                  {submitLabel
-                    ? `${submitLabel} (${displayCalories} kcal)`
-                    : `Log ${scaled.servingSizeStr} (${displayCalories} kcal)`}
+          {/* Action Buttons (Sticky Footer Floating Safely Above System Buttons) */}
+          <View style={styles.buttonActionGroup}>
+            <TouchableOpacity style={styles.confirmBtn} onPress={handleSave} activeOpacity={0.85}>
+              <Ionicons
+                name={submitLabel?.includes('Add') ? 'cart-outline' : 'checkmark-circle-outline'}
+                size={18}
+                color="#ffffff"
+              />
+              <Text style={styles.confirmBtnText}>
+                {submitLabel
+                  ? `${submitLabel} (${displayCalories} kcal)`
+                  : `Log ${scaled.servingSizeStr} (${displayCalories} kcal)`}
+              </Text>
+            </TouchableOpacity>
+
+            {secondarySubmitLabel && onSecondaryConfirm ? (
+              <TouchableOpacity
+                style={styles.secondaryConfirmBtn}
+                onPress={handleSecondarySave}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="flash-outline" size={16} color="#2563eb" />
+                <Text style={styles.secondaryConfirmBtnText}>
+                  {`${secondarySubmitLabel} (${displayCalories} kcal)`}
                 </Text>
               </TouchableOpacity>
-
-              {secondarySubmitLabel && onSecondaryConfirm ? (
-                <TouchableOpacity
-                  style={styles.secondaryConfirmBtn}
-                  onPress={handleSecondarySave}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="flash-outline" size={16} color="#2563eb" />
-                  <Text style={styles.secondaryConfirmBtnText}>
-                    {`${secondarySubmitLabel} (${displayCalories} kcal)`}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          </ScrollView>
+            ) : null}
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -504,13 +521,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
     justifyContent: 'flex-end',
   },
+  backdropTouch: {
+    ...StyleSheet.absoluteFill,
+  },
   modalContainer: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 16,
-    maxHeight: '85%',
+    maxHeight: '90%',
+  },
+  scrollView: {
+    flexShrink: 1,
+  },
+  scrollContent: {
+    paddingBottom: 12,
   },
   headerRow: {
     flexDirection: 'row',
@@ -753,6 +779,7 @@ const styles = StyleSheet.create({
   },
   buttonActionGroup: {
     gap: 10,
+    paddingTop: 12,
   },
   confirmBtn: {
     backgroundColor: '#2563eb',

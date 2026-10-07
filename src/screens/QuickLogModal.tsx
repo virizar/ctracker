@@ -84,6 +84,8 @@ export function QuickLogModal({
   const totalAiDraftCarbs = Math.round(aiDraftItems.reduce((acc, it) => acc + (it.carbs || 0), 0) * 10) / 10;
   const totalAiDraftFat = Math.round(aiDraftItems.reduce((acc, it) => acc + (it.fat || 0), 0) * 10) / 10;
 
+  const [searchLoading, setSearchLoading] = useState(false);
+
   useEffect(() => {
     if (visible) {
       getUserProfile().then((u) => {
@@ -97,9 +99,22 @@ export function QuickLogModal({
   }, [visible]);
 
   useEffect(() => {
-    if (visible && activeTab === 'search') {
-      loadSearchResults(searchQuery);
+    if (!visible || activeTab !== 'search') return;
+
+    if (!searchQuery.trim()) {
+      setSearchLoading(false);
+      loadSearchResults('');
+      return;
     }
+
+    setSearchLoading(true);
+    const handler = setTimeout(() => {
+      loadSearchResults(searchQuery).finally(() => {
+        setSearchLoading(false);
+      });
+    }, 250);
+
+    return () => clearTimeout(handler);
   }, [visible, activeTab, searchQuery, profileUsername]);
 
   const loadSearchResults = async (q: string, uname = profileUsername) => {
@@ -799,6 +814,9 @@ export function QuickLogModal({
                 onChangeText={setSearchQuery}
                 placeholderTextColor="#94a3b8"
               />
+              {searchLoading && (
+                <ActivityIndicator size="small" color="#2563eb" style={{ marginRight: 6 }} />
+              )}
               {searchQuery.trim().length > 0 && (
                 <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                   <Ionicons name="close-circle" size={18} color="#94a3b8" />

@@ -3,7 +3,7 @@ import { getAppMetadata, setAppMetadata } from '../db/queries';
 import { BASE_FOOD_CATALOG } from '../data/baseCatalog';
 import { DEFAULT_USERNAME } from '../types';
 
-export const CURRENT_BASE_CATALOG_VERSION = '2026.1';
+export const CURRENT_BASE_CATALOG_VERSION = '2026.2';
 export const METADATA_KEY_BASE_CATALOG_VERSION = 'base_catalog_version';
 
 export interface SeedCatalogResult {
@@ -53,19 +53,28 @@ export async function seedBaseCatalogIfNeeded(
     console.warn('Could not drop FTS triggers before catalog seed:', err);
   }
 
-  await db.withTransactionAsync(async () => {
+  try {
+    await db.withTransactionAsync(async () => {
     // Upsert baseline items in bulk
     for (const item of BASE_FOOD_CATALOG) {
+      const aliasStr =
+        Array.isArray((item as any).aliases) && (item as any).aliases.length > 0
+          ? (item as any).aliases.join(', ')
+          : typeof (item as any).aliases === 'string'
+          ? (item as any).aliases
+          : null;
+
       await db.runAsync(
         `INSERT INTO food_catalog (
-          username, canonical_name, brand, variant, default_serving,
+          username, canonical_name, brand, variant, aliases, default_serving,
           calories, protein, carbs, fat, base_weight_g, usage_count, source, is_verified
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'base', 1)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'base', 1)
         ON CONFLICT(username, canonical_name) DO UPDATE SET
           calories = CASE WHEN food_catalog.source = 'base' THEN excluded.calories ELSE food_catalog.calories END,
           protein = CASE WHEN food_catalog.source = 'base' THEN excluded.protein ELSE food_catalog.protein END,
           carbs = CASE WHEN food_catalog.source = 'base' THEN excluded.carbs ELSE food_catalog.carbs END,
           fat = CASE WHEN food_catalog.source = 'base' THEN excluded.fat ELSE food_catalog.fat END,
+          aliases = CASE WHEN food_catalog.source = 'base' THEN excluded.aliases ELSE food_catalog.aliases END,
           base_weight_g = CASE WHEN food_catalog.source = 'base' THEN excluded.base_weight_g ELSE food_catalog.base_weight_g END,
           default_serving = CASE WHEN food_catalog.source = 'base' THEN excluded.default_serving ELSE food_catalog.default_serving END,
           source = CASE WHEN food_catalog.source = 'base' THEN 'base' ELSE food_catalog.source END,
@@ -77,6 +86,7 @@ export async function seedBaseCatalogIfNeeded(
           item.canonical_name,
           item.brand || null,
           item.variant || null,
+          aliasStr,
           item.default_serving,
           item.calories,
           item.protein,
@@ -100,28 +110,33 @@ export async function seedBaseCatalogIfNeeded(
     try {
       await db.execAsync(`
         CREATE TRIGGER IF NOT EXISTS food_catalog_ai AFTER INSERT ON food_catalog BEGIN
-          INSERT INTO food_catalog_fts(rowid, canonical_name, username)
-          VALUES (new.id, new.canonical_name, new.username);
+          INSERT INTO food_catalog_fts(rowid, canonical_name, variant, brand, aliases, username)
+          VALUES (new.id, new.canonical_name, new.variant, new.brand, new.aliases, new.username);
         END;
 
         CREATE TRIGGER IF NOT EXISTS food_catalog_ad AFTER DELETE ON food_catalog BEGIN
-          INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, username)
-          VALUES ('delete', old.id, old.canonical_name, old.username);
+          INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, variant, brand, aliases, username)
+          VALUES ('delete', old.id, old.canonical_name, old.variant, old.brand, old.aliases, old.username);
         END;
 
         CREATE TRIGGER IF NOT EXISTS food_catalog_au AFTER UPDATE ON food_catalog BEGIN
-          INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, username)
-          VALUES ('delete', old.id, old.canonical_name, old.username);
-          INSERT INTO food_catalog_fts(rowid, canonical_name, username)
-          VALUES (new.id, new.canonical_name, new.username);
+          INSERT INTO food_catalog_fts(food_catalog_fts, rowid, canonical_name, variant, brand, aliases, username)
+          VALUES ('delete', old.id, old.canonical_name, old.variant, old.brand, old.aliases, old.username);
+          INSERT INTO food_catalog_fts(rowid, canonical_name, variant, brand, aliases, username)
+          VALUES (new.id, new.canonical_name, new.variant, new.brand, new.aliases, new.username);
         END;
-
-        PRAGMA synchronous = NORMAL;
       `);
     } catch (err) {
       console.warn('Could not recreate FTS triggers after catalog seed:', err);
     }
   });
+  } finally {
+    try {
+      await db.execAsync('PRAGMA synchronous = NORMAL;');
+    } catch {
+      // Ignore if pragma is not supported
+    }
+  }
 
   // Record completed seed version in metadata
   await setAppMetadata(METADATA_KEY_BASE_CATALOG_VERSION, CURRENT_BASE_CATALOG_VERSION);

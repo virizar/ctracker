@@ -268,39 +268,83 @@ export async function searchFoodCatalog(
     );
   }
 
-  // Tokenize for FTS5 (e.g. "greek yogurt" -> "greek* yogurt*")
-  const tokens = trimmed
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((t) => `"${t.replace(/"/g, '""')}"*`)
-    .join(' ');
+  // Tokenize using Unicode word matching (e.g. "egg, fried" -> ["egg", "fried"])
+  const tokens = trimmed.toLowerCase().match(/[\p{L}\p{N}%]+/gu) || [];
+  if (tokens.length === 0) {
+    return await db.getAllAsync<FoodCatalogItem>(
+      'SELECT * FROM food_catalog WHERE username = ? ORDER BY usage_count DESC, last_used_at DESC LIMIT ?',
+      [username, limit]
+    );
+  }
 
+  const firstToken: string = tokens[0] || '';
+  const lowerTrimmed = trimmed.toLowerCase();
+
+  // 1. Try native FTS5 search (available on native platforms with food_catalog_fts)
   try {
+    const ftsQuery = tokens.map((t) => `"${t.replace(/"/g, '""')}"*`).join(' ');
     const ftsResults = await db.getAllAsync<FoodCatalogItem>(
       `SELECT fc.* FROM food_catalog fc
        JOIN food_catalog_fts fts ON fc.id = fts.rowid
        WHERE food_catalog_fts MATCH ? AND fts.username = ?
-       ORDER BY bm25(food_catalog_fts), fc.usage_count DESC
+       ORDER BY 
+         (CASE WHEN fc.usage_count > 1 THEN fc.usage_count * 100 ELSE 0 END) +
+         (CASE 
+           WHEN LOWER(fc.canonical_name) = ? THEN 50
+           WHEN LOWER(fc.canonical_name) LIKE ? || '%' THEN 30
+           WHEN LOWER(fc.canonical_name) LIKE '% ' || ? || '%' THEN 20
+           WHEN LOWER(COALESCE(fc.aliases, '')) LIKE '%' || ? || '%' THEN 15
+           ELSE 0 
+          END) DESC,
+         bm25(food_catalog_fts),
+         fc.usage_count DESC,
+         fc.last_used_at DESC
        LIMIT ?`,
-      [tokens, username, limit]
+      [ftsQuery, username, lowerTrimmed, firstToken, firstToken, firstToken, limit]
     );
     if (ftsResults.length > 0) {
       return ftsResults;
     }
   } catch {
-    // Fallback to LIKE if FTS fails or is unsupported
+    // Fallback to cross-field multi-token SQL LIKE search
   }
+
+  // 2. Cross-field multi-token search across canonical_name, variant, brand, and aliases (for Web & LIKE fallback)
+  // Ensures every token matches somewhere across the composite text, regardless of word order or punctuation
+  const likeConditions = tokens
+    .map(
+      () =>
+        "(LOWER(canonical_name || ' ' || COALESCE(variant, '') || ' ' || COALESCE(brand, '') || ' ' || COALESCE(aliases, '')) LIKE ?)"
+    )
+    .join(' AND ');
+
+  const likeParams: string[] = tokens.map((t) => `%${t}%`);
+  const bindValues: (string | number)[] = [
+    username,
+    ...likeParams,
+    lowerTrimmed,
+    firstToken,
+    firstToken,
+    firstToken,
+    limit,
+  ];
 
   return await db.getAllAsync<FoodCatalogItem>(
     `SELECT * FROM food_catalog
-     WHERE username = ? AND (
-       canonical_name LIKE ? OR
-       (brand IS NOT NULL AND brand LIKE ?) OR
-       (variant IS NOT NULL AND variant LIKE ?)
-     )
-     ORDER BY usage_count DESC, last_used_at DESC
+     WHERE username = ? AND ${likeConditions}
+     ORDER BY 
+       (CASE WHEN usage_count > 1 THEN usage_count * 100 ELSE 0 END) +
+       (CASE 
+         WHEN LOWER(canonical_name) = ? THEN 50
+         WHEN LOWER(canonical_name) LIKE ? || '%' THEN 30
+         WHEN LOWER(canonical_name) LIKE '% ' || ? || '%' THEN 20
+         WHEN LOWER(COALESCE(aliases, '')) LIKE '%' || ? || '%' THEN 15
+         ELSE 0 
+        END) DESC,
+       usage_count DESC,
+       last_used_at DESC
      LIMIT ?`,
-    [username, `%${trimmed}%`, `%${trimmed}%`, `%${trimmed}%`, limit]
+    bindValues
   );
 }
 

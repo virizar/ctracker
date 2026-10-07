@@ -84,6 +84,7 @@ export interface FoodCatalogItem {
   last_used_unit?: string | null;
   source?: FoodSource;
   is_verified?: boolean | number;
+  aliases?: string | string[] | null;
   last_used_at?: string;
   created_at?: string;
 }
